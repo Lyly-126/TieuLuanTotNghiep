@@ -51,6 +51,7 @@ class GoogleTTSService {
 
   /// Phát âm trên web
   void _speakOnWeb(String text, String languageCode) {
+    print("_speakOnWeb function is running");
     if (_webSpeechSynthesis == null) return;
 
     final utterance = html.SpeechSynthesisUtterance();

@@ -224,7 +224,8 @@ class _FlashcardScreenState extends State<FlashcardScreen>
 
       if (card.ttsUrl != null && card.ttsUrl!.isNotEmpty) {
         if (kDebugMode) print('🎵 Playing from TTS URL: ${card.ttsUrl}');
-        await _ttsService.speakFromUrl(card.ttsUrl!);
+        // await _ttsService.speakFromUrl(card.ttsUrl!);
+        await _ttsService.speak(card.term, languageCode: 'en-US');
       } else {
         if (kDebugMode) print('🔊 Using Google TTS for: ${card.term}');
         await _ttsService.speak(card.term, languageCode: 'en-US');
