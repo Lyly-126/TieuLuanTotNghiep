@@ -1,0 +1,41 @@
+name: src_app
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.5.0
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.3.2
+  fl_chart: ^1.1.1
+  url_launcher: ^6.2.1
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.1
+  audioplayers: ^6.2.0
+  flip_card: ^0.7.0
+  just_audio: ^0.9.36
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/fonts/
+    - assets/images/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-VariableFont.ttf
+        - asset: assets/fonts/Inter-ItalicVariableFont.ttf
+          style: italic
