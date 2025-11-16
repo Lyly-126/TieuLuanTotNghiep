@@ -157,14 +157,14 @@ public class PexelsService {
         if (termIndex != -1) {
             String[] words = example.split("\\s+");
             StringBuilder query = new StringBuilder(term);
-            int maxWords = 3;
+            int maxWords = 5;
             int count = 0;
 
             for (String word : words) {
                 if (count >= maxWords) break;
                 String cleanWord = word.toLowerCase().replaceAll("[^a-z]", "");
                 if (!cleanWord.isEmpty() && !cleanWord.equals(lowerTerm)
-                        && !isStopWord(cleanWord) && cleanWord.length() > 3) {
+                        && !isStopWord(cleanWord) && cleanWord.length() > 5) {
                     query.append(" ").append(cleanWord);
                     count++;
                 }

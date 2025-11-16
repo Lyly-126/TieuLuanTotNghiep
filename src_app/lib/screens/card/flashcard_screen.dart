@@ -1,6 +1,3 @@
-// File: flashcard_screen.dart
-// ✅ FINAL VERSION - Hiển thị đúng từ DB, đơn giản hóa
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
@@ -136,7 +133,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
       if (widget.categoryId != null) {
         flashcards = await FlashcardService.getFlashcardsByCategory(widget.categoryId!);
       } else {
-        flashcards = await FlashcardService.getRandomFlashcards(limit: 10);
+        flashcards = await FlashcardService.getRandomFlashcards(limit: 20);
       }
 
       if (flashcards.isEmpty) {
