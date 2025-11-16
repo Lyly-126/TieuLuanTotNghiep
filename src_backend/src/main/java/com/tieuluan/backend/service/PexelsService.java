@@ -304,7 +304,7 @@ public class PexelsService {
      */
     public boolean isConfigured() {
         boolean hasKey = apiKey != null && !apiKey.isEmpty();
-        boolean isNotPlaceholder = !apiKey.equals("LD3xh4nDMPUMdi1kZVyC5Y1yXdQSkgIGliYek50R1G1HhD8hTKMs2Hg0");
+        boolean isNotPlaceholder = apiKey.equals("LD3xh4nDMPUMdi1kZVyC5Y1yXdQSkgIGliYek50R1G1HhD8hTKMs2Hg0");
         boolean configured = hasKey && isNotPlaceholder;
 
         if (!configured) {
