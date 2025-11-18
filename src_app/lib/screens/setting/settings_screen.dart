@@ -348,7 +348,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               const SizedBox(height: 14),
-              _buildMenuItem('Hóa đơn và thanh toán'),
+              _buildMenuItem('Hóa đơn và thanh toán',
+                  onTap: () {
+                  Navigator.pushNamed(context, '/invoices');
+          },
+          ),
               const SizedBox(height: 48),
               _buildLogoutButton(),
               const SizedBox(height: 16),

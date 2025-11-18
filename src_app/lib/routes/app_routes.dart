@@ -3,9 +3,7 @@ import 'package:src_app/screens/admin/policies/admin_policy_screen.dart';
 import 'package:src_app/screens/admin/study_packs/admin_study_packs_screen.dart';
 import 'package:src_app/screens/card/flashcard_screen.dart';
 import 'package:src_app/screens/home/home_screen.dart';
-import 'package:src_app/screens/payment/payment_screen.dart';
 import 'package:src_app/screens/payment/upgrade_premium_screen.dart';
-import '../models/flashcard_model.dart';
 import '../screens/admin/users/admin_user_management_screen.dart';
 import '../screens/admin/policies/admin_policy_create_screen.dart';
 import '../screens/auth/register_screen.dart';
@@ -22,7 +20,6 @@ import '../screens/setting/change_password_screen.dart';
 import '../screens/statistics/study_statistics_screen.dart';
 import '../screens/payment/usage_limit_screen.dart';
 import '../screens/admin/dashboard/admin_home_screen.dart';
-import '../screens/payment/pay_later_screen.dart';
 import '../screens/payment/invoices_screen.dart';
 import '../screens/payment/invoice_detail_screen.dart';
 import '../screens/auth/terms_privacy_screen.dart';
@@ -73,10 +70,8 @@ class AppRoutes {
     study_statistics: (context) => const StudyStatisticsScreen(),
     usage_limit: (context) => const UsageLimitScreen(),
     upgrade_premium: (context) => const UpgradePremiumScreen(),
-    payment: (context) => const PaymentScreen(),
-    pay_later: (context) => const PayLaterScreen(),
     invoices: (context) => const InvoicesScreen(),
-    invoice_detail: (context) => const InvoiceDetailScreen(),
+    // invoice_detail: (context) => const InvoiceDetailScreen(),
     terms_privacy: (context) => const TermsPrivacyScreen(),
 
     flashcard: (context) => FlashcardScreen(),
