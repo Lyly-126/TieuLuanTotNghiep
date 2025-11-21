@@ -67,6 +67,14 @@ public class GoogleCloudStorageService {
     }
 
     /**
+     * ✅ PUBLIC METHOD - Để TTS Controller có thể gọi
+     * Tạo audio bytes để trả về trực tiếp cho frontend (không cần upload)
+     */
+    public byte[] generateAudioBytes(String text, String languageCode) {
+        return generateAudio(text, languageCode);
+    }
+
+    /**
      * Tạo audio bằng Google Cloud Text-to-Speech API
      */
     private byte[] generateAudio(String text, String languageCode) {
@@ -136,27 +144,8 @@ public class GoogleCloudStorageService {
             // Tạo tên file unique
             String fileName = "tts_" + UUID.randomUUID().toString() + ".mp3";
 
-            // TODO: Implement actual upload to Cloud Storage
-            // Hiện tại return một URL giả để test
-            // Trong production, bạn cần implement upload thực tế
+            // lưu local
 
-            /*
-             * Example với Firebase Storage:
-             *
-             * FirebaseStorage storage = FirebaseStorage.getInstance();
-             * StorageReference storageRef = storage.getReference();
-             * StorageReference audioRef = storageRef.child("flashcard-audio/" + fileName);
-             *
-             * UploadTask uploadTask = audioRef.putBytes(audioBytes);
-             * uploadTask.addOnSuccessListener(taskSnapshot -> {
-             *     audioRef.getDownloadUrl().addOnSuccessListener(uri -> {
-             *         String downloadUrl = uri.toString();
-             *         // Use this URL
-             *     });
-             * });
-             */
-
-            // Phương án đơn giản: Lưu local và serve qua static folder
             String localUrl = saveLocalAndGetUrl(audioBytes, fileName);
 
             return localUrl;

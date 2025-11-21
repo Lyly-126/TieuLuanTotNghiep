@@ -22,5 +22,7 @@ class AppColors {
   static const Color success = Color(0xFF10B981);       // màu thành công (xanh lá)
   static const Color error = Color(0xFFEF4444);         // màu lỗi (đỏ)
   static const Color warning = Color(0xFFF59E0B);       // màu cảnh báo (vàng)
-  static const Color info = Color(0xFF3B82F6);          // màu thông tin (xanh dương)
+  static const Color info = Color(0xFF3B82F6);
+
+  static get primaryLight => null;          // màu thông tin (xanh dương)
 }

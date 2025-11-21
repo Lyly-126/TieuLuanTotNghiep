@@ -6,7 +6,7 @@ import '../../config/app_text_styles.dart';
 import '../../config/app_constants.dart';
 import '../../models/flashcard_model.dart';
 import '../../services/flash_card_service.dart';
-import '../../services/google_tts_service.dart';
+import '../../services/tts_service.dart';
 
 const Color _knownButtonColor = AppColors.primary;
 const Color _continueButtonColor = Color(0xFFE5E7EB);
@@ -28,7 +28,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
     with SingleTickerProviderStateMixin {
 
   GlobalKey<FlipCardState> _cardKey = GlobalKey<FlipCardState>();
-  final GoogleTTSService _ttsService = GoogleTTSService();
+  final TTSService _ttsService = TTSService();
 
   bool _isSpeaking = false;
   bool _isCardFlipped = false;
@@ -63,40 +63,71 @@ class _FlashcardScreenState extends State<FlashcardScreen>
     super.dispose();
   }
 
-  /// ✅ SIMPLIFIED: Chỉ lấy nghĩa tiếng Việt (dòng đầu tiên)
-  String _getVietnameseMeaning(String meaning) {
+  /// Parse meaning để lấy các phần riêng biệt
+  Map<String, String> _parseMeaning(String meaning) {
     try {
       if (kDebugMode) {
-        print('\n🔍 Getting Vietnamese meaning from DB');
+        print('\n🔍 ===== PARSING MEANING =====');
         print('📝 Raw meaning: "$meaning"');
       }
 
-      // Split bằng \n\n
-      List<String> parts = meaning.split('\n\n');
+      // ✅ CHECK: Nếu meaning ngắn (< 50 ký tự) và không có "\n\n"
+      // → Đây là nghĩa đơn giản từ database, không cần parse
+      if (meaning.length < 50 && !meaning.contains('\n\n')) {
+        if (kDebugMode) {
+          print('✅ Simple meaning detected: "$meaning"');
+          print('===============================\n');
+        }
+        return {
+          'translation': meaning.trim(),
+          'example': '',
+          'exampleTranslation': '',
+        };
+      }
+
+      // ✅ Nếu có format phức tạp thì parse
+      final parts = meaning.split('\n\n');
+
+      String translation = '';
+      String example = '';
+      String exampleTranslation = '';
+
+      for (var part in parts) {
+        final trimmed = part.trim();
+
+        if (trimmed.toLowerCase().startsWith('translation:')) {
+          translation = trimmed.replaceFirst(RegExp(r'translation:\s*', caseSensitive: false), '').trim();
+        } else if (trimmed.toLowerCase().startsWith('example:')) {
+          example = trimmed.replaceFirst(RegExp(r'example:\s*', caseSensitive: false), '').trim();
+        } else if (trimmed.toLowerCase().startsWith('example translation:')) {
+          exampleTranslation = trimmed.replaceFirst(RegExp(r'example translation:\s*', caseSensitive: false), '').trim();
+        }
+      }
+
+      // ✅ FALLBACK: Nếu không parse được translation, lấy toàn bộ
+      if (translation.isEmpty) {
+        translation = meaning.trim();
+      }
 
       if (kDebugMode) {
-        print('📦 Split into ${parts.length} parts');
+        print('✅ Parsed translation: "$translation"');
+        print('✅ Parsed example: "$example"');
+        print('✅ Parsed exampleTranslation: "$exampleTranslation"');
+        print('===============================\n');
       }
 
-      // Lấy dòng đầu tiên (translation)
-      String translation = parts[0].trim();
-
-      // Remove "Translation:" nếu có
-      if (translation.toLowerCase().startsWith('translation:')) {
-        translation = translation
-            .replaceFirst(RegExp(r'translation:\s*', caseSensitive: false), '')
-            .trim();
-      }
-
-      if (kDebugMode) {
-        print('✅ Vietnamese meaning: "$translation"');
-      }
-
-      return translation.isNotEmpty ? translation : meaning;
-
+      return {
+        'translation': translation,
+        'example': example,
+        'exampleTranslation': exampleTranslation,
+      };
     } catch (e) {
       if (kDebugMode) print('❌ Parse error: $e');
-      return meaning;
+      return {
+        'translation': meaning.isNotEmpty ? meaning : 'Không có nghĩa',
+        'example': '',
+        'exampleTranslation': '',
+      };
     }
   }
 
@@ -144,26 +175,6 @@ class _FlashcardScreenState extends State<FlashcardScreen>
         return;
       }
 
-      // ✅ DEBUG: Log data từ DB
-      if (kDebugMode) {
-        print('\n📚 ===== LOADED ${flashcards.length} FLASHCARDS FROM DB =====');
-
-        for (int i = 0; i < flashcards.length; i++) {
-          final card = flashcards[i];
-          print('\n📝 Flashcard ${i + 1}:');
-          print('   - ID: ${card.id}');
-          print('   - term: "${card.term}"');
-          print('   - partOfSpeech: "${card.partOfSpeech}"');
-          print('   - phonetic: "${card.phonetic}"');
-          print('   - imageUrl: "${card.imageUrl}"');
-          print('   - imageUrl length: ${card.imageUrl?.length ?? 0}');
-          print('   - imageUrl isEmpty: ${card.imageUrl?.isEmpty ?? true}');
-          print('   - meaning: "${card.meaning}"');
-          print('   - ttsUrl: "${card.ttsUrl}"');
-        }
-        print('======================================\n');
-      }
-
       setState(() {
         _flashcards = flashcards;
         _currentIndex = 0;
@@ -201,6 +212,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
     await _transitionController.forward();
   }
 
+  /// ✅ Phát âm
   Future<void> _playPronunciation() async {
     final card = _currentCard;
     if (card == null) return;
@@ -219,14 +231,15 @@ class _FlashcardScreenState extends State<FlashcardScreen>
     try {
       setState(() => _isSpeaking = true);
 
-      if (card.ttsUrl != null && card.ttsUrl!.isNotEmpty) {
-        if (kDebugMode) print('🎵 Playing from TTS URL: ${card.ttsUrl}');
-        // await _ttsService.speakFromUrl(card.ttsUrl!);
-        await _ttsService.speak(card.term, languageCode: 'en-US');
-      } else {
-        if (kDebugMode) print('🔊 Using Google TTS for: ${card.term}');
-        await _ttsService.speak(card.term, languageCode: 'en-US');
+      if (kDebugMode) {
+        print('🔊 Playing: ${card.term}');
       }
+
+      // Phát âm bình thường
+      await _ttsService.speak(
+        card.term,
+        languageCode: 'en-US',
+      );
 
       await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
@@ -246,7 +259,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
       builder: (context) => AlertDialog(
         title: const Text('Cần cấu hình Google TTS API'),
         content: const Text(
-            'Bạn cần thêm Google Cloud Text-to-Speech API key vào file google_tts_service.dart để sử dụng chức năng này.'),
+            'Bạn cần thêm Google Cloud Text-to-Speech API key vào file tts_service.dart để sử dụng chức năng này.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -283,29 +296,15 @@ class _FlashcardScreenState extends State<FlashcardScreen>
     _nextCard();
   }
 
-  /// ✅ FIXED: Build image với debug chi tiết
+  /// Build image
   Widget _buildCardImage(FlashcardModel card) {
-    if (kDebugMode) {
-      print('\n🖼️ ===== BUILDING IMAGE =====');
-      print('📝 Term: ${card.term}');
-      print('🔗 imageUrl type: ${card.imageUrl.runtimeType}');
-      print('🔗 imageUrl value: "${card.imageUrl}"');
-      print('📏 imageUrl length: ${card.imageUrl?.length ?? 0}');
-      print('❓ imageUrl == null: ${card.imageUrl == null}');
-      print('❓ imageUrl.isEmpty: ${card.imageUrl?.isEmpty ?? true}');
-      print('===============================\n');
-    }
-
-    // ✅ CHECK NULL hoặc EMPTY
     final hasImage = card.imageUrl != null &&
         card.imageUrl!.isNotEmpty &&
         card.imageUrl != 'null';
 
     if (!hasImage) {
-      if (kDebugMode) print('⚠️ No valid image URL, showing placeholder');
-
       return Container(
-        height: 180,
+        height: 200,
         width: double.infinity,
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -322,36 +321,23 @@ class _FlashcardScreenState extends State<FlashcardScreen>
         child: Icon(
           Icons.quiz_outlined,
           color: AppColors.primary.withOpacity(0.3),
-          size: 60,
+          size: 70,
         ),
       );
     }
-
-    if (kDebugMode) print('✅ Attempting to load image from: ${card.imageUrl}');
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppConstants.borderRadius),
       child: Image.network(
         card.imageUrl!,
-        height: 180,
+        height: 200,
         width: double.infinity,
         fit: BoxFit.cover,
         loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) {
-            if (kDebugMode) print('✅ Image loaded successfully!');
-            return child;
-          }
-
-          if (kDebugMode) {
-            final progress = loadingProgress.expectedTotalBytes != null
-                ? (loadingProgress.cumulativeBytesLoaded /
-                loadingProgress.expectedTotalBytes! * 100).toStringAsFixed(0)
-                : 'unknown';
-            print('⏳ Loading image... $progress%');
-          }
+          if (loadingProgress == null) return child;
 
           return Container(
-            height: 180,
+            height: 200,
             width: double.infinity,
             color: AppColors.inputBackground,
             child: Center(
@@ -367,15 +353,8 @@ class _FlashcardScreenState extends State<FlashcardScreen>
           );
         },
         errorBuilder: (context, error, stackTrace) {
-          if (kDebugMode) {
-            print('❌ IMAGE LOAD FAILED!');
-            print('   Error: $error');
-            print('   URL: ${card.imageUrl}');
-            print('   StackTrace: $stackTrace');
-          }
-
           return Container(
-            height: 180,
+            height: 200,
             width: double.infinity,
             decoration: BoxDecoration(
               color: AppColors.inputBackground,
@@ -387,30 +366,15 @@ class _FlashcardScreenState extends State<FlashcardScreen>
                 Icon(
                   Icons.image_not_supported_outlined,
                   color: AppColors.textGray,
-                  size: 40,
+                  size: 50,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
                   'Không thể tải ảnh',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textGray,
                   ),
                 ),
-                const SizedBox(height: 4),
-                if (kDebugMode)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      error.toString(),
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.error,
-                        fontSize: 10,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
               ],
             ),
           );
@@ -419,28 +383,29 @@ class _FlashcardScreenState extends State<FlashcardScreen>
     );
   }
 
-  // ✨ MẶT TRƯỚC: Ảnh + Từ + Loại từ (TV) + Phiên âm
+  /// ✅ MẶT TRƯỚC: Toàn bộ tiếng Anh
   Widget _buildFrontCardContent(FlashcardModel card) {
-    final partOfSpeechVi = _translatePartOfSpeech(card.partOfSpeech);
+    final meaningData = _parseMeaning(card.meaning);
 
     return Container(
       alignment: Alignment.center,
       color: AppColors.background,
-      padding: AppConstants.screenPadding.copyWith(top: 20, bottom: 20),
+      padding: const EdgeInsets.all(24),
       child: SingleChildScrollView(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Hình ảnh
             _buildCardImage(card),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // Từ vựng chính
+            // Từ vựng chính (Tiếng Anh)
             Text(
               card.term,
               style: AppTextStyles.title.copyWith(
-                fontSize: 32,
+                fontSize: 36,
                 fontWeight: FontWeight.w900,
                 color: AppColors.primaryDark,
                 letterSpacing: 0.5,
@@ -448,10 +413,10 @@ class _FlashcardScreenState extends State<FlashcardScreen>
               textAlign: TextAlign.center,
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
-            // Loại từ (Tiếng Việt) và phiên âm
-            if (card.partOfSpeech != null || card.phonetic != null)
+            // Part of Speech (Tiếng Anh)
+            if (card.partOfSpeech != null && card.partOfSpeech!.isNotEmpty)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
@@ -459,84 +424,163 @@ class _FlashcardScreenState extends State<FlashcardScreen>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${partOfSpeechVi.isNotEmpty ? partOfSpeechVi : ''}'
-                      '${partOfSpeechVi.isNotEmpty && card.phonetic != null ? ' • ' : ''}'
-                      '${card.phonetic ?? ''}',
+                  card.partOfSpeech!,
                   style: AppTextStyles.body.copyWith(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w600,
+                    fontSize: 14,
                   ),
                 ),
               ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 12),
+
+            // Phiên âm
+            if (card.phonetic != null && card.phonetic!.isNotEmpty)
+              Text(
+                card.phonetic!,
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 18,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+            // Example (Tiếng Anh)
+            if (meaningData['example']!.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primary.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.format_quote,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Example',
+                          style: AppTextStyles.label.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      meaningData['example']!,
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  // ✨ MẶT SAU: Chỉ hiển thị nghĩa tiếng Việt
+  /// ✅ MẶT SAU: Nghĩa tiếng Việt (giống style mặt trước)
   Widget _buildBackCardContent(FlashcardModel card) {
-    if (kDebugMode) {
-      print('\n🔄 ===== BUILDING BACK CARD =====');
-      print('📝 Card: ${card.term}');
-      print('📋 Raw meaning: "${card.meaning}"');
-    }
-
-    // ✅ Lấy nghĩa tiếng Việt
-    final translation = _getVietnameseMeaning(card.meaning);
+    final meaningData = _parseMeaning(card.meaning);
     final partOfSpeechVi = _translatePartOfSpeech(card.partOfSpeech);
 
-    // ✅ Build display text
-    String displayMeaning;
-    if (partOfSpeechVi.isNotEmpty) {
-      displayMeaning = '$partOfSpeechVi: $translation';
-    } else {
-      displayMeaning = translation;
-    }
-
-    if (kDebugMode) {
-      print('📺 Display on screen: "$displayMeaning"');
-      print('================================\n');
-    }
-
     return Container(
-      alignment: Alignment.center,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
             AppColors.primaryDark,
-            AppColors.primaryDark.withOpacity(0.9),
+            AppColors.primary,
           ],
         ),
       ),
-      padding: AppConstants.screenPadding.copyWith(left: 30, right: 30, top: 80, bottom: 80),
+      padding: const EdgeInsets.all(32),
       child: Center(
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text(
-                  displayMeaning,
-                  style: AppTextStyles.heading2.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    height: 1.5,
-                    fontSize: 30,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 5,
-                        offset: const Offset(1, 1),
-                      ),
-                    ],
+              // Từ gốc (nhỏ, để nhắc nhở)
+              // Container(
+              //   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              //   decoration: BoxDecoration(
+              //     color: Colors.white.withOpacity(0.2),
+              //     borderRadius: BorderRadius.circular(20),
+              //   ),
+              //   child: Text(
+              //     card.term,
+              //     style: AppTextStyles.body.copyWith(
+              //       color: Colors.white.withOpacity(0.85),
+              //       fontSize: 18,
+              //       fontWeight: FontWeight.w500,
+              //     ),
+              //   ),
+              // ),
+
+              const SizedBox(height: 40),
+
+              // Loại từ (Tiếng Việt) - Ở TRÊN nghĩa
+              if (partOfSpeechVi.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  textAlign: TextAlign.center,
+                  child: Text(
+                    partOfSpeechVi,
+                    style: AppTextStyles.body.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
+
+              if (partOfSpeechVi.isNotEmpty)
+                const SizedBox(height: 24),
+
+              // Nghĩa tiếng Việt (CHÍNH) - Style giống từ vựng mặt trước
+              Text(
+                meaningData['translation']!,
+                style: AppTextStyles.title.copyWith(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                  height: 1.3,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -545,58 +589,95 @@ class _FlashcardScreenState extends State<FlashcardScreen>
     );
   }
 
-  /// ✅ ĐỔI CHỖ 2 NÚT: Đã biết (trái) | Tiếp tục (phải)
+  /// ✅ NÚT PHÁT ÂM (chỉ 1 nút)
+  Widget _buildSpeakerButton() {
+    return GestureDetector(
+      onTap: _playPronunciation,
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: _isCardFlipped
+              ? Colors.white.withOpacity(0.9)
+              : Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: _isCardFlipped
+                  ? Colors.black.withOpacity(0.2)
+                  : AppColors.primaryDark.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: _isSpeaking
+            ? Padding(
+          padding: const EdgeInsets.all(14),
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+          ),
+        )
+            : const Icon(
+          Icons.volume_up_rounded,
+          color: AppColors.primary,
+          size: 28,
+        ),
+      ),
+    );
+  }
+
+  /// Nút hành động (buttons to lên)
   Widget _buildActionButtons() {
     return Row(
       children: [
-        // NÚT 1: ĐÃ BIẾT (màu xanh, bên trái)
+        // NÚT 1: ĐÃ BIẾT
         Expanded(
           child: ElevatedButton.icon(
             onPressed: _handleKnown,
-            icon: const Icon(Icons.check_circle_outline, size: 20),
+            icon: const Icon(Icons.check_circle_outline, size: 24),
             label: Text(
               'Đã biết',
               style: AppTextStyles.button.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: _knownButtonColor,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                vertical: AppConstants.inputPadding * 1.5,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 20),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                borderRadius: BorderRadius.circular(12),
               ),
-              elevation: 0,
+              elevation: 2,
             ),
           ),
         ),
-        const SizedBox(width: AppConstants.sectionSpacingSmall),
-        // NÚT 2: TIẾP TỤC (màu xám, bên phải)
+        const SizedBox(width: 12),
+        // NÚT 2: TIẾP TỤC
         Expanded(
           child: ElevatedButton.icon(
             onPressed: _handleContinue,
-            icon: const Icon(Icons.restart_alt, size: 20),
+            icon: const Icon(Icons.restart_alt, size: 24),
             label: Text(
               'Tiếp tục',
               style: AppTextStyles.button.copyWith(
                 color: _continueTextColor,
                 fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: _continueButtonColor,
               foregroundColor: AppColors.textSecondary,
-              padding: const EdgeInsets.symmetric(
-                vertical: AppConstants.inputPadding * 1.5,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 20),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                borderRadius: BorderRadius.circular(12),
               ),
-              elevation: 0,
+              elevation: 2,
             ),
           ),
         ),
@@ -699,7 +780,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
         children: [
           Expanded(
             child: Padding(
-              padding: AppConstants.screenPadding.copyWith(top: 10, bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: GestureDetector(
@@ -714,7 +795,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
                         Container(
                           decoration: BoxDecoration(
                             color: AppColors.inputBackground,
-                            borderRadius: BorderRadius.circular(AppConstants.borderRadius * 2),
+                            borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
                                 color: AppColors.primaryDark.withOpacity(0.15),
@@ -724,44 +805,14 @@ class _FlashcardScreenState extends State<FlashcardScreen>
                             ],
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(AppConstants.borderRadius * 2),
+                            borderRadius: BorderRadius.circular(20),
                             child: _buildFrontCardContent(card),
                           ),
                         ),
                         Positioned(
                           top: 16,
                           left: 16,
-                          child: GestureDetector(
-                            onTap: _playPronunciation,
-                            child: Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primaryDark.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: _isSpeaking
-                                  ? Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                                ),
-                              )
-                                  : const Icon(
-                                Icons.volume_up_rounded,
-                                color: AppColors.primary,
-                                size: 26,
-                              ),
-                            ),
-                          ),
+                          child: _buildSpeakerButton(),
                         ),
                       ],
                     ),
@@ -769,7 +820,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
                       children: [
                         Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(AppConstants.borderRadius * 2),
+                            borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
                                 color: AppColors.primaryDark.withOpacity(0.15),
@@ -779,44 +830,14 @@ class _FlashcardScreenState extends State<FlashcardScreen>
                             ],
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(AppConstants.borderRadius * 2),
+                            borderRadius: BorderRadius.circular(20),
                             child: _buildBackCardContent(card),
                           ),
                         ),
                         Positioned(
                           top: 16,
                           left: 16,
-                          child: GestureDetector(
-                            onTap: _playPronunciation,
-                            child: Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: _isSpeaking
-                                  ? Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                                ),
-                              )
-                                  : const Icon(
-                                Icons.volume_up_rounded,
-                                color: AppColors.primary,
-                                size: 26,
-                              ),
-                            ),
-                          ),
+                          child: _buildSpeakerButton(),
                         ),
                       ],
                     ),
@@ -833,7 +854,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
             ),
           ),
           Container(
-            padding: AppConstants.screenPadding.copyWith(top: 10, bottom: 20),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
             color: AppColors.background,
             child: _buildActionButtons(),
           ),

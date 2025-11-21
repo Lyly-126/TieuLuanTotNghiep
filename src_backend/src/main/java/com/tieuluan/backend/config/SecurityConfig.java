@@ -95,7 +95,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/**").hasAnyRole("USER", "ADMIN")
 
                         // Static resources (for serving audio files)
-                        .requestMatchers("/audio/**").permitAll()
+                        .requestMatchers("/api/tts/**").permitAll()
 
                         // All other requests require authentication
                         .anyRequest().authenticated()
