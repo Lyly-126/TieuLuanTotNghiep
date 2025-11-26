@@ -9,6 +9,7 @@ import java.util.List;
 @Repository
 public interface StudyPackRepository extends JpaRepository<StudyPack, Long> {
 
-    // Tìm tất cả gói chưa bị xóa
     List<StudyPack> findByDeletedAtIsNull();
+    
+    List<StudyPack> findByTargetRoleAndDeletedAtIsNull(StudyPack.TargetRole targetRole);
 }

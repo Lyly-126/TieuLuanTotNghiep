@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,20 +16,18 @@ public class StudyPackService {
 
     private final StudyPackRepository studyPackRepository;
 
-    // ==================== PUBLIC METHODS ====================
-
     /**
-     * Lấy tất cả gói học tập (không bao gồm đã xóa)
+     * Lấy tất cả study packs (public)
      */
     public List<StudyPackDTO> getAllPacks() {
-        return studyPackRepository.findByDeletedAtIsNull()
-                .stream()
+        return studyPackRepository.findAll().stream()
+                .filter(pack -> pack.getDeletedAt() == null)
                 .map(StudyPackDTO::fromEntity)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Lấy gói theo ID
+     * Lấy study pack theo ID
      */
     public StudyPackDTO getPackById(Long id) {
         StudyPack pack = studyPackRepository.findById(id)
@@ -39,37 +36,48 @@ public class StudyPackService {
         return StudyPackDTO.fromEntity(pack);
     }
 
-    // ==================== ADMIN METHODS ====================
-
     /**
-     * Admin: Tạo gói mới
+     * Admin: Tạo study pack mới
      */
     @Transactional
     public StudyPackDTO createPack(StudyPackDTO.CreateRequest request) {
-        // Validate
         if (request.getName() == null || request.getName().trim().isEmpty()) {
             throw new RuntimeException("Tên gói không được để trống");
         }
+
         if (request.getPrice() == null || request.getPrice().compareTo(java.math.BigDecimal.ZERO) < 0) {
             throw new RuntimeException("Giá không hợp lệ");
         }
+
         if (request.getDurationDays() == null || request.getDurationDays() <= 0) {
-            throw new RuntimeException("durationDays phải > 0");
+            throw new RuntimeException("Thời hạn không hợp lệ");
         }
 
         StudyPack pack = new StudyPack();
-        pack.setName(request.getName().trim());
+        pack.setName(request.getName());
         pack.setDescription(request.getDescription());
         pack.setPrice(request.getPrice());
         pack.setDurationDays(request.getDurationDays());
 
+        // ✅ THÊM: Set targetRole
+        if (request.getTargetRole() != null) {
+            try {
+                StudyPack.TargetRole targetRole = StudyPack.TargetRole.valueOf(request.getTargetRole());
+                pack.setTargetRole(targetRole);
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Target role không hợp lệ. Chỉ chấp nhận: NORMAL_USER hoặc TEACHER");
+            }
+        } else {
+            // Default là NORMAL_USER
+            pack.setTargetRole(StudyPack.TargetRole.NORMAL_USER);
+        }
 
-        StudyPack savedPack = studyPackRepository.save(pack);
-        return StudyPackDTO.fromEntity(savedPack);
+        StudyPack saved = studyPackRepository.save(pack);
+        return StudyPackDTO.fromEntity(saved);
     }
 
     /**
-     * Admin: Cập nhật gói
+     * Admin: Cập nhật study pack
      */
     @Transactional
     public StudyPackDTO updatePack(Long id, StudyPackDTO.UpdateRequest request) {
@@ -77,41 +85,66 @@ public class StudyPackService {
                 .filter(p -> p.getDeletedAt() == null)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy gói học tập"));
 
-        // Validate
-        if (request.getName() == null || request.getName().trim().isEmpty()) {
-            throw new RuntimeException("Tên gói không được để trống");
-        }
-        if (request.getPrice() == null || request.getPrice().compareTo(java.math.BigDecimal.ZERO) < 0) {
-            throw new RuntimeException("Giá không hợp lệ");
-        }
-        if (request.getDurationDays() == null || request.getDurationDays() <= 0) {
-            throw new RuntimeException("durationDays phải > 0");
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            pack.setName(request.getName());
         }
 
-        pack.setName(request.getName().trim());
-        pack.setDescription(request.getDescription());
-        pack.setPrice(request.getPrice());
-        pack.setUpdatedAt(ZonedDateTime.now());
-        pack.setDurationDays(request.getDurationDays());
+        if (request.getDescription() != null) {
+            pack.setDescription(request.getDescription());
+        }
 
-        StudyPack updatedPack = studyPackRepository.save(pack);
-        return StudyPackDTO.fromEntity(updatedPack);
+        if (request.getPrice() != null) {
+            if (request.getPrice().compareTo(java.math.BigDecimal.ZERO) < 0) {
+                throw new RuntimeException("Giá không hợp lệ");
+            }
+            pack.setPrice(request.getPrice());
+        }
+
+        if (request.getDurationDays() != null) {
+            if (request.getDurationDays() <= 0) {
+                throw new RuntimeException("Thời hạn không hợp lệ");
+            }
+            pack.setDurationDays(request.getDurationDays());
+        }
+
+        // ✅ THÊM: Update targetRole
+        if (request.getTargetRole() != null) {
+            try {
+                StudyPack.TargetRole targetRole = StudyPack.TargetRole.valueOf(request.getTargetRole());
+                pack.setTargetRole(targetRole);
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Target role không hợp lệ. Chỉ chấp nhận: NORMAL_USER hoặc TEACHER");
+            }
+        }
+
+        StudyPack updated = studyPackRepository.save(pack);
+        return StudyPackDTO.fromEntity(updated);
     }
 
     /**
-     * Admin: Xóa mềm gói (soft delete)
+     * Admin: Xóa study pack (soft delete)
      */
     @Transactional
     public void deletePack(Long id) {
         StudyPack pack = studyPackRepository.findById(id)
-                .filter(p -> p.getDeletedAt() == null)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy gói học tập"));
 
-        // Soft delete - chỉ set deletedAt
-        pack.setDeletedAt(ZonedDateTime.now());
+        pack.setDeletedAt(java.time.ZonedDateTime.now());
         studyPackRepository.save(pack);
     }
+
+    /**
+     * ✅ THÊM: Lấy gói theo targetRole
+     */
+    public List<StudyPackDTO> getPacksByTargetRole(String targetRole) {
+        try {
+            StudyPack.TargetRole role = StudyPack.TargetRole.valueOf(targetRole);
+            return studyPackRepository.findAll().stream()
+                    .filter(pack -> pack.getDeletedAt() == null && pack.getTargetRole() == role)
+                    .map(StudyPackDTO::fromEntity)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Target role không hợp lệ");
+        }
+    }
 }
-
-
-

@@ -72,7 +72,6 @@ public class UserController {
     }
 
     @GetMapping("/email/{email}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> getUserByEmail(@PathVariable String email) {
         try {
             UserDTO user = userService.getUserByEmail(email);
@@ -84,7 +83,6 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> updateUser(@PathVariable Long id,
                                         @RequestBody UserDTO.UpdateRequest request) {
         try {
@@ -96,7 +94,6 @@ public class UserController {
     }
 
     @PutMapping("/{id}/profile")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> updateUserProfile(@PathVariable Long id,
                                                @RequestBody UserDTO.UpdateProfileRequest request) {
         try {
@@ -108,7 +105,6 @@ public class UserController {
     }
 
     @DeleteMapping("/delete")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> deleteOwnAccount() {
         try {
             userService.deleteOwnAccount();
@@ -119,7 +115,6 @@ public class UserController {
     }
 
     @PostMapping("/change-password")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
         try {
             userService.changePassword(request);
@@ -135,7 +130,6 @@ public class UserController {
      * Admin: Lấy tất cả users
      */
     @GetMapping("/admin/all")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserDTO>> getAllUsers() {
         try {
             List<UserDTO> users = userService.getAllUsers();
@@ -149,7 +143,6 @@ public class UserController {
      * Admin: Tìm kiếm users
      */
     @GetMapping("/admin/search")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserDTO>> searchUsers(@RequestParam String keyword) {
         try {
             List<UserDTO> users = userService.searchUsers(keyword);
@@ -163,7 +156,6 @@ public class UserController {
      * Admin: Lấy chi tiết user
      */
     @GetMapping("/admin/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getUserDetail(@PathVariable Long id) {
         try {
             UserDTO user = userService.getUserById(id);
@@ -178,7 +170,6 @@ public class UserController {
      * Admin: Khóa user
      */
     @PutMapping("/admin/{id}/block")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> blockUser(@PathVariable Long id) {
         try {
             UserDTO user = userService.blockUser(id);
@@ -192,7 +183,6 @@ public class UserController {
      * Admin: Mở khóa user
      */
     @PutMapping("/admin/{id}/unblock")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> unblockUser(@PathVariable Long id) {
         try {
             UserDTO user = userService.unblockUser(id);
@@ -202,14 +192,21 @@ public class UserController {
         }
     }
 
+    // ✅ ĐÚNG - Thêm body parameter với packId
     /**
-     * Admin: Cấp gói Premium
+     * Admin: Cấp gói Premium cho user
+     * Body: { "packId": 1 }
      */
     @PutMapping("/admin/{id}/grant-premium")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> grantPremium(@PathVariable Long id) {
+    public ResponseEntity<?> grantPremium(
+            @PathVariable Long id,
+            @RequestBody Map<String, Long> body) {
         try {
-            UserDTO user = userService.grantPremium(id);
+            Long packId = body.get("packId");
+            if (packId == null) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng chọn gói"));
+            }
+            UserDTO user = userService.grantPremium(id, packId);
             return ResponseEntity.ok(user);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
@@ -220,7 +217,6 @@ public class UserController {
      * Admin: Thu hồi quyền Premium
      */
     @PutMapping("/admin/{id}/revoke-premium")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> revokePremium(@PathVariable Long id) {
         try {
             UserDTO user = userService.revokePremium(id);
@@ -234,7 +230,6 @@ public class UserController {
      * Admin: Xóa user
      */
     @DeleteMapping("/admin/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         try {
             userService.deleteUser(id);
@@ -248,7 +243,6 @@ public class UserController {
      * Admin: Thăng cấp lên Admin
      */
     @PutMapping("/admin/{id}/promote")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> promoteUserToAdmin(@PathVariable Long id) {
         try {
             UserDTO user = userService.promoteToAdmin(id);
@@ -262,7 +256,6 @@ public class UserController {
      * Admin: Đổi status user
      */
     @PutMapping("/admin/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> changeStatus(@PathVariable Long id, @RequestParam String status) {
         try {
             UserDTO user = userService.changeUserStatus(id, status);

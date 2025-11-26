@@ -17,12 +17,9 @@ public class UserDTO {
     private String fullName;
     private LocalDate dob;
     private String status;
-    private String role;
-    private ZonedDateTime createdAt;
-
-    // ✅ THÊM 2 FIELDS MỚI
-    private Boolean isPremium;
+    private String role;  // ✅ Sẽ trả về: NORMAL_USER, PREMIUM_USER, TEACHER, ADMIN
     private Boolean isBlocked;
+    private ZonedDateTime createdAt;
 
     // Convert từ Entity sang DTO
     public static UserDTO fromEntity(User user) {
@@ -32,10 +29,9 @@ public class UserDTO {
         dto.setFullName(user.getFullName());
         dto.setDob(user.getDob());
         dto.setStatus(user.getStatus().name());
-        dto.setRole(user.getRole().name());
+        dto.setRole(user.getRole().name());  // ✅ Sẽ map đúng 4 roles
+        dto.setIsBlocked(user.getIsBlocked());
         dto.setCreatedAt(user.getCreatedAt());
-        dto.setIsPremium(user.getIsPremium()); // ✅
-        dto.setIsBlocked(user.getIsBlocked()); // ✅
         return dto;
     }
 

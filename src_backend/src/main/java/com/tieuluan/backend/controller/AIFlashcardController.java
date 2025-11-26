@@ -23,7 +23,7 @@ public class AIFlashcardController {
     private final AIFlashcardService aiFlashcardService;
 
     /**
-     * Tạo flashcard tự động bằng AI từ một từ vựng
+     * Táº¡o flashcard tá»± Ä‘á»™ng báº±ng AI tá»« má»™t tá»« vá»±ng
      *
      * POST /api/flashcards/ai/generate
      * Body: {
@@ -33,8 +33,8 @@ public class AIFlashcardController {
      *   "generateAudio": true
      * }
      *
-     * @param request Request chứa term và options
-     * @return Response với flashcard hoàn chỉnh và status từng bước
+     * @param request Request chá»©a term vÃ  options
+     * @return Response vá»›i flashcard hoÃ n chá»‰nh vÃ  status tá»«ng bÆ°á»›c
      */
     @PostMapping("/generate")
 //    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
@@ -42,20 +42,20 @@ public class AIFlashcardController {
             @RequestBody CreateFlashcardRequest request) {
 
         try {
-            log.info("📨 Received AI flashcard generation request for: {}", request.term);
+            log.info("ðŸ“¨ Received AI flashcard generation request for: {}", request.term);
 
             CreateFlashcardResponse response = aiFlashcardService.generateFlashcard(request);
 
             if (response.success) {
-                log.info("✅ AI flashcard generated successfully for: {}", request.term);
+                log.info("âœ… AI flashcard generated successfully for: {}", request.term);
                 return ResponseEntity.ok(response);
             } else {
-                log.error("❌ AI flashcard generation failed: {}", response.message);
+                log.error("âŒ AI flashcard generation failed: {}", response.message);
                 return ResponseEntity.badRequest().body(response);
             }
 
         } catch (Exception e) {
-            log.error("❌ Unexpected error in AI flashcard generation: {}", e.getMessage());
+            log.error("âŒ Unexpected error in AI flashcard generation: {}", e.getMessage());
             CreateFlashcardResponse errorResponse = new CreateFlashcardResponse();
             errorResponse.success = false;
             errorResponse.message = "Internal server error: " + e.getMessage();
@@ -64,7 +64,7 @@ public class AIFlashcardController {
     }
 
     /**
-     * Batch generate flashcards từ nhiều từ vựng
+     * Batch generate flashcards tá»« nhiá»u tá»« vá»±ng
      *
      * POST /api/flashcards/ai/batch
      * Body: {
@@ -86,7 +86,7 @@ public class AIFlashcardController {
                     ? Long.valueOf(payload.get("categoryId").toString())
                     : null;
 
-            log.info("📨 Received batch AI flashcard generation request for {} terms", terms.length);
+            log.info("ðŸ“¨ Received batch AI flashcard generation request for {} terms", terms.length);
 
             CreateFlashcardResponse[] responses = aiFlashcardService.batchGenerateFlashcards(terms, categoryId);
 
@@ -94,22 +94,22 @@ public class AIFlashcardController {
                     .filter(r -> r.success)
                     .count();
 
-            log.info("✅ Batch generation completed: {}/{} successful", successCount, terms.length);
+            log.info("âœ… Batch generation completed: {}/{} successful", successCount, terms.length);
 
             return ResponseEntity.ok(responses);
 
         } catch (Exception e) {
-            log.error("❌ Error in batch flashcard generation: {}", e.getMessage());
+            log.error("âŒ Error in batch flashcard generation: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }
 
     /**
-     * Kiểm tra status của các AI services
+     * Kiá»ƒm tra status cá»§a cÃ¡c AI services
      *
      * GET /api/flashcards/ai/status
      *
-     * @return Status của từng service (configured hay chưa)
+     * @return Status cá»§a tá»«ng service (configured hay chÆ°a)
      */
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> checkStatus() {
@@ -132,7 +132,7 @@ public class AIFlashcardController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("❌ Error checking services status: {}", e.getMessage());
+            log.error("âŒ Error checking services status: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }

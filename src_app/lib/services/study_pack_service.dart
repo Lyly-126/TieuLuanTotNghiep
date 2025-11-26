@@ -147,4 +147,29 @@ class StudyPackService {
       throw Exception('Lỗi: $e');
     }
   }
+
+  /// Admin: Lấy tất cả gói (không lọc)
+  static Future<List<StudyPackModel>> getAllPacksAdmin() async {
+    try {
+      final token = await _getToken();
+      final uri = Uri.parse('$baseUrl/admin/all');
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        return data.map((e) => StudyPackModel.fromJson(e)).toList();
+      } else {
+        throw Exception('Không thể tải danh sách gói học tập');
+      }
+    } catch (e) {
+      throw Exception('Lỗi kết nối: $e');
+    }
+  }
 }

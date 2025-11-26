@@ -1,4 +1,3 @@
-// File: lib/screens/payment/upgrade_premium_screen.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
@@ -249,12 +248,17 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
                             size: 22,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'Mua ${_packs[_selectedPackIndex].name}',
-                            style: AppTextStyles.button.copyWith(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                          // ✅ FIX: Sử dụng Flexible để tránh overflow
+                          Flexible(
+                            child: Text(
+                              'Mua ${_packs[_selectedPackIndex].name}',
+                              style: AppTextStyles.button.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -687,6 +691,7 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
       }
 
       // 2. Tạo order
+      print('🔵 Step 1: Creating order for pack $packId');
       final createOrderRes = await http.post(
         Uri.parse('$_apiBase/api/payment/create-order'),
         headers: {
@@ -696,9 +701,17 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
         body: jsonEncode({'packId': packId}),
       );
 
+      print('📊 Create order status: ${createOrderRes.statusCode}');
+      print('📦 Create order body: ${createOrderRes.body}');
+
       if (createOrderRes.statusCode != 200) {
         final errMsg = _extractMessage(createOrderRes.body);
         throw Exception('Tạo đơn thất bại: $errMsg');
+      }
+
+      // ✅ FIX: Kiểm tra body trống trước khi parse
+      if (createOrderRes.body.isEmpty) {
+        throw Exception('Server trả về response trống khi tạo order');
       }
 
       final order = jsonDecode(createOrderRes.body);
@@ -711,6 +724,7 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
       print('✅ Created order: $orderId');
 
       // 3. Tạo URL VNPay
+      print('🔵 Step 2: Creating VNPay payment URL');
       final uri = Uri.parse('$_apiBase/api/payment/vnpay/create')
           .replace(queryParameters: {
         'orderId': orderId.toString(),
@@ -724,9 +738,17 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
         },
       );
 
+      print('📊 Create payment status: ${createPayRes.statusCode}');
+      print('📦 Create payment body: ${createPayRes.body}');
+
       if (createPayRes.statusCode != 200) {
         final errMsg = _extractMessage(createPayRes.body);
         throw Exception('Tạo URL thanh toán thất bại: $errMsg');
+      }
+
+      // ✅ FIX: Kiểm tra body trống trước khi parse
+      if (createPayRes.body.isEmpty) {
+        throw Exception('Server trả về response trống khi tạo payment URL');
       }
 
       final payData = jsonDecode(createPayRes.body);
@@ -773,10 +795,17 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
 
   String _extractMessage(String body) {
     try {
+      // ✅ FIX: Kiểm tra body trống
+      if (body.isEmpty) {
+        return 'Server không trả về thông tin lỗi';
+      }
+
       final json = jsonDecode(body);
       return (json['message'] ?? json['error'] ?? body).toString();
-    } catch (_) {
-      return body;
+    } catch (e) {
+      // Nếu parse JSON fail, trả về body nguyên bản
+      print('⚠️ Failed to parse error message: $e');
+      return body.isNotEmpty ? body : 'Lỗi không xác định';
     }
   }
 }

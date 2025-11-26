@@ -4,13 +4,20 @@ import com.tieuluan.backend.util.JwtUtil;
 import com.tieuluan.backend.controller.UserController;
 import com.tieuluan.backend.dto.UserDTO;
 import com.tieuluan.backend.model.User;
+import com.tieuluan.backend.model.Order;
+import com.tieuluan.backend.model.StudyPack;
 import com.tieuluan.backend.repository.UserRepository;
+import com.tieuluan.backend.repository.OrderRepository;
+import com.tieuluan.backend.repository.StudyPackRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,6 +28,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final OrderRepository orderRepository;
+    private final StudyPackRepository studyPackRepository;
 
     @Transactional
     public UserDTO registerUser(UserDTO.RegisterRequest request) {
@@ -34,7 +43,8 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setDob(request.getDob());
         user.setStatus(User.UserStatus.UNVERIFIED);
-        user.setRole(User.UserRole.USER);
+        // ✅ SỬA: USER → NORMAL_USER
+        user.setRole(User.UserRole.NORMAL_USER);
 
         User savedUser = userRepository.save(user);
         return UserDTO.fromEntity(savedUser);
@@ -48,6 +58,7 @@ public class UserService {
             throw new RuntimeException("Email hoặc mật khẩu không đúng");
         }
 
+        // ✅ Token sẽ tự động có role đúng sau khi sửa enum
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
 
         UserDTO userDTO = UserDTO.fromEntity(user);
@@ -65,7 +76,6 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
         return UserDTO.fromEntity(user);
     }
-
 
     @Transactional
     public UserDTO updateUser(Long id, UserDTO.UpdateRequest request) {
@@ -103,10 +113,6 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-
-    /**
-     * Admin: Tìm kiếm người dùng theo email hoặc fullName
-     */
     public List<UserDTO> searchUsers(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return getAllUsers();
@@ -123,15 +129,11 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Admin: Khóa tài khoản (đổi status sang SUSPENDED)
-     */
     @Transactional
     public UserDTO lockUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        // Không cho phép khóa tài khoản ADMIN
         if (user.getRole() == User.UserRole.ADMIN) {
             throw new RuntimeException("Không thể khóa tài khoản Admin");
         }
@@ -141,9 +143,6 @@ public class UserService {
         return UserDTO.fromEntity(updatedUser);
     }
 
-    /**
-     * Admin: Mở khóa tài khoản (đổi status sang VERIFIED)
-     */
     @Transactional
     public UserDTO unlockUser(Long id) {
         User user = userRepository.findById(id)
@@ -154,15 +153,11 @@ public class UserService {
         return UserDTO.fromEntity(updatedUser);
     }
 
-    /**
-     * Admin: Xóa người dùng (NGUY HIỂM - cân nhắc kỹ)
-     */
     @Transactional
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        // Không cho phép xóa tài khoản ADMIN
         if (user.getRole() == User.UserRole.ADMIN) {
             throw new RuntimeException("Không thể xóa tài khoản Admin");
         }
@@ -243,35 +238,6 @@ public class UserService {
         return UserDTO.fromEntity(updatedUser);
     }
 
-    /**
-     * Admin: Cấp gói Premium
-     */
-    @Transactional
-    public UserDTO grantPremium(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-
-        user.setIsPremium(true);
-        User updatedUser = userRepository.save(user);
-        return UserDTO.fromEntity(updatedUser);
-    }
-
-    /**
-     * Admin: Thu hồi quyền Premium
-     */
-    @Transactional
-    public UserDTO revokePremium(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-
-        user.setIsPremium(false);
-        User updatedUser = userRepository.save(user);
-        return UserDTO.fromEntity(updatedUser);
-    }
-
-    /**
-     * Admin: Khóa user (sử dụng isBlocked thay vì status)
-     */
     @Transactional
     public UserDTO blockUser(Long id) {
         User user = userRepository.findById(id)
@@ -286,15 +252,72 @@ public class UserService {
         return UserDTO.fromEntity(updatedUser);
     }
 
-    /**
-     * Admin: Mở khóa user
-     */
     @Transactional
     public UserDTO unblockUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
         user.setIsBlocked(false);
+        User updatedUser = userRepository.save(user);
+        return UserDTO.fromEntity(updatedUser);
+    }
+
+    /**
+     * ✅ PHASE 2: Admin cấp gói Premium cho user
+     * Yêu cầu body: { "packId": 1 }
+     */
+    @Transactional
+    public UserDTO grantPremium(Long userId, Long packId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        StudyPack pack = studyPackRepository.findById(packId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy gói"));
+
+        // Tạo order PAID trực tiếp (admin cấp miễn phí)
+        Order order = new Order();
+        order.setUserId(userId);
+        order.setPackId(packId);
+        order.setPriceAtPurchase(BigDecimal.ZERO); // Admin cấp miễn phí
+        order.setStatus(Order.OrderStatus.PAID);
+        order.setStartedAt(ZonedDateTime.now());
+        order.setExpiresAt(ZonedDateTime.now().plusDays(pack.getDurationDays()));
+        orderRepository.save(order);
+
+        // ✅ Upgrade role dựa vào loại gói
+        if (pack.getTargetRole() == StudyPack.TargetRole.TEACHER) {
+            user.setRole(User.UserRole.TEACHER);
+        } else {
+            if (user.getRole() == User.UserRole.NORMAL_USER) {
+                user.setRole(User.UserRole.PREMIUM_USER);
+            }
+        }
+
+        User updatedUser = userRepository.save(user);
+        return UserDTO.fromEntity(updatedUser);
+    }
+
+    /**
+     * ✅ PHASE 2: Admin thu hồi quyền Premium
+     */
+    @Transactional
+    public UserDTO revokePremium(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // Hủy tất cả order đang active
+        List<Order> activeOrders = orderRepository.findByUserIdAndStatus(id, Order.OrderStatus.PAID);
+        for (Order order : activeOrders) {
+            order.setStatus(Order.OrderStatus.CANCELED);
+            order.setExpiresAt(ZonedDateTime.now()); // Hết hạn ngay
+            orderRepository.save(order);
+        }
+
+        // ✅ Downgrade về NORMAL_USER
+        if (user.getRole() == User.UserRole.PREMIUM_USER || user.getRole() == User.UserRole.TEACHER) {
+            user.setRole(User.UserRole.NORMAL_USER);
+        }
+
         User updatedUser = userRepository.save(user);
         return UserDTO.fromEntity(updatedUser);
     }

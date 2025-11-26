@@ -16,7 +16,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -55,52 +54,48 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
+                        // ========== PUBLIC ENDPOINTS ==========
                         .requestMatchers("/api/users/register", "/api/users/login").permitAll()
                         .requestMatchers("/api/otp/**", "/api/auth/forgot-password/**").permitAll()
-                        .requestMatchers("/api/payment/vnpay/return").permitAll()
-                        .requestMatchers("/api/payment/vnpay/callback").permitAll()
-
-                        // Payment - User endpoints
-                        .requestMatchers("/api/payment/**").hasAnyRole("USER", "ADMIN")
-
-                        // Study Packs - PUBLIC
+                        .requestMatchers("/api/payment/vnpay/return", "/api/payment/vnpay/callback").permitAll()
+                        .requestMatchers("/api/policies", "/api/policies/{id}").permitAll()
                         .requestMatchers("/api/study-packs", "/api/study-packs/{id}").permitAll()
-                        .requestMatchers("/api/study-packs/admin/**").hasRole("ADMIN")
-
-                        // Flashcard - Public endpoints
                         .requestMatchers("/api/flashcards", "/api/flashcards/{id}").permitAll()
                         .requestMatchers("/api/flashcards/category/**").permitAll()
                         .requestMatchers("/api/flashcards/random").permitAll()
                         .requestMatchers("/api/flashcards/search").permitAll()
+                        .requestMatchers("/api/flashcards/ai/**").permitAll()
 
-                        // ✅ AI Flashcard - User & Admin endpoints (REQUIRES AUTH)
-                        .requestMatchers("/api/flashcards/ai/generate").permitAll()
-                        .requestMatchers("/api/flashcards/ai/batch").permitAll()
-                        .requestMatchers("/api/flashcards/ai/status").permitAll()
-                        .requestMatchers("/api/flashcards/ai/health").permitAll()
-
-                        // Flashcard - Admin endpoints
-                        .requestMatchers("/api/flashcards/admin/**").hasRole("ADMIN")
-
-                        // Policy endpoints
-                        .requestMatchers("/api/policies", "/api/policies/{id}").permitAll()
-
-                        // Admin endpoints
+                        // ========== ADMIN ONLY ==========
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/policies/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/policies/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/flashcards/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/study-packs/admin/**").hasRole("ADMIN")
 
-                        // User endpoints
-                        .requestMatchers("/api/users/**").hasAnyRole("USER", "ADMIN")
+                        // ========== TEACHER ONLY (Phase 3-4 sẽ thêm Class endpoints) ==========
+                        // .requestMatchers("/api/classes/create").hasAnyRole("TEACHER", "ADMIN")
+                        // .requestMatchers("/api/classes/{id}/update").hasAnyRole("TEACHER", "ADMIN")
+                        // .requestMatchers("/api/classes/{id}/delete").hasAnyRole("TEACHER", "ADMIN")
 
-                        // Static resources (for serving audio files)
-                        .requestMatchers("/api/tts/**").permitAll()
+                        // ========== PREMIUM USER + TEACHER + ADMIN ==========
+                        // Các tính năng premium (chưa implement)
+                        // .requestMatchers("/api/statistics/advanced").hasAnyRole("PREMIUM_USER", "TEACHER", "ADMIN")
+
+                        // ========== ALL AUTHENTICATED USERS ==========
+                        // ✅ SỬA: Không dùng hasRole("USER") nữa
+                        .requestMatchers("/api/payment/**").authenticated()
+                        .requestMatchers("/api/users/profile").authenticated()
+                        .requestMatchers("/api/users/change-password").authenticated()
+                        .requestMatchers("/api/users/{id}").authenticated()
+                        .requestMatchers("/api/users/email/**").authenticated()
+
+                        // Static resources
+                        .requestMatchers("/audio/**").permitAll()
 
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )
-
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

@@ -35,11 +35,7 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UserRole role = UserRole.USER;
-
-    // ✅ THÊM 2 FIELDS MỚI
-    @Column(nullable = false)
-    private Boolean isPremium = false;
+    private UserRole role = UserRole.NORMAL_USER;
 
     @Column(nullable = false)
     private Boolean isBlocked = false;
@@ -56,14 +52,10 @@ public class User {
             status = UserStatus.UNVERIFIED;
         }
         if (role == null) {
-            role = UserRole.USER;
+            role = UserRole.NORMAL_USER;
         }
         if (fullName == null || fullName.trim().isEmpty()) {
             fullName = email.split("@")[0];
-        }
-        // ✅ Set default values
-        if (isPremium == null) {
-            isPremium = false;
         }
         if (isBlocked == null) {
             isBlocked = false;
@@ -75,6 +67,9 @@ public class User {
     }
 
     public enum UserRole {
-        USER, ADMIN
+        NORMAL_USER,    // User thường (free)
+        PREMIUM_USER,   // User đã mua gói premium
+        TEACHER,        // Giáo viên (có thể tạo lớp)
+        ADMIN           // Quản trị viên
     }
 }

@@ -31,6 +31,11 @@ public class StudyPack {
     @Column(name = "durationDays", nullable = false)
     private Integer durationDays = 30;
 
+    // ✅ NEW: targetRole - Gói này upgrade user thành role nào
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TargetRole targetRole = TargetRole.NORMAL_USER;
+
     @Column(nullable = false, updatable = false)
     private ZonedDateTime createdAt = ZonedDateTime.now();
 
@@ -47,10 +52,19 @@ public class StudyPack {
         if (updatedAt == null) {
             updatedAt = ZonedDateTime.now();
         }
+        if (targetRole == null) {
+            targetRole = TargetRole.NORMAL_USER;
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = ZonedDateTime.now();
+    }
+
+    // ✅ NEW: TargetRole enum
+    public enum TargetRole {
+        NORMAL_USER,   // Gói cho user thường → upgrade to PREMIUM_USER
+        TEACHER        // Gói cho giáo viên → upgrade to TEACHER
     }
 }

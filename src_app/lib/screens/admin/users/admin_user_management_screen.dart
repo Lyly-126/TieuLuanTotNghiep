@@ -55,7 +55,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             u.role.toLowerCase().contains(lower);
 
         if (_selectedFilter == 'Tất cả') return matchesSearch;
-        if (_selectedFilter == 'Premium') return matchesSearch && u.isPremium;
+        if (_selectedFilter == 'Admin') return matchesSearch && u.role == 'ADMIN';
+        if (_selectedFilter == 'Teacher') return matchesSearch && u.role == 'TEACHER';
+        if (_selectedFilter == 'Premium') return matchesSearch && u.role == 'PREMIUM_USER';
+        if (_selectedFilter == 'User') return matchesSearch && u.role == 'NORMAL_USER';
         if (_selectedFilter == 'Bị khóa') return matchesSearch && u.isBlocked;
         if (_selectedFilter == 'Hoạt động') return matchesSearch && !u.isBlocked;
 
@@ -69,6 +72,54 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       _selectedFilter = filter;
       _filterUsers('');
     });
+  }
+
+  // ✅ Helper để format role hiển thị
+  String _getRoleDisplayName(String role) {
+    switch (role) {
+      case 'NORMAL_USER':
+        return 'Người dùng';
+      case 'PREMIUM_USER':
+        return 'Premium';
+      case 'TEACHER':
+        return 'Giáo viên';
+      case 'ADMIN':
+        return 'Quản trị viên';
+      default:
+        return role;
+    }
+  }
+
+  // ✅ Helper để lấy role color
+  Color _getRoleColor(String role) {
+    switch (role) {
+      case 'ADMIN':
+        return const Color(0xFFFF9800); // Orange
+      case 'TEACHER':
+        return const Color(0xFF2196F3); // Blue
+      case 'PREMIUM_USER':
+        return AppColors.primary; // Purple
+      case 'NORMAL_USER':
+        return const Color(0xFF9E9E9E); // Gray
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // ✅ Helper để lấy role background color
+  Color _getRoleBackgroundColor(String role) {
+    switch (role) {
+      case 'ADMIN':
+        return const Color(0xFFFFF3E0);
+      case 'TEACHER':
+        return const Color(0xFFE3F2FD);
+      case 'PREMIUM_USER':
+        return AppColors.primary.withOpacity(0.1);
+      case 'NORMAL_USER':
+        return const Color(0xFFF5F5F5);
+      default:
+        return Colors.grey.withOpacity(0.1);
+    }
   }
 
   @override
@@ -168,7 +219,13 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   children: [
                     _buildFilterChip('Tất cả', _users.length),
                     const SizedBox(width: 8),
-                    _buildFilterChip('Premium', _users.where((u) => u.isPremium).length),
+                    _buildFilterChip('Admin', _users.where((u) => u.role == 'ADMIN').length),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Teacher', _users.where((u) => u.role == 'TEACHER').length),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Premium', _users.where((u) => u.role == 'PREMIUM_USER').length),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('User', _users.where((u) => u.role == 'NORMAL_USER').length),
                     const SizedBox(width: 8),
                     _buildFilterChip('Hoạt động', _users.where((u) => !u.isBlocked).length),
                     const SizedBox(width: 8),
@@ -293,7 +350,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   Widget _buildUserCard(UserModel user) {
     return GestureDetector(
       onTap: () {
-        debugPrint('🔹 User card tapped: ${user.displayName}'); // ✅ THÊM LOG
+        debugPrint('🔹 User card tapped: ${user.displayName}');
         _showUserDetailBottomSheet(user);
       },
       child: Container(
@@ -322,7 +379,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                       backgroundImage: const AssetImage('assets/images/avatar.png'),
                       backgroundColor: AppColors.inputBackground,
                     ),
-                    if (user.isPremium)
+                    if (user.hasPremiumAccess)
                       Positioned(
                         right: 0,
                         bottom: 0,
@@ -355,24 +412,22 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (user.role == 'ADMIN') ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF3E0),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'ADMIN',
-                                style: AppTextStyles.hint.copyWith(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFFFF9800),
-                                ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _getRoleBackgroundColor(user.role),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _getRoleDisplayName(user.role),
+                              style: AppTextStyles.hint.copyWith(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: _getRoleColor(user.role),
                               ),
                             ),
-                          ],
+                          ),
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -399,13 +454,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   user.isBlocked ? Icons.block_rounded : Icons.check_circle_rounded,
                   user.isBlocked ? Colors.redAccent : const Color(0xFF4CAF50),
                 ),
-                const SizedBox(width: 8),
-                if (user.isPremium)
-                  _buildStatusBadge(
-                    'Premium',
-                    Icons.workspace_premium_rounded,
-                    AppColors.primary,
-                  ),
               ],
             ),
           ],
@@ -512,19 +560,17 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         const Divider(height: 20),
                         _buildInfoRow('Họ tên', user.displayName),
                         const Divider(height: 20),
-                        _buildInfoRow('Role', user.role),
+                        _buildInfoRow('Vai trò', _getRoleDisplayName(user.role)),
                         const Divider(height: 20),
                         _buildInfoRow('Trạng thái', user.isBlocked ? 'Bị khóa' : 'Hoạt động'),
-                        const Divider(height: 20),
-                        _buildInfoRow('Gói hiện tại', user.isPremium ? 'Premium' : 'Starter'),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 24),
 
-                  // Action Buttons
-                  if (user.role != 'ADMIN') ...[
+                  // Action buttons
+                  if (user.role == 'NORMAL_USER' || user.role == 'PREMIUM_USER') ...[
                     Column(
                       children: [
                         // Lock/Unlock Button
@@ -553,10 +599,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Premium Buttons
+                        // Premium Toggle Button
                         SizedBox(
                           width: double.infinity,
-                          child: user.isPremium
+                          child: user.role == 'PREMIUM_USER'
                               ? OutlinedButton.icon(
                             onPressed: () {
                               Navigator.pop(context);
@@ -569,7 +615,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             ),
                             icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
                             label: Text(
-                              'Thu hồi Premium',
+                              'Hạ xuống Normal User',
                               style: AppTextStyles.button.copyWith(color: Colors.redAccent, fontWeight: FontWeight.w600),
                             ),
                           )
@@ -586,12 +632,32 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             ),
                             icon: const Icon(Icons.workspace_premium_rounded, color: Colors.white),
                             label: Text(
-                              'Cấp gói Premium',
+                              'Nâng lên Premium User',
                               style: AppTextStyles.button.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
                             ),
                           ),
                         ),
                       ],
+                    ),
+                  ] else if (user.role == 'TEACHER') ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE3F2FD),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, color: Color(0xFF2196F3)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Tài khoản giáo viên - Có quyền quản lý lớp học',
+                              style: AppTextStyles.hint.copyWith(color: const Color(0xFF2196F3)),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ] else ...[
                     Container(
@@ -650,7 +716,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     );
   }
 
-  // Dialog Actions - GỌI API THẬT
+  // ✅ FIXED: Dialog Actions - Chỉ reload data
   void _confirmLock(UserModel user) async {
     showDialog(
       context: context,
@@ -671,7 +737,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               Navigator.pop(context);
               try {
                 await AdminUserService.blockUser(user.userId);
-                setState(() => user.isBlocked = true);
+                // ✅ FIXED: Chỉ reload, không set state
+                await _loadUsers();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -715,7 +782,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               Navigator.pop(context);
               try {
                 await AdminUserService.unblockUser(user.userId);
-                setState(() => user.isBlocked = false);
+                // ✅ FIXED: Chỉ reload, không set state
+                await _loadUsers();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -744,9 +812,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Cấp gói Premium', style: AppTextStyles.heading3),
+        title: Text('Nâng lên Premium', style: AppTextStyles.heading3),
         content: Text(
-          'Xác nhận cấp gói Premium cho "${user.displayName}"?',
+          'Xác nhận nâng cấp "${user.displayName}" lên Premium User?',
           style: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
@@ -759,10 +827,11 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               Navigator.pop(context);
               try {
                 await AdminUserService.grantPremium(user.userId);
-                setState(() => user.isPremium = true);
+                // ✅ FIXED: Chỉ reload, không set state
+                await _loadUsers();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đã cấp gói Premium thành công')),
+                    const SnackBar(content: Text('Đã nâng lên Premium User thành công')),
                   );
                 }
               } catch (e) {
@@ -785,9 +854,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Thu hồi quyền Premium', style: AppTextStyles.heading3),
+        title: Text('Hạ xuống Normal User', style: AppTextStyles.heading3),
         content: Text(
-          'Bạn có chắc muốn thu hồi quyền Premium của "${user.displayName}"? Người dùng sẽ quay về gói Starter.',
+          'Bạn có chắc muốn hạ "${user.displayName}" xuống Normal User?',
           style: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
@@ -800,11 +869,12 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               Navigator.pop(context);
               try {
                 await AdminUserService.revokePremium(user.userId);
-                setState(() => user.isPremium = false);
+                // ✅ FIXED: Chỉ reload, không set state
+                await _loadUsers();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Đã thu hồi quyền Premium thành công'),
+                      content: Text('Đã hạ xuống Normal User thành công'),
                       backgroundColor: Colors.redAccent,
                     ),
                   );
@@ -817,7 +887,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                 }
               }
             },
-            child: Text('Thu hồi', style: AppTextStyles.button.copyWith(color: Colors.redAccent, fontWeight: FontWeight.w700)),
+            child: Text('Hạ xuống', style: AppTextStyles.button.copyWith(color: Colors.redAccent, fontWeight: FontWeight.w700)),
           ),
         ],
       ),

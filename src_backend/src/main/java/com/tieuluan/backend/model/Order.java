@@ -63,7 +63,8 @@ public class Order {
         PENDING,   // Chờ thanh toán
         PAID,      // Đã thanh toán
         CANCELED,  // Đã hủy
-        REFUNDED   // Đã hoàn tiền
+        REFUNDED,  // Đã hoàn tiền
+        FAILED;
     }
 }
 

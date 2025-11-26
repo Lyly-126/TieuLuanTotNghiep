@@ -16,31 +16,46 @@ public class StudyPackDTO {
     private String name;
     private String description;
     private BigDecimal price;
-    private Integer durationDays; // NEW
+    private Integer durationDays;
+    private String targetRole;  // ✅ THÊM MỚI: "NORMAL_USER" hoặc "TEACHER"
+    private ZonedDateTime createdAt;
+    private ZonedDateTime updatedAt;
 
-    public static StudyPackDTO fromEntity(StudyPack e) {
-        StudyPackDTO d = new StudyPackDTO();
-        d.setId(e.getId());
-        d.setName(e.getName());
-        d.setDescription(e.getDescription());
-        d.setPrice(e.getPrice());
-        d.setDurationDays(e.getDurationDays());
-        return d;
+    // Convert từ Entity sang DTO
+    public static StudyPackDTO fromEntity(StudyPack pack) {
+        StudyPackDTO dto = new StudyPackDTO();
+        dto.setId(pack.getId());
+        dto.setName(pack.getName());
+        dto.setDescription(pack.getDescription());
+        dto.setPrice(pack.getPrice());
+        dto.setDurationDays(pack.getDurationDays());
+        dto.setTargetRole(pack.getTargetRole().name());  // ✅ Map enum sang string
+        dto.setCreatedAt(pack.getCreatedAt());
+        dto.setUpdatedAt(pack.getUpdatedAt());
+        return dto;
     }
 
+    // ========== INNER CLASSES ==========
+
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class CreateRequest {
         private String name;
         private String description;
         private BigDecimal price;
-        private Integer durationDays; // NEW
+        private Integer durationDays;
+        private String targetRole;  // ✅ THÊM MỚI: "NORMAL_USER" hoặc "TEACHER"
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class UpdateRequest {
         private String name;
         private String description;
         private BigDecimal price;
-        private Integer durationDays; // NEW
+        private Integer durationDays;
+        private String targetRole;  // ✅ THÊM MỚI
     }
 }

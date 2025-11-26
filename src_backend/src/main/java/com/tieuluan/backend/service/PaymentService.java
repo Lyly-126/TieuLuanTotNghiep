@@ -62,7 +62,7 @@ public class PaymentService {
     }
 
     /**
-     * Tạo URL thanh toán VNPay - THEO ĐẤT TRANG TÀI LIỆU OFFICIAL VNPay
+     * Tạo URL thanh toán VNPay - THEO ĐẶT TRANG TÀI LIỆU OFFICIAL VNPay
      */
     @Transactional
     public OrderDTO.VNPayPaymentResponse createVNPayPayment(Long orderId, String ipAddress) {
@@ -88,10 +88,10 @@ public class PaymentService {
             transactionRepository.save(txn);
 
             // 2. Tạo thông tin thanh toán THEO CODE MẪU VNPay
-            String vnp_TxnRef = String.valueOf(orderId); // Dùng orderId làm TxnRef
+            String vnp_TxnRef = String.valueOf(orderId);
             int vnp_Amount = order.getPriceAtPurchase()
                     .multiply(new java.math.BigDecimal("100"))
-                    .intValue(); // Nhân 100 để bỏ phần thập phân
+                    .intValue();
 
             // 3. Tạo params map THEO THỨ TỰ CODE MẪU VNPay
             Map<String, String> vnp_Params = new HashMap<>();
@@ -101,52 +101,42 @@ public class PaymentService {
             vnp_Params.put("vnp_Amount", String.valueOf(vnp_Amount));
             vnp_Params.put("vnp_CurrCode", "VND");
 
-            // Chỉ thêm BankCode nếu có
             if (vnPayConfig.getBankCode() != null && !vnPayConfig.getBankCode().isEmpty()) {
                 vnp_Params.put("vnp_BankCode", vnPayConfig.getBankCode());
             }
 
             vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
 
-            // OrderInfo - PHẢI loại bỏ dấu tiếng Việt theo quy định VNPay
             String orderInfo = removeVietnameseDiacritics("Thanh toan don hang " + vnp_TxnRef);
             vnp_Params.put("vnp_OrderInfo", orderInfo);
             vnp_Params.put("vnp_OrderType", vnPayConfig.getOrderType());
-
-            // Locale và các tham số khác
             vnp_Params.put("vnp_Locale", "vn");
             vnp_Params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());
             vnp_Params.put("vnp_IpAddr", ipAddress);
 
-            // 4. Tạo timestamp THEO GMT+7 như code mẫu VNPay
+            // 4. Tạo timestamp
             Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
             SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
             String vnp_CreateDate = formatter.format(cld.getTime());
             vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
 
-            // Expire date: 15 phút sau
             cld.add(Calendar.MINUTE, 15);
             String vnp_ExpireDate = formatter.format(cld.getTime());
             vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
 
-            // 5. Build hash data và query THEO CODE MẪU VNPay
+            // 5. Build hash data và query
             Map<String, String> result = VNPayUtil.buildHashDataAndQuery(vnp_Params);
             String hashData = result.get("hashData");
             String queryUrl = result.get("queryUrl");
 
-            // 6. Tính chữ ký HMAC-SHA512
+            // 6. Tính chữ ký
             String vnp_SecureHash = VNPayUtil.hmacSHA512(vnPayConfig.getHashSecret(), hashData);
 
             // 7. Build payment URL
             String paymentUrl = vnPayConfig.getUrl() + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
-            log.info("=== VNPAY PAYMENT URL (OFFICIAL SPEC) ===");
-            log.info("Order ID  : {}", orderId);
-            log.info("TxnRef    : {}", vnp_TxnRef);
-            log.info("Amount    : {}", vnp_Amount);
-            log.info("HashData  : {}", hashData);
-            log.info("SecureHash: {}", vnp_SecureHash);
-            log.info("URL       : {}", paymentUrl);
+            log.info("=== VNPAY PAYMENT URL ===");
+            log.info("Order ID: {}, Amount: {}", orderId, vnp_Amount);
 
             return new OrderDTO.VNPayPaymentResponse(paymentUrl, order.getId(), "OK");
 
@@ -157,15 +147,14 @@ public class PaymentService {
     }
 
     /**
-     * IPN Callback - Xử lý thông báo từ VNPay THEO SPECIFICATION
-     * ĐÂY LÀ METHOD QUAN TRỌNG NHẤT - Dùng để confirm thanh toán
+     * ✅ IPN Callback - FIXED: Upgrade role sau thanh toán
      */
     @Transactional
     public Map<String, String> handleVNPayCallback(Map<String, String> params) {
         Map<String, String> response = new HashMap<>();
 
         try {
-            log.info("=== VNPAY IPN CALLBACK (OFFICIAL SPEC) ===");
+            log.info("=== VNPAY IPN CALLBACK ===");
             log.info("Received params: {}", params);
 
             // 1. Lấy hash từ VNPay
@@ -188,16 +177,11 @@ public class PaymentService {
                 }
             }
 
-            // 3. Tính lại chữ ký
+            // 3. Verify signature
             Map<String, String> hashResult = VNPayUtil.buildHashDataAndQuery(signParams);
             String hashData = hashResult.get("hashData");
             String calculatedHash = VNPayUtil.hmacSHA512(vnPayConfig.getHashSecret(), hashData);
 
-            log.info("HashData       : {}", hashData);
-            log.info("Calculated hash: {}", calculatedHash);
-            log.info("Received hash  : {}", receivedHash);
-
-            // 4. Verify signature
             if (!receivedHash.equalsIgnoreCase(calculatedHash)) {
                 log.error("Invalid signature");
                 response.put("RspCode", "97");
@@ -205,7 +189,7 @@ public class PaymentService {
                 return response;
             }
 
-            // 5. Lấy thông tin giao dịch
+            // 4. Lấy thông tin giao dịch
             String txnRef = params.get("vnp_TxnRef");
             String responseCode = params.get("vnp_ResponseCode");
             String transactionStatus = params.get("vnp_TransactionStatus");
@@ -213,37 +197,36 @@ public class PaymentService {
             String bankCode = params.get("vnp_BankCode");
             String amountStr = params.get("vnp_Amount");
 
-            log.info("TxnRef: {}, ResponseCode: {}, TransactionStatus: {}, TransactionNo: {}",
-                    txnRef, responseCode, transactionStatus, transactionNo);
+            log.info("TxnRef: {}, ResponseCode: {}", txnRef, responseCode);
 
-            // 6. Tìm order
+            // 5. Tìm order
             Long orderId;
             try {
                 orderId = Long.parseLong(txnRef);
             } catch (NumberFormatException e) {
-                log.error("Invalid txnRef format: {}", txnRef);
+                log.error("Invalid txnRef: {}", txnRef);
                 response.put("RspCode", "01");
                 response.put("Message", "Order not found");
                 return response;
             }
 
             Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
-            // 7. Verify amount
+            // 6. Verify amount
             long vnpAmount = Long.parseLong(amountStr);
             long orderAmount = order.getPriceAtPurchase()
                     .multiply(new java.math.BigDecimal("100"))
                     .longValue();
 
             if (vnpAmount != orderAmount) {
-                log.error("Invalid amount: expected {}, got {}", orderAmount, vnpAmount);
+                log.error("Invalid amount");
                 response.put("RspCode", "04");
                 response.put("Message", "Invalid amount");
                 return response;
             }
 
-            // 8. Kiểm tra đã xử lý chưa (idempotent)
+            // 7. Kiểm tra đã xử lý chưa
             List<Transaction> list = transactionRepository.findByOrderId(order.getId());
             Transaction txn = list.isEmpty() ? new Transaction() : list.get(0);
 
@@ -254,54 +237,59 @@ public class PaymentService {
                 return response;
             }
 
-            // 9. Cập nhật transaction
+            // 8. Cập nhật transaction
             txn.setOrderId(order.getId());
             txn.setProvider("VNPay");
             txn.setProviderTxnId(transactionNo);
             txn.setMethod(bankCode);
             txn.setAmount(order.getPriceAtPurchase());
 
-            // Lưu raw payload
             Map<String, Object> rawPayload = new HashMap<>();
             params.forEach((k, v) -> rawPayload.put(k, v));
             txn.setRawPayload(rawPayload);
 
-            // 10. Xử lý kết quả
+            // 9. ✅ FIXED: Xử lý kết quả với upgrade role
             String finalCode = responseCode != null ? responseCode : transactionStatus;
             if ("00".equals(finalCode)) {
-                // ✅ Thanh toán thành công
                 order.setStatus(Order.OrderStatus.PAID);
                 txn.setStatus(Transaction.TransactionStatus.SUCCEEDED);
                 txn.setMessage("Thanh toán thành công");
 
-                // Tính expiresAt dựa vào durationDays
                 StudyPack pack = studyPackRepository.findById(order.getPackId()).orElse(null);
                 if (pack != null) {
                     ZonedDateTime expiresAt = order.getStartedAt().plusDays(pack.getDurationDays());
                     order.setExpiresAt(expiresAt);
-                }
 
-                // Kích hoạt premium cho user
-                User user = userRepository.findById(order.getUserId())
-                        .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-                user.setIsPremium(true);
-                userRepository.save(user);
+                    // ✅ LOGIC MỚI: Tự động upgrade role
+                    User user = userRepository.findById(order.getUserId())
+                            .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+                    if (pack.getTargetRole() == StudyPack.TargetRole.TEACHER) {
+                        user.setRole(User.UserRole.TEACHER);
+                        log.info("✅ Upgraded user {} to TEACHER", user.getEmail());
+                    } else {
+                        if (user.getRole() == User.UserRole.NORMAL_USER) {
+                            user.setRole(User.UserRole.PREMIUM_USER);
+                            log.info("✅ Upgraded user {} to PREMIUM_USER", user.getEmail());
+                        }
+                    }
+
+                    userRepository.save(user);
+                }
 
                 log.info("✅ Payment SUCCESS for order {}", order.getId());
             } else {
-                // ❌ Thanh toán thất bại
-                order.setStatus(Order.OrderStatus.CANCELED);
+                order.setStatus(Order.OrderStatus.FAILED);
                 txn.setStatus(Transaction.TransactionStatus.FAILED);
-                txn.setMessage("Thanh toán thất bại: " + finalCode);
-
-                log.warn("❌ Payment FAILED for order {} with code {}", order.getId(), finalCode);
+                txn.setMessage("Thanh toán thất bại: " + getErrorMessage(responseCode));
+                log.info("❌ Payment FAILED for order {}", order.getId());
             }
 
-            // 11. Lưu DB
+            // 10. Lưu DB
             orderRepository.save(order);
             transactionRepository.save(txn);
 
-            // 12. Trả về success cho VNPay
+            // 11. Trả về success
             response.put("RspCode", "00");
             response.put("Message", "Confirm Success");
 
@@ -317,28 +305,25 @@ public class PaymentService {
     }
 
     /**
-     * Return URL - User được redirect về đây sau khi thanh toán
-     * ✅ CẬP NHẬT: Thêm logic cập nhật Order nếu IPN callback không được gọi
+     * ✅ Return URL - FIXED: Upgrade role nếu IPN chưa gọi
      */
-    @Transactional // ❌ ĐÃ BỎ readOnly = true
+    @Transactional
     public Map<String, Object> handleVNPayReturn(Map<String, String> params) {
         Map<String, Object> response = new LinkedHashMap<>();
 
         try {
-            log.info("=== VNPAY RETURN URL (NGROK) ===");
+            log.info("=== VNPAY RETURN URL ===");
             log.info("Received params: {}", params);
 
-            // 1. Lấy hash từ VNPay
+            // 1. Verify signature
             String receivedHash = params.get("vnp_SecureHash");
             if (receivedHash == null) {
-                log.error("Missing vnp_SecureHash");
                 response.put("success", false);
                 response.put("message", "Thiếu chữ ký bảo mật");
                 response.put("code", "NO_SIGNATURE");
                 return response;
             }
 
-            // 2. Tạo params để verify
             Map<String, String> signParams = new HashMap<>();
             for (Map.Entry<String, String> entry : params.entrySet()) {
                 String key = entry.getKey();
@@ -349,16 +334,10 @@ public class PaymentService {
                 }
             }
 
-            // 3. Tính lại chữ ký
             Map<String, String> hashResult = VNPayUtil.buildHashDataAndQuery(signParams);
             String hashData = hashResult.get("hashData");
             String calculatedHash = VNPayUtil.hmacSHA512(vnPayConfig.getHashSecret(), hashData);
 
-            log.info("HashData       : {}", hashData);
-            log.info("Calculated hash: {}", calculatedHash);
-            log.info("Received hash  : {}", receivedHash);
-
-            // 4. Verify signature
             if (!receivedHash.equalsIgnoreCase(calculatedHash)) {
                 log.error("❌ Invalid signature");
                 response.put("success", false);
@@ -369,7 +348,7 @@ public class PaymentService {
 
             log.info("✅ Signature verified");
 
-            // 5. Lấy thông tin từ params
+            // 2. Lấy thông tin
             String txnRef = params.get("vnp_TxnRef");
             String responseCode = params.get("vnp_ResponseCode");
             String transactionNo = params.get("vnp_TransactionNo");
@@ -378,28 +357,21 @@ public class PaymentService {
             String payDate = params.get("vnp_PayDate");
             String cardType = params.get("vnp_CardType");
 
-            log.info("TxnRef: {}, ResponseCode: {}, TransactionNo: {}",
-                    txnRef, responseCode, transactionNo);
-
-            // 6. Parse orderId
+            // 3. Parse orderId
             Long orderId;
             try {
                 orderId = Long.parseLong(txnRef);
             } catch (NumberFormatException e) {
-                log.error("Invalid txnRef format: {}", txnRef);
                 response.put("success", false);
                 response.put("message", "Mã đơn hàng không hợp lệ");
-                response.put("code", "INVALID_ORDER_ID");
                 return response;
             }
 
-            // 7. Lấy thông tin từ DB
+            // 4. Lấy thông tin từ DB
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order == null) {
-                log.error("Order not found: {}", orderId);
                 response.put("success", false);
                 response.put("message", "Không tìm thấy đơn hàng");
-                response.put("code", "ORDER_NOT_FOUND");
                 return response;
             }
 
@@ -408,86 +380,83 @@ public class PaymentService {
 
             StudyPack pack = studyPackRepository.findById(order.getPackId()).orElse(null);
             if (pack == null) {
-                log.error("Pack not found: {}", order.getPackId());
                 response.put("success", false);
                 response.put("message", "Không tìm thấy gói học tập");
-                response.put("code", "PACK_NOT_FOUND");
                 return response;
             }
 
-            // 8. Verify amount
+            // 5. Verify amount
             long vnpAmount = Long.parseLong(amountStr);
             long orderAmount = order.getPriceAtPurchase()
                     .multiply(new java.math.BigDecimal("100"))
                     .longValue();
 
             if (vnpAmount != orderAmount) {
-                log.warn("⚠️ Amount mismatch: expected {}, got {}", orderAmount, vnpAmount);
+                log.warn("⚠️ Amount mismatch");
             }
 
-            // 9. Kiểm tra trạng thái thanh toán
+            // 6. Kiểm tra kết quả
             boolean isSuccess = "00".equals(responseCode);
+            log.info("Payment result: {}", isSuccess ? "SUCCESS" : "FAILED");
 
-            log.info("Payment result: {} (code: {})", isSuccess ? "SUCCESS" : "FAILED", responseCode);
-
-            // ✅ 10. CẬP NHẬT ORDER NẾU VẪN Ở TRẠNG THÁI PENDING
+            // 7. ✅ FIXED: Cập nhật order nếu vẫn PENDING
             if (order.getStatus() == Order.OrderStatus.PENDING) {
                 log.info("⚠️ Order still PENDING, updating from Return URL...");
 
-                // Cập nhật Transaction
                 transaction.setOrderId(order.getId());
                 transaction.setProvider("VNPay");
                 transaction.setProviderTxnId(transactionNo);
                 transaction.setMethod(bankCode);
                 transaction.setAmount(order.getPriceAtPurchase());
 
-                // Lưu raw payload
                 Map<String, Object> rawPayload = new HashMap<>();
                 params.forEach((k, v) -> rawPayload.put(k, v));
                 transaction.setRawPayload(rawPayload);
 
                 if (isSuccess) {
-                    // ✅ Thanh toán thành công
                     order.setStatus(Order.OrderStatus.PAID);
                     transaction.setStatus(Transaction.TransactionStatus.SUCCEEDED);
                     transaction.setMessage("Thanh toán thành công");
 
-                    // Tính expiresAt dựa vào durationDays
                     ZonedDateTime expiresAt = order.getStartedAt().plusDays(pack.getDurationDays());
                     order.setExpiresAt(expiresAt);
 
-                    // Kích hoạt premium cho user
+                    // ✅ LOGIC MỚI: Upgrade role (giống callback)
                     User user = userRepository.findById(order.getUserId())
                             .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-                    user.setIsPremium(true);
+
+                    if (pack.getTargetRole() == StudyPack.TargetRole.TEACHER) {
+                        user.setRole(User.UserRole.TEACHER);
+                        log.info("✅ Upgraded user {} to TEACHER (from Return URL)", user.getEmail());
+                    } else {
+                        if (user.getRole() == User.UserRole.NORMAL_USER) {
+                            user.setRole(User.UserRole.PREMIUM_USER);
+                            log.info("✅ Upgraded user {} to PREMIUM_USER (from Return URL)", user.getEmail());
+                        }
+                    }
+
                     userRepository.save(user);
-
-                    log.info("✅ Payment SUCCESS for order {} - Updated from Return URL", order.getId());
+                    log.info("✅ Payment SUCCESS - Updated from Return URL");
                 } else {
-                    // ❌ Thanh toán thất bại
-                    order.setStatus(Order.OrderStatus.CANCELED);
+                    order.setStatus(Order.OrderStatus.FAILED);
                     transaction.setStatus(Transaction.TransactionStatus.FAILED);
-                    transaction.setMessage("Thanh toán thất bại: " + responseCode);
-
-                    log.warn("❌ Payment FAILED for order {} with code {} - Updated from Return URL",
-                            order.getId(), responseCode);
+                    transaction.setMessage("Thanh toán thất bại");
+                    log.info("❌ Payment FAILED - Updated from Return URL");
                 }
 
-                // Lưu DB
                 orderRepository.save(order);
                 transactionRepository.save(transaction);
-
             } else {
-                log.info("ℹ️ Order already processed by IPN callback: {}", order.getStatus());
+                log.info("ℹ️ Order already processed: {}", order.getStatus());
             }
 
-            // 11. Build response
+            // 8. Build response
             response.put("success", isSuccess);
             response.put("responseCode", responseCode);
             response.put("message", isSuccess ? "Thanh toán thành công" : getErrorMessage(responseCode));
             response.put("code", isSuccess ? "SUCCESS" : "PAYMENT_FAILED");
 
-            // Thông tin đơn hàng
+            // Order info
             Map<String, Object> orderInfo = new LinkedHashMap<>();
             orderInfo.put("orderId", order.getId());
             orderInfo.put("orderStatus", order.getStatus().name());
@@ -506,7 +475,7 @@ public class PaymentService {
 
             response.put("order", orderInfo);
 
-            // Thông tin giao dịch
+            // Transaction info
             Map<String, Object> txnInfo = new LinkedHashMap<>();
             txnInfo.put("txnRef", txnRef);
             txnInfo.put("transactionNo", transactionNo);
@@ -516,7 +485,7 @@ public class PaymentService {
             txnInfo.put("payDateFormatted", formatPayDate(payDate));
             txnInfo.put("amount", vnpAmount / 100);
 
-            if (transaction != null && transaction.getId() != null) {
+            if (transaction.getId() != null) {
                 txnInfo.put("transactionId", transaction.getId());
                 txnInfo.put("transactionStatus", transaction.getStatus().name());
                 txnInfo.put("provider", transaction.getProvider());
@@ -524,14 +493,14 @@ public class PaymentService {
 
             response.put("transaction", txnInfo);
 
-            // Thông tin user
+            // User info
             User user = userRepository.findById(order.getUserId()).orElse(null);
             if (user != null) {
                 Map<String, Object> userInfo = new LinkedHashMap<>();
                 userInfo.put("userId", user.getId());
                 userInfo.put("email", user.getEmail());
                 userInfo.put("fullName", user.getFullName());
-                userInfo.put("isPremium", user.getIsPremium());
+                userInfo.put("role", user.getRole().name());
                 userInfo.put("isBlocked", user.getIsBlocked());
                 response.put("user", userInfo);
             }
@@ -547,8 +516,9 @@ public class PaymentService {
             return response;
         }
     }
+
     /**
-     * Format pay date từ yyyyMMddHHmmss sang dd/MM/yyyy HH:mm:ss
+     * Format pay date
      */
     private String formatPayDate(String payDate) {
         if (payDate == null || payDate.length() != 14) {
@@ -570,31 +540,30 @@ public class PaymentService {
     }
 
     /**
-     * Map response code từ VNPay sang message tiếng Việt
+     * Map error messages
      */
     private String getErrorMessage(String responseCode) {
         Map<String, String> errorMessages = new HashMap<>();
         errorMessages.put("00", "Giao dịch thành công");
-        errorMessages.put("07", "Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường)");
-        errorMessages.put("09", "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng chưa đăng ký dịch vụ InternetBanking tại ngân hàng");
-        errorMessages.put("10", "Giao dịch không thành công do: Khách hàng xác thực thông tin thẻ/tài khoản không đúng quá 3 lần");
-        errorMessages.put("11", "Giao dịch không thành công do: Đã hết hạn chờ thanh toán. Xin quý khách vui lòng thực hiện lại giao dịch");
-        errorMessages.put("12", "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa");
-        errorMessages.put("13", "Giao dịch không thành công do Quý khách nhập sai mật khẩu xác thực giao dịch (OTP)");
-        errorMessages.put("24", "Giao dịch không thành công do: Khách hàng hủy giao dịch");
-        errorMessages.put("51", "Giao dịch không thành công do: Tài khoản của quý khách không đủ số dư để thực hiện giao dịch");
-        errorMessages.put("65", "Giao dịch không thành công do: Tài khoản của Quý khách đã vượt quá hạn mức giao dịch trong ngày");
+        errorMessages.put("07", "Trừ tiền thành công. Giao dịch bị nghi ngờ");
+        errorMessages.put("09", "Thẻ/Tài khoản chưa đăng ký InternetBanking");
+        errorMessages.put("10", "Xác thực thông tin không đúng quá 3 lần");
+        errorMessages.put("11", "Đã hết hạn chờ thanh toán");
+        errorMessages.put("12", "Thẻ/Tài khoản bị khóa");
+        errorMessages.put("13", "Nhập sai OTP");
+        errorMessages.put("24", "Khách hàng hủy giao dịch");
+        errorMessages.put("51", "Tài khoản không đủ số dư");
+        errorMessages.put("65", "Tài khoản vượt quá hạn mức giao dịch");
         errorMessages.put("75", "Ngân hàng thanh toán đang bảo trì");
-        errorMessages.put("79", "Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định");
-        errorMessages.put("99", "Các lỗi khác (Lỗi không xác định)");
+        errorMessages.put("79", "Nhập sai mật khẩu quá số lần quy định");
+        errorMessages.put("99", "Lỗi không xác định");
 
         return errorMessages.getOrDefault(responseCode, "Lỗi không xác định (Code: " + responseCode + ")");
     }
 
     /**
-     * Lấy danh sách order của user hiện tại
+     * Lấy danh sách order của user
      */
-
     public List<OrderDTO> getMyOrders() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();
@@ -603,20 +572,16 @@ public class PaymentService {
 
         List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
 
-        // ✅ Convert và thêm packName
         return orders.stream().map(order -> {
             OrderDTO dto = OrderDTO.fromEntity(order);
-
-            // Lấy thông tin pack để gán packName
             studyPackRepository.findById(order.getPackId())
                     .ifPresent(pack -> dto.setPackName(pack.getName()));
-
             return dto;
         }).collect(Collectors.toList());
     }
 
     /**
-     * Utility method để loại bỏ dấu tiếng Việt theo quy định VNPay
+     * Remove Vietnamese diacritics
      */
     private String removeVietnameseDiacritics(String text) {
         if (text == null) return "";

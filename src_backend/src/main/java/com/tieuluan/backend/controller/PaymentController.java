@@ -29,7 +29,6 @@ public class PaymentController {
      * Tạo order mới
      */
     @PostMapping("/create-order")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> createOrder(@RequestBody OrderDTO.CreateRequest request) {
         try {
             OrderDTO order = paymentService.createOrder(request.getPackId());
@@ -45,7 +44,6 @@ public class PaymentController {
      * Tạo URL thanh toán VNPay
      */
     @PostMapping("/vnpay/create")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> createVNPayPayment(
             @RequestParam Long orderId,
             @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor,
@@ -262,7 +260,6 @@ public class PaymentController {
      * Lấy danh sách order của user
      */
     @GetMapping("/my-orders")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> getMyOrders() {
         try {
             List<OrderDTO> orders = paymentService.getMyOrders();
