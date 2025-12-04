@@ -4,6 +4,7 @@ import 'package:src_app/screens/admin/study_packs/admin_study_packs_screen.dart'
 import 'package:src_app/screens/card/flashcard_screen.dart';
 import 'package:src_app/screens/home/home_screen.dart';
 import 'package:src_app/screens/payment/upgrade_premium_screen.dart';
+import '../models/class_model.dart';
 import '../screens/admin/users/admin_user_management_screen.dart';
 import '../screens/admin/policies/admin_policy_create_screen.dart';
 import '../screens/auth/register_screen.dart';
@@ -14,6 +15,9 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/forgot_otp_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/card/flashcard_creation_screen.dart';
+import '../screens/category/class_category_flashcards_screen.dart';
+import '../screens/class/add_members_screen.dart';
+import '../screens/class/class_categories_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/setting/settings_screen.dart';
 import '../screens/setting/change_password_screen.dart';
@@ -21,8 +25,12 @@ import '../screens/statistics/study_statistics_screen.dart';
 import '../screens/payment/usage_limit_screen.dart';
 import '../screens/admin/dashboard/admin_home_screen.dart';
 import '../screens/payment/invoices_screen.dart';
-import '../screens/payment/invoice_detail_screen.dart';
 import '../screens/auth/terms_privacy_screen.dart';
+
+import '../screens/class/teacher_class_management_screen.dart';
+import '../screens/class/class_detail_screen.dart';
+import '../screens/class/join_class_screen.dart';
+import '../screens/class/class_management_screen.dart';
 
 class AppRoutes {
   static const String welcome = '/welcome';
@@ -47,14 +55,20 @@ class AppRoutes {
   static const String flashcard = '/flashcard';
   static const String flashcard_creation = '/flashcard_creation';
 
+  static const String teacher_classes = '/teacher_classes';
+  static const String class_detail = '/class_detail';
+  static const String join_class = '/join_class';
+  static const String class_management = '/class_management';
+
+  static const String classCategories = '/class-categories';
+  static const String classCategoryFlashcards = '/class-category-flashcards';
+  static const String addMembers = '/add-members';
   static const String admin_home = '/admin_home';
   static const String admin_users_management = '/admin_users_management';
   static const String admin_study_packs = '/admin_study_packs';
   static const String admin_policy = '/admin_policy';
   static const String admin_policy_create = '/admin_policy_create';
 
-
-  // Map route name -> màn hình tương ứng
   static Map<String, WidgetBuilder> routes = {
     welcome: (context) => const WelcomeScreen(),
     login: (context) => const LoginScreen(),
@@ -71,12 +85,12 @@ class AppRoutes {
     usage_limit: (context) => const UsageLimitScreen(),
     upgrade_premium: (context) => const UpgradePremiumScreen(),
     invoices: (context) => const InvoicesScreen(),
-    // invoice_detail: (context) => const InvoiceDetailScreen(),
     terms_privacy: (context) => const TermsPrivacyScreen(),
-
     flashcard: (context) => FlashcardScreen(),
     flashcard_creation: (context) => const FlashcardCreationScreen(),
 
+    teacher_classes: (context) => const TeacherClassManagementScreen(),
+    class_management: (context) => const ClassManagementScreen(),
 
     admin_home: (context) => const AdminHomeScreen(),
     admin_users_management: (context) => const AdminUserManagementScreen(),
@@ -84,4 +98,50 @@ class AppRoutes {
     admin_policy: (context) => const AdminPolicyScreen(),
     admin_policy_create: (context) => const AdminPolicyCreateScreen(),
   };
+
+  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
+    switch (settings.name) {
+      case class_detail:
+        final classId = settings.arguments as int;
+        return MaterialPageRoute(
+          builder: (_) => ClassDetailScreen(classId: classId),
+        );
+
+      case join_class:
+        final prefilledCode = settings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (_) => JoinClassScreen(prefilledCode: prefilledCode),
+        );
+
+      case classCategories:
+        final classModel = settings.arguments as ClassModel;
+        return MaterialPageRoute(
+          builder: (_) => ClassCategoriesScreen(classModel: classModel),
+        );
+
+      case classCategoryFlashcards:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => ClassCategoryFlashcardsScreen(
+            category: args['category'],
+            classModel: args['classModel'],
+          ),
+        );
+
+      case addMembers:
+        final classModel = settings.arguments as ClassModel;
+        return MaterialPageRoute(
+          builder: (_) => AddMembersScreen(classModel: classModel),
+        );
+
+      default:
+        return MaterialPageRoute(
+          builder: (_) => Scaffold(
+            body: Center(child: Text('No route defined for ${settings.name}')),
+          ),
+        );
+    }
+  }
+
+
 }

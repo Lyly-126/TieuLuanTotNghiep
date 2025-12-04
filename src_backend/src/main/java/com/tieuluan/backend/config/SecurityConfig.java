@@ -73,22 +73,36 @@ public class SecurityConfig {
                         .requestMatchers("/api/flashcards/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/study-packs/admin/**").hasRole("ADMIN")
 
-                        // ========== TEACHER ONLY (Phase 3-4 sẽ thêm Class endpoints) ==========
-                        // .requestMatchers("/api/classes/create").hasAnyRole("TEACHER", "ADMIN")
-                        // .requestMatchers("/api/classes/{id}/update").hasAnyRole("TEACHER", "ADMIN")
-                        // .requestMatchers("/api/classes/{id}/delete").hasAnyRole("TEACHER", "ADMIN")
+                        // ========== ✅ TEACHER + ADMIN - CLASS MANAGEMENT ==========
+                        .requestMatchers("/api/classes/create").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/my-classes").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{id}").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{id}/update").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{id}/delete").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/search").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{id}/category-count").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/admin/**").hasRole("ADMIN")
+
+                        // ========== ✅ TEACHER + ADMIN + STUDENTS - CLASS MEMBERS ==========
+                        .requestMatchers("/api/classes/{id}/members").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
+                        .requestMatchers("/api/classes/{id}/members/add").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{id}/members/{userId}/remove").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/join").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
+                        .requestMatchers("/api/classes/{id}/leave").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
+                        .requestMatchers("/api/classes/joined").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
 
                         // ========== PREMIUM USER + TEACHER + ADMIN ==========
                         // Các tính năng premium (chưa implement)
                         // .requestMatchers("/api/statistics/advanced").hasAnyRole("PREMIUM_USER", "TEACHER", "ADMIN")
 
                         // ========== ALL AUTHENTICATED USERS ==========
-                        // ✅ SỬA: Không dùng hasRole("USER") nữa
                         .requestMatchers("/api/payment/**").authenticated()
                         .requestMatchers("/api/users/profile").authenticated()
                         .requestMatchers("/api/users/change-password").authenticated()
                         .requestMatchers("/api/users/{id}").authenticated()
                         .requestMatchers("/api/users/email/**").authenticated()
+                        .requestMatchers("/api/users/{id}/profile").authenticated()
+                        .requestMatchers("/api/users/delete").authenticated()
 
                         // Static resources
                         .requestMatchers("/audio/**").permitAll()

@@ -1,12 +1,19 @@
+// ===================================================
+// FIXED USERCONTROLLER - PROPER NULL HANDLING
+// ===================================================
+
 package com.tieuluan.backend.controller;
 
 import com.tieuluan.backend.dto.UserDTO;
+import com.tieuluan.backend.model.User;
+import com.tieuluan.backend.repository.UserRepository;
 import com.tieuluan.backend.service.UserService;
-import com.tieuluan.backend.service.OtpService;
+import com.tieuluan.backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -19,48 +26,149 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class UserController {
 
+    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
+    private final PasswordEncoder passwordEncoder;
     private final UserService userService;
-    private final OtpService otpService;
 
-    // ==================== PUBLIC ENDPOINTS ====================
-
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody UserDTO.RegisterRequest request) {
-        try {
-            UserDTO user = userService.registerUser(request);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("id", user.getId());
-            response.put("email", user.getEmail());
-
-            otpService.createAndSendOtp(user.getId(), user.getEmail());
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
+    // ===================================================
+    // ✅ FIXED: LOGIN METHOD - PROPER NULL HANDLING
+    // ===================================================
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody UserDTO.LoginRequest request) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         try {
-            UserDTO.AuthResponse response = userService.login(request);
+            // Validate input
+            if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
+                throw new RuntimeException("Email không được để trống");
+            }
+            if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+                throw new RuntimeException("Mật khẩu không được để trống");
+            }
 
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("token", response.getToken());
-            responseBody.put("user", response.getUser());
+            // Tìm user theo email
+            User user = userRepository.findByEmail(request.getEmail().trim())
+                    .orElseThrow(() -> new RuntimeException("Email không tồn tại"));
 
-            return ResponseEntity.ok(responseBody);
+            // Verify password
+            if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+                throw new RuntimeException("Mật khẩu không đúng");
+            }
+
+            // Check status
+            if (user.getStatus() == User.UserStatus.UNVERIFIED) {
+                throw new RuntimeException("Tài khoản chưa được xác thực. Vui lòng kiểm tra email");
+            }
+
+            if (user.getStatus() == User.UserStatus.SUSPENDED ||
+                    user.getStatus() == User.UserStatus.BANNED) {
+                throw new RuntimeException("Tài khoản đã bị khóa");
+            }
+
+            // ✅ Generate token với userId
+            String token = jwtUtil.generateToken(
+                    user.getEmail(),
+                    user.getRole().name(),
+                    user.getId()
+            );
+
+            // ✅ Build user info với null-safe handling
+            String fullName = user.getFullName();
+            if (fullName == null || fullName.trim().isEmpty()) {
+                fullName = user.getEmail().split("@")[0];
+            }
+
+            Map<String, Object> userInfo = new HashMap<>();
+            userInfo.put("id", user.getId());
+            userInfo.put("email", user.getEmail());
+            userInfo.put("fullName", fullName);  // ← KHÔNG BAO GIỜ NULL
+            userInfo.put("role", user.getRole().name());
+            userInfo.put("status", user.getStatus().name());
+            userInfo.put("isBlocked", user.getIsBlocked() != null ? user.getIsBlocked() : false);
+
+            // ✅ Response với token và user info
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Đăng nhập thành công");
+            response.put("token", token);
+            response.put("user", userInfo);
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "success", false,
+                            "message", e.getMessage()
+                    ));
         }
     }
+
+    // ===================================================
+    // ✅ FIXED: REGISTER METHOD
+    // ===================================================
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+        try {
+            // Validate input
+            if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
+                throw new RuntimeException("Email không được để trống");
+            }
+            if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+                throw new RuntimeException("Mật khẩu không được để trống");
+            }
+
+            // Validate email exists
+            if (userRepository.findByEmail(request.getEmail().trim()).isPresent()) {
+                throw new RuntimeException("Email đã tồn tại");
+            }
+
+            // Create new user
+            User newUser = new User();
+            newUser.setEmail(request.getEmail().trim());
+            newUser.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+
+            // Set fullName - KHÔNG BAO GIỜ ĐỂ NULL
+            String fullName = request.getFullName();
+            if (fullName == null || fullName.trim().isEmpty()) {
+                fullName = request.getEmail().split("@")[0];
+            }
+            newUser.setFullName(fullName);
+
+            newUser.setRole(User.UserRole.NORMAL_USER);
+            newUser.setStatus(User.UserStatus.UNVERIFIED); // Cần verify OTP
+            newUser.setIsBlocked(false);
+
+            // Set dob if provided
+            if (request.getDob() != null) {
+                newUser.setDob(request.getDob());
+            }
+
+            User savedUser = userRepository.save(newUser);
+
+            // ✅ Response
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản");
+            response.put("id", savedUser.getId());
+            response.put("email", savedUser.getEmail());
+            response.put("fullName", savedUser.getFullName());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "success", false,
+                            "message", e.getMessage()
+                    ));
+        }
+    }
+
 
     // ==================== USER & ADMIN ENDPOINTS ====================
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<?> getUserById(@PathVariable Long id) {
         try {
             UserDTO user = userService.getUserById(id);
@@ -115,7 +223,7 @@ public class UserController {
     }
 
     @PostMapping("/change-password")
-    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<?> changePassword(@RequestBody UserService.ChangePasswordRequest request) {
         try {
             userService.changePassword(request);
             return ResponseEntity.ok(Map.of("message", "Đổi mật khẩu thành công"));
@@ -265,26 +373,34 @@ public class UserController {
         }
     }
 
-    // ==================== INNER CLASSES ====================
 
-    public static class ChangePasswordRequest {
-        private String currentPassword;
-        private String newPassword;
+    // ===================================================
+    // DTOs
+    // ===================================================
 
-        public String getCurrentPassword() {
-            return currentPassword;
-        }
+    public static class LoginRequest {
+        private String email;
+        private String password;
 
-        public void setCurrentPassword(String currentPassword) {
-            this.currentPassword = currentPassword;
-        }
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        public String getPassword() { return password; }
+        public void setPassword(String password) { this.password = password; }
+    }
 
-        public String getNewPassword() {
-            return newPassword;
-        }
+    public static class RegisterRequest {
+        private String email;
+        private String password;
+        private String fullName;
+        private java.time.LocalDate dob;
 
-        public void setNewPassword(String newPassword) {
-            this.newPassword = newPassword;
-        }
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        public String getPassword() { return password; }
+        public void setPassword(String password) { this.password = password; }
+        public String getFullName() { return fullName; }
+        public void setFullName(String fullName) { this.fullName = fullName; }
+        public java.time.LocalDate getDob() { return dob; }
+        public void setDob(java.time.LocalDate dob) { this.dob = dob; }
     }
 }

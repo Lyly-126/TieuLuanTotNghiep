@@ -1,7 +1,6 @@
 package com.tieuluan.backend.service;
 
 import com.tieuluan.backend.model.Category;
-import com.tieuluan.backend.model.Class;
 import com.tieuluan.backend.model.User;
 import com.tieuluan.backend.repository.CategoryRepository;
 import com.tieuluan.backend.repository.ClassRepository;
@@ -13,6 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * CategoryService - ONE-TO-MANY Architecture
+ * ✅ Category has classId (nullable)
+ * ✅ 1 category → 0 or 1 class
+ * ✅ NO ClassSet!
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,14 +40,15 @@ public class CategoryService {
         category.setName(name);
         category.setIsSystem(true);
         category.setOwnerUserId(null);
-        category.setClassId(null);
+        category.setClassId(null);  // ✅ Độc lập
+        category.setVisibility("PUBLIC");
 
         log.info("✅ Created system category: {}", name);
         return categoryRepository.save(category);
     }
 
     /**
-     * ✅ USER: Tạo category cá nhân
+     * ✅ USER: Tạo category cá nhân (PRIVATE, độc lập)
      */
     @Transactional
     public Category createUserCategory(String name, Long userId) {
@@ -62,68 +68,91 @@ public class CategoryService {
         category.setName(name);
         category.setIsSystem(false);
         category.setOwnerUserId(userId);
-        category.setClassId(null);
+        category.setClassId(null);  // ✅ Độc lập
+        category.setVisibility("PRIVATE"); // Normal user: PRIVATE only
 
         log.info("✅ User {} created personal category: {}", user.getEmail(), name);
         return categoryRepository.save(category);
     }
 
     /**
-     * ✅ TEACHER: Tạo category cho lớp học
+     * ✅ TEACHER/PREMIUM: Tạo category PUBLIC (có thể share)
      */
     @Transactional
-    public Category createClassCategory(String name, Long classId, Long teacherId) {
-        // Kiểm tra teacher có quyền teacher không
-        User teacher = userRepository.findById(teacherId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy giáo viên"));
+    public Category createShareableCategory(String name, Long userId, String visibility) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        // ✅ FIXED: Check role thay vì isTeacher()
-        if (teacher.getRole() != User.UserRole.TEACHER) {
-            throw new RuntimeException("Chỉ giáo viên mới có thể tạo category cho lớp");
+        // Check role: chỉ Teacher hoặc Premium mới được tạo PUBLIC
+        if (user.getRole() != User.UserRole.TEACHER &&
+                user.getRole() != User.UserRole.PREMIUM_USER) {
+            throw new RuntimeException("Chỉ Teacher/Premium mới có thể tạo category PUBLIC");
         }
 
-        // Kiểm tra lớp có tồn tại và thuộc teacher không
-        Class clazz = classRepository.findById(classId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
-
-        if (!clazz.isOwnedBy(teacherId)) {
-            throw new RuntimeException("Bạn không phải chủ sở hữu lớp này");
-        }
-
-        // Check duplicate name trong lớp này
-        List<Category> classCategories = categoryRepository.findByClassId(classId);
-        boolean nameExists = classCategories.stream()
+        // Check duplicate name
+        List<Category> userCategories = categoryRepository.findByOwnerUserId(userId);
+        boolean nameExists = userCategories.stream()
                 .anyMatch(c -> c.getName().equalsIgnoreCase(name));
 
         if (nameExists) {
-            throw new RuntimeException("Lớp này đã có category với tên này");
+            throw new RuntimeException("Bạn đã có category với tên này");
         }
 
         Category category = new Category();
         category.setName(name);
         category.setIsSystem(false);
-        category.setOwnerUserId(teacherId);
-        category.setClassId(classId);
+        category.setOwnerUserId(userId);
+        category.setClassId(null);  // ✅ Độc lập
+        category.setVisibility(visibility); // PUBLIC, PRIVATE, etc.
 
-        log.info("✅ Teacher {} created category '{}' for class '{}'",
-                teacher.getEmail(), name, clazz.getName());
+        log.info("✅ User {} created {} category: {}",
+                user.getEmail(), visibility, name);
         return categoryRepository.save(category);
     }
 
     /**
-     * ✅ Lấy categories available cho user
-     * (System categories + User's own categories)
+     * ✅ ADD category to class (ONE-TO-MANY - set classId)
+     * Replaces old addCategoryToClass with ClassSet
      */
-    public List<Category> getAvailableCategories(Long userId) {
-        return categoryRepository.findAvailableForUser(userId);
+    @Transactional
+    public Category addCategoryToClass(Long categoryId, Long classId, Long userId) {
+        // Verify category exists
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy category"));
+
+        // Verify class exists
+        com.tieuluan.backend.model.Class clazz = classRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
+
+        // Check permission: user must be class owner
+        if (!clazz.isOwnedBy(userId)) {
+            throw new RuntimeException("Bạn không phải chủ sở hữu lớp này");
+        }
+
+        // ✅ Check if category already in another class
+        if (category.getClassId() != null && !category.getClassId().equals(classId)) {
+            throw new RuntimeException("Category đã thuộc lớp khác. 1 category chỉ được nằm trong 1 lớp.");
+        }
+
+        // Check if already in this class
+        if (category.getClassId() != null && category.getClassId().equals(classId)) {
+            throw new RuntimeException("Category đã có trong lớp này");
+        }
+
+        // ✅ Set classId (ONE-TO-MANY)
+        category.setClassId(classId);
+        Category updated = categoryRepository.save(category);
+
+        log.info("✅ Added category {} to class {} by user {}",
+                category.getName(), clazz.getName(), userId);
+        return updated;
     }
 
     /**
-     * ✅ Lấy categories của 1 lớp
-     * (System categories + Class categories)
+     * ✅ GET categories in a class (ONE-TO-MANY)
      */
     public List<Category> getCategoriesForClass(Long classId) {
-        return categoryRepository.findAvailableForClass(classId);
+        return categoryRepository.findByClassId(classId);
     }
 
     /**
@@ -134,29 +163,29 @@ public class CategoryService {
     }
 
     /**
-     * ✅ Lấy categories của user (chỉ owned, không bao gồm system)
+     * ✅ Lấy categories của user (chỉ owned)
      */
     public List<Category> getUserOwnedCategories(Long userId) {
         return categoryRepository.findByOwnerUserId(userId);
     }
 
     /**
-     * ✅ Lấy categories của teacher (bao gồm class categories)
+     * ✅ Lấy PUBLIC categories (có thể share/add to class)
      */
-    public List<Category> getTeacherCategories(Long teacherId) {
-        User teacher = userRepository.findById(teacherId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy giáo viên"));
-
-        // ✅ FIXED: Check role thay vì isTeacher()
-        if (teacher.getRole() != User.UserRole.TEACHER) {
-            throw new RuntimeException("User không phải giáo viên");
-        }
-
-        return categoryRepository.findByTeacherId(teacherId);
+    public List<Category> getPublicCategories() {
+        return categoryRepository.findPublicCategories();
     }
 
     /**
-     * ✅ Xóa category (chỉ owner hoặc admin)
+     * ✅ Lấy categories available cho user
+     * (System + Own + Public)
+     */
+    public List<Category> getAvailableCategories(Long userId) {
+        return categoryRepository.findAvailableForUser(userId);
+    }
+
+    /**
+     * ✅ Xóa category (check dependencies)
      */
     @Transactional
     public void deleteCategory(Long categoryId, Long userId, boolean isAdmin) {
@@ -173,10 +202,11 @@ public class CategoryService {
             throw new RuntimeException("Bạn không có quyền xóa category này");
         }
 
-        // Kiểm tra có flashcard nào đang dùng không
+        // Check flashcards
         long flashcardCount = categoryRepository.countFlashcardsInCategory(categoryId);
         if (flashcardCount > 0) {
-            throw new RuntimeException("Không thể xóa category có " + flashcardCount + " flashcard");
+            throw new RuntimeException(
+                    "Không thể xóa category có " + flashcardCount + " flashcard");
         }
 
         categoryRepository.delete(category);
@@ -231,11 +261,49 @@ public class CategoryService {
             return category;
         }
 
-        // User category: chỉ owner xem được
+        // PUBLIC category: ai cũng xem được
+        if (category.isPublic()) {
+            return category;
+        }
+
+        // PRIVATE: chỉ owner xem được
         if (category.isOwnedBy(userId)) {
             return category;
         }
 
         throw new RuntimeException("Bạn không có quyền xem category này");
     }
+
+    /**
+     * ✅ Remove category from class (set classId = null)
+     */
+    @Transactional
+    public void removeCategoryFromClass(Long categoryId, Long classId, Long userId, boolean isAdmin) {
+        // Verify category
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy category"));
+
+        // Verify class exists
+        com.tieuluan.backend.model.Class clazz = classRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
+
+        // Check permission
+        if (!isAdmin && !clazz.isOwnedBy(userId)) {
+            throw new RuntimeException("Bạn không có quyền xóa category khỏi lớp này");
+        }
+
+        // Check if in this class
+        if (category.getClassId() == null || !category.getClassId().equals(classId)) {
+            throw new RuntimeException("Category không có trong lớp này");
+        }
+
+        // ✅ Remove from class (set classId = null)
+        category.setClassId(null);
+        categoryRepository.save(category);
+
+        log.info("✅ Removed category {} from class {} by user {}",
+                categoryId, classId, userId);
+    }
+
+
 }

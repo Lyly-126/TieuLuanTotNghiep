@@ -17,6 +17,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * CategoryController - ONE-TO-MANY Architecture
+ * ✅ Category has classId (nullable)
+ * ✅ 1 category → 0 or 1 class
+ * ❌ NO ClassSet!
+ */
 @RestController
 @RequestMapping("/api/categories")
 @RequiredArgsConstructor
@@ -25,11 +31,11 @@ public class CategoryController {
 
     private final CategoryService categoryService;
     private final UserRepository userRepository;
+
     // ==================== PUBLIC/USER ENDPOINTS ====================
 
     /**
      * Lấy categories available cho user hiện tại
-     * (System categories + User's own categories)
      */
     @GetMapping("/my")
     @PreAuthorize("isAuthenticated()")
@@ -49,99 +55,17 @@ public class CategoryController {
     }
 
     /**
-     * Lấy tất cả system categories (public)
+     * Tạo category cá nhân (PRIVATE)
      */
-    @GetMapping("/system")
-    public ResponseEntity<List<CategoryDTO>> getSystemCategories() {
-        try {
-            List<Category> categories = categoryService.getSystemCategories();
-
-            List<CategoryDTO> dtos = categories.stream()
-                    .map(CategoryDTO::fromEntitySimple)
-                    .collect(Collectors.toList());
-
-            return ResponseEntity.ok(dtos);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    /**
-     * USER: Tạo category cá nhân
-     */
-    @PostMapping("/create")
+    @PostMapping("/user")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> createUserCategory(@RequestBody CategoryDTO.CreateUserRequest request) {
         try {
             Long userId = getCurrentUserId();
-            Category category = categoryService.createUserCategory(request.getName(), userId);
 
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(CategoryDTO.fromEntitySimple(category));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    /**
-     * Xóa category (chỉ owner hoặc admin)
-     */
-    @DeleteMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> deleteCategory(@PathVariable Long id) {
-        try {
-            Long userId = getCurrentUserId();
-            boolean isAdmin = isCurrentUserAdmin();
-
-            categoryService.deleteCategory(id, userId, isAdmin);
-            return ResponseEntity.ok(Map.of("message", "Đã xóa category"));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    /**
-     * Cập nhật category (chỉ owner hoặc admin)
-     */
-    @PutMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> updateCategory(
-            @PathVariable Long id,
-            @RequestBody CategoryDTO.UpdateRequest request) {
-        try {
-            Long userId = getCurrentUserId();
-            boolean isAdmin = isCurrentUserAdmin();
-
-            Category category = categoryService.updateCategory(id, request.getName(), userId, isAdmin);
-            return ResponseEntity.ok(CategoryDTO.fromEntitySimple(category));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    // ==================== TEACHER ENDPOINTS ====================
-
-    /**
-     * TEACHER: Tạo category cho lớp học
-     */
-    @PostMapping("/class")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<?> createClassCategory(@RequestBody CategoryDTO.CreateClassRequest request) {
-        try {
-            Long teacherId = getCurrentUserId();
-
-            if (request.getClassId() == null) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Class ID là bắt buộc"));
-            }
-
-            Category category = categoryService.createClassCategory(
+            Category category = categoryService.createUserCategory(
                     request.getName(),
-                    request.getClassId(),
-                    teacherId
+                    userId
             );
 
             return ResponseEntity.status(HttpStatus.CREATED)
@@ -153,13 +77,42 @@ public class CategoryController {
     }
 
     /**
-     * Lấy categories của lớp học
+     * ✅ Tạo category shareable (Teacher/Premium only)
      */
-    @GetMapping("/class/{classId}")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<List<CategoryDTO>> getCategoriesForClass(@PathVariable Long classId) {
+    @PostMapping("/shared")
+    @PreAuthorize("hasAnyRole('TEACHER', 'PREMIUM_USER', 'ADMIN')")
+    public ResponseEntity<?> createShareableCategory(@RequestBody CategoryDTO.CreateUserRequest request) {
         try {
-            List<Category> categories = categoryService.getCategoriesForClass(classId);
+            Long userId = getCurrentUserId();
+
+            // Validate visibility
+            String visibility = request.getVisibility();
+            if (visibility == null) {
+                visibility = "PUBLIC"; // Default for Teacher/Premium
+            }
+
+            Category category = categoryService.createShareableCategory(
+                    request.getName(),
+                    userId,
+                    visibility
+            );
+
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(CategoryDTO.fromEntitySimple(category));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ Get PUBLIC categories (shareable)
+     */
+    @GetMapping("/public")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CategoryDTO>> getPublicCategories() {
+        try {
+            List<Category> categories = categoryService.getPublicCategories();
 
             List<CategoryDTO> dtos = categories.stream()
                     .map(CategoryDTO::fromEntitySimple)
@@ -172,14 +125,133 @@ public class CategoryController {
     }
 
     /**
-     * Lấy tất cả categories của teacher (owned + class categories)
+     * Lấy category by ID
      */
-    @GetMapping("/teacher")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<List<CategoryDTO>> getTeacherCategories() {
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getCategoryById(@PathVariable Long id) {
         try {
-            Long teacherId = getCurrentUserId();
-            List<Category> categories = categoryService.getTeacherCategories(teacherId);
+            Long userId = getCurrentUserId();
+            boolean isAdmin = isCurrentUserAdmin();
+
+            Category category = categoryService.getCategoryById(id, userId, isAdmin);
+            return ResponseEntity.ok(CategoryDTO.fromEntity(category));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Cập nhật category
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> updateCategory(
+            @PathVariable Long id,
+            @RequestBody CategoryDTO.UpdateRequest request) {
+        try {
+            Long userId = getCurrentUserId();
+            boolean isAdmin = isCurrentUserAdmin();
+
+            Category updated = categoryService.updateCategory(
+                    id,
+                    request.getName(),
+                    userId,
+                    isAdmin
+            );
+
+            return ResponseEntity.ok(CategoryDTO.fromEntitySimple(updated));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Xóa category
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> deleteCategory(@PathVariable Long id) {
+        try {
+            Long userId = getCurrentUserId();
+            boolean isAdmin = isCurrentUserAdmin();
+
+            categoryService.deleteCategory(id, userId, isAdmin);
+            return ResponseEntity.ok(Map.of("message", "Đã xóa category thành công"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // ==================== TEACHER ENDPOINTS ====================
+
+    /**
+     * ✅ ONE-TO-MANY: Add category to class (set classId)
+     * Replaces old addCategoryToClass with ClassSet
+     */
+    @PostMapping("/class/{classId}/add")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    public ResponseEntity<?> addCategoryToClass(
+            @PathVariable Long classId,
+            @RequestBody CategoryDTO.AddToClassRequest request) {
+        try {
+            Long userId = getCurrentUserId();
+
+            if (request.getCategoryId() == null) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Category ID là bắt buộc"));
+            }
+
+            // ✅ Returns Category (not ClassSet)
+            Category category = categoryService.addCategoryToClass(
+                    request.getCategoryId(),
+                    classId,
+                    userId
+            );
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Đã thêm category vào lớp",
+                    "categoryId", category.getId(),
+                    "classId", category.getClassId()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ Remove category from class (set classId = null)
+     */
+    @DeleteMapping("/class/{classId}/remove/{categoryId}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    public ResponseEntity<?> removeCategoryFromClass(
+            @PathVariable Long classId,
+            @PathVariable Long categoryId) {
+        try {
+            Long userId = getCurrentUserId();
+            boolean isAdmin = isCurrentUserAdmin();
+
+            categoryService.removeCategoryFromClass(categoryId, classId, userId, isAdmin);
+
+            return ResponseEntity.ok(Map.of("message", "Đã xóa category khỏi lớp"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ Get categories in a class (ONE-TO-MANY)
+     */
+    @GetMapping("/class/{classId}")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'NORMAL_USER')")
+    public ResponseEntity<?> getCategoriesForClass(@PathVariable Long classId) {
+        try {
+            List<Category> categories = categoryService.getCategoriesForClass(classId);
 
             List<CategoryDTO> dtos = categories.stream()
                     .map(CategoryDTO::fromEntitySimple)
@@ -188,7 +260,27 @@ public class CategoryController {
             return ResponseEntity.ok(dtos);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
-                    .body(List.of((CategoryDTO) Map.of("message", e.getMessage())));
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * TEACHER: Lấy danh sách categories của teacher
+     */
+    @GetMapping("/teacher")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    public ResponseEntity<List<CategoryDTO>> getTeacherCategories() {
+        try {
+            Long teacherId = getCurrentUserId();
+            List<Category> categories = categoryService.getUserOwnedCategories(teacherId);
+
+            List<CategoryDTO> dtos = categories.stream()
+                    .map(CategoryDTO::fromEntitySimple)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(dtos);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
         }
     }
 
@@ -210,11 +302,31 @@ public class CategoryController {
         }
     }
 
+    /**
+     * ADMIN: Lấy tất cả system categories
+     */
+    @GetMapping("/admin/system")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<CategoryDTO>> getSystemCategories() {
+        try {
+            List<Category> categories = categoryService.getSystemCategories();
+
+            List<CategoryDTO> dtos = categories.stream()
+                    .map(CategoryDTO::fromEntitySimple)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(dtos);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // ==================== HELPER METHODS ====================
+
     private Long getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();
 
-        // Query user từ DB
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 

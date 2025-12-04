@@ -1,37 +1,57 @@
+// lib/models/category_model.dart
+
 class CategoryModel {
   final int id;
   final String name;
-  final bool isSystem;
-  final int? ownerUserId;
-  final String? ownerEmail;
-  final int? classId;
-  final String? className;
-  final String createdAt;
+  final String? description;
   final int? flashcardCount;
+  final int? classId;
+  final String? className;        // ← THÊM
+  final bool isSystem;            // ← THÊM
+  final bool isUserCategory;      // ← THÊM
+  final bool isClassCategory;     // ← THÊM
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   CategoryModel({
     required this.id,
     required this.name,
-    required this.isSystem,
-    this.ownerUserId,
-    this.ownerEmail,
+    this.description,
+    this.flashcardCount,
     this.classId,
     this.className,
-    required this.createdAt,
-    this.flashcardCount,
+    this.isSystem = false,
+    this.isUserCategory = false,
+    this.isClassCategory = false,
+    this.createdAt,
+    this.updatedAt,
   });
+
+  /// ✅ Type display name helper
+  String get typeDisplayName {
+    if (isSystem) return '🌐 Hệ thống';
+    if (isClassCategory) return '🏫 Lớp học';
+    if (isUserCategory) return '👤 Cá nhân';
+    return 'Category';
+  }
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     return CategoryModel(
-      id: json['id'],
-      name: json['name'] ?? '',
-      isSystem: json['isSystem'] ?? false,
-      ownerUserId: json['ownerUserId'],
-      ownerEmail: json['ownerEmail'],
-      classId: json['classId'],
-      className: json['className'],
-      createdAt: json['createdAt'] ?? '',
-      flashcardCount: json['flashcardCount'],
+      id: json['id'] as int,
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      flashcardCount: json['flashcard_count'] as int?,
+      classId: json['class_id'] as int?,
+      className: json['class_name'] as String?,
+      isSystem: json['is_system'] as bool? ?? false,
+      isUserCategory: json['is_user_category'] as bool? ?? false,
+      isClassCategory: json['is_class_category'] as bool? ?? false,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : null,
     );
   }
 
@@ -39,28 +59,44 @@ class CategoryModel {
     return {
       'id': id,
       'name': name,
-      'isSystem': isSystem,
-      'ownerUserId': ownerUserId,
-      'ownerEmail': ownerEmail,
-      'classId': classId,
-      'className': className,
-      'createdAt': createdAt,
-      'flashcardCount': flashcardCount,
+      'description': description,
+      'flashcard_count': flashcardCount,
+      'class_id': classId,
+      'class_name': className,
+      'is_system': isSystem,
+      'is_user_category': isUserCategory,
+      'is_class_category': isClassCategory,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
-  // Helper methods
-  String get typeDisplayName {
-    if (isSystem) return '🌐 Hệ thống';
-    if (classId != null) return '🏫 Lớp học';
-    return '👤 Cá nhân';
-  }
-
-  bool get isClassCategory => classId != null;
-  bool get isUserCategory => !isSystem && classId == null;
-
-  @override
-  String toString() {
-    return 'CategoryModel(id: $id, name: $name, type: $typeDisplayName)';
+  /// Copy with method for easy updates
+  CategoryModel copyWith({
+    int? id,
+    String? name,
+    String? description,
+    int? flashcardCount,
+    int? classId,
+    String? className,
+    bool? isSystem,
+    bool? isUserCategory,
+    bool? isClassCategory,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return CategoryModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      flashcardCount: flashcardCount ?? this.flashcardCount,
+      classId: classId ?? this.classId,
+      className: className ?? this.className,
+      isSystem: isSystem ?? this.isSystem,
+      isUserCategory: isUserCategory ?? this.isUserCategory,
+      isClassCategory: isClassCategory ?? this.isClassCategory,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
   }
 }

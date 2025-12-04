@@ -26,6 +26,15 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
+    // ✅ FIX: Thêm userId vào token generation
+    public String generateToken(String email, String role, Long userId) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+        claims.put("userId", userId); // ← THÊM DÒNG NÀY
+        return createToken(claims, email);
+    }
+
+    // ✅ KEEP: Backward compatibility - old method without userId
     public String generateToken(String email, String role) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", role);
@@ -51,6 +60,25 @@ public class JwtUtil {
 
     public String extractRole(String token) {
         return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    // ✅ NEW: Extract userId from token
+    public Long getUserIdFromToken(String token) {
+        Claims claims = extractAllClaims(token);
+        Object userIdObj = claims.get("userId");
+
+        if (userIdObj == null) {
+            throw new RuntimeException("User ID not found in token");
+        }
+
+        // Handle both Integer and Long
+        if (userIdObj instanceof Integer) {
+            return ((Integer) userIdObj).longValue();
+        } else if (userIdObj instanceof Long) {
+            return (Long) userIdObj;
+        } else {
+            throw new RuntimeException("Invalid user ID type in token");
+        }
     }
 
     public Date extractExpiration(String token) {

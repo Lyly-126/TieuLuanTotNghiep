@@ -232,12 +232,12 @@ class _FlashcardScreenState extends State<FlashcardScreen>
       setState(() => _isSpeaking = true);
 
       if (kDebugMode) {
-        print('🔊 Playing: ${card.term}');
+        print('🔊 Playing: ${card.question}');
       }
 
       // Phát âm bình thường
       await _ttsService.speak(
-        card.term,
+        card.question,
         languageCode: 'en-US',
       );
 
@@ -287,12 +287,12 @@ class _FlashcardScreenState extends State<FlashcardScreen>
   }
 
   void _handleKnown() {
-    if (kDebugMode) print('✅ Đã biết - Card: ${_currentCard?.term}');
+    if (kDebugMode) print('✅ Đã biết - Card: ${_currentCard?.question}');
     _nextCard();
   }
 
   void _handleContinue() {
-    if (kDebugMode) print('📝 Tiếp tục - Card: ${_currentCard?.term}');
+    if (kDebugMode) print('📝 Tiếp tục - Card: ${_currentCard?.question}');
     _nextCard();
   }
 
@@ -385,7 +385,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
 
   /// ✅ MẶT TRƯỚC: Toàn bộ tiếng Anh
   Widget _buildFrontCardContent(FlashcardModel card) {
-    final meaningData = _parseMeaning(card.meaning);
+    final meaningData = _parseMeaning(card.answer);
 
     return Container(
       alignment: Alignment.center,
@@ -403,7 +403,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
 
             // Từ vựng chính (Tiếng Anh)
             Text(
-              card.term,
+              card.question,
               style: AppTextStyles.title.copyWith(
                 fontSize: 36,
                 fontWeight: FontWeight.w900,
@@ -502,7 +502,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
 
   /// ✅ MẶT SAU: Nghĩa tiếng Việt (giống style mặt trước)
   Widget _buildBackCardContent(FlashcardModel card) {
-    final meaningData = _parseMeaning(card.meaning);
+    final meaningData = _parseMeaning(card.answer);
     final partOfSpeechVi = _translatePartOfSpeech(card.partOfSpeech);
 
     return Container(

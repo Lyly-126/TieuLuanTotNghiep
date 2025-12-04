@@ -15,12 +15,11 @@ public class ClassDTO {
     private String name;
     private String description;
     private Long ownerId;
-    private String ownerEmail;          // Email của teacher owner
-    private String ownerName;           // Tên teacher
+    private String ownerEmail;          // ✅ CHỈ EMAIL
     private ZonedDateTime createdAt;
     private ZonedDateTime updatedAt;
-    private Long categoryCount;         // Số categories trong lớp
-    private Long studentCount;          // Số học sinh (TODO: khi có ClassMember)
+    private Long categoryCount;
+    private Long studentCount;
 
     /**
      * Convert từ Entity sang DTO
@@ -34,13 +33,12 @@ public class ClassDTO {
         dto.setCreatedAt(clazz.getCreatedAt());
         dto.setUpdatedAt(clazz.getUpdatedAt());
 
-        // Lấy thông tin owner (nếu có)
+        // ✅ CHỈ LẤY EMAIL
         if (clazz.getOwner() != null) {
             dto.setOwnerEmail(clazz.getOwner().getEmail());
-            dto.setOwnerName(clazz.getOwner().getFullName());
         }
 
-        // Đếm số categories
+        // ✅ Đếm số categories (ONE-TO-MANY)
         if (clazz.getCategories() != null) {
             dto.setCategoryCount((long) clazz.getCategories().size());
         }
@@ -49,7 +47,7 @@ public class ClassDTO {
     }
 
     /**
-     * Convert từ Entity sang DTO (simple - không load relationships)
+     * Convert từ Entity sang DTO (simple)
      */
     public static ClassDTO fromEntitySimple(Class clazz) {
         ClassDTO dto = new ClassDTO();

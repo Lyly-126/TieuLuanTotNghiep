@@ -1,7 +1,6 @@
 package com.tieuluan.backend.service;
 
 import com.tieuluan.backend.util.JwtUtil;
-import com.tieuluan.backend.controller.UserController;
 import com.tieuluan.backend.dto.UserDTO;
 import com.tieuluan.backend.model.User;
 import com.tieuluan.backend.model.Order;
@@ -43,13 +42,13 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setDob(request.getDob());
         user.setStatus(User.UserStatus.UNVERIFIED);
-        // ✅ SỬA: USER → NORMAL_USER
         user.setRole(User.UserRole.NORMAL_USER);
 
         User savedUser = userRepository.save(user);
         return UserDTO.fromEntity(savedUser);
     }
 
+    // ✅ FIX: Update login với userId trong token
     public UserDTO.AuthResponse login(UserDTO.LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Email hoặc mật khẩu không đúng"));
@@ -58,8 +57,12 @@ public class UserService {
             throw new RuntimeException("Email hoặc mật khẩu không đúng");
         }
 
-        // ✅ Token sẽ tự động có role đúng sau khi sửa enum
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        // ✅ FIX: Generate token WITH userId
+        String token = jwtUtil.generateToken(
+                user.getEmail(),
+                user.getRole().name(),
+                user.getId()
+        );
 
         UserDTO userDTO = UserDTO.fromEntity(user);
         return new UserDTO.AuthResponse(token, userDTO);
@@ -183,8 +186,9 @@ public class UserService {
         return UserDTO.fromEntity(updatedUser);
     }
 
+    // ✅ FIX: Thêm ChangePasswordRequest DTO vào đây
     @Transactional
-    public void changePassword(UserController.ChangePasswordRequest request) {
+    public void changePassword(ChangePasswordRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUserEmail = authentication.getName();
 
@@ -262,10 +266,6 @@ public class UserService {
         return UserDTO.fromEntity(updatedUser);
     }
 
-    /**
-     * ✅ PHASE 2: Admin cấp gói Premium cho user
-     * Yêu cầu body: { "packId": 1 }
-     */
     @Transactional
     public UserDTO grantPremium(Long userId, Long packId) {
         User user = userRepository.findById(userId)
@@ -274,17 +274,15 @@ public class UserService {
         StudyPack pack = studyPackRepository.findById(packId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy gói"));
 
-        // Tạo order PAID trực tiếp (admin cấp miễn phí)
         Order order = new Order();
         order.setUserId(userId);
         order.setPackId(packId);
-        order.setPriceAtPurchase(BigDecimal.ZERO); // Admin cấp miễn phí
+        order.setPriceAtPurchase(BigDecimal.ZERO);
         order.setStatus(Order.OrderStatus.PAID);
         order.setStartedAt(ZonedDateTime.now());
         order.setExpiresAt(ZonedDateTime.now().plusDays(pack.getDurationDays()));
         orderRepository.save(order);
 
-        // ✅ Upgrade role dựa vào loại gói
         if (pack.getTargetRole() == StudyPack.TargetRole.TEACHER) {
             user.setRole(User.UserRole.TEACHER);
         } else {
@@ -297,28 +295,52 @@ public class UserService {
         return UserDTO.fromEntity(updatedUser);
     }
 
-    /**
-     * ✅ PHASE 2: Admin thu hồi quyền Premium
-     */
     @Transactional
     public UserDTO revokePremium(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        // Hủy tất cả order đang active
         List<Order> activeOrders = orderRepository.findByUserIdAndStatus(id, Order.OrderStatus.PAID);
         for (Order order : activeOrders) {
             order.setStatus(Order.OrderStatus.CANCELED);
-            order.setExpiresAt(ZonedDateTime.now()); // Hết hạn ngay
+            order.setExpiresAt(ZonedDateTime.now());
             orderRepository.save(order);
         }
 
-        // ✅ Downgrade về NORMAL_USER
         if (user.getRole() == User.UserRole.PREMIUM_USER || user.getRole() == User.UserRole.TEACHER) {
             user.setRole(User.UserRole.NORMAL_USER);
         }
 
         User updatedUser = userRepository.save(user);
         return UserDTO.fromEntity(updatedUser);
+    }
+
+    // ✅ NEW: DTO for Change Password Request
+    public static class ChangePasswordRequest {
+        private String currentPassword;
+        private String newPassword;
+
+        public ChangePasswordRequest() {}
+
+        public ChangePasswordRequest(String currentPassword, String newPassword) {
+            this.currentPassword = currentPassword;
+            this.newPassword = newPassword;
+        }
+
+        public String getCurrentPassword() {
+            return currentPassword;
+        }
+
+        public void setCurrentPassword(String currentPassword) {
+            this.currentPassword = currentPassword;
+        }
+
+        public String getNewPassword() {
+            return newPassword;
+        }
+
+        public void setNewPassword(String newPassword) {
+            this.newPassword = newPassword;
+        }
     }
 }

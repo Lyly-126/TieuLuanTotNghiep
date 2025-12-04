@@ -1,107 +1,120 @@
 package com.tieuluan.backend.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.ZonedDateTime;
 import java.util.List;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+/**
+ * Category entity - ONE-TO-MANY with Class
+ * ✅ classId can be NULL (independent categories)
+ * ✅ 1 category → 0 or 1 class
+ * ✅ Teacher/Premium can create PUBLIC categories
+ */
 @Entity
 @Table(name = "categories")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Category {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(nullable = false, length = 100)
     private String name;
 
-    // ✅ NEW: Ownership fields
     @Column(nullable = false)
-    private Boolean isSystem = false;      // System category (public)
+    private Boolean isSystem = false;
 
     @Column(name = "ownerUserId")
-    private Long ownerUserId;              // User category owner
+    private Long ownerUserId;
 
-    @Column(name = "classId")
-    private Long classId;                  // Class category
+    @Column(name = "\"classId\"")  // DOUBLE QUOTES
+    private Long classId;
 
-    @Column(nullable = false)
+    @Column(length = 30, nullable = false)
+    private String visibility = "PRIVATE";
+
+    @Column(length = 255)
+    private String sharePassword;
+
+    @Column(length = 32, unique = true)
+    private String shareToken;
+
+    @Column(nullable = false, updatable = false)
     private ZonedDateTime createdAt = ZonedDateTime.now();
 
-    private ZonedDateTime deletedAt;       // Soft delete
+    private ZonedDateTime deletedAt;
 
-    // ✅ Relations
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "\"classId\"", insertable = false, updatable = false)
+    private Class classEntity;
+    // ============ Relations ============
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ownerUserId", insertable = false, updatable = false)
     private User owner;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classId", insertable = false, updatable = false)
-    private Class clazz;
-
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Flashcard> flashcards;
 
-    // ✅ Constructors
-    public Category(String name) {
-        this.name = name;
-        this.isSystem = false;
-        this.createdAt = ZonedDateTime.now();
-    }
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserSavedCategory> savedByUsers;
 
-    public Category(String name, Boolean isSystem) {
-        this.name = name;
-        this.isSystem = isSystem;
-        this.createdAt = ZonedDateTime.now();
-    }
-
-    public Category(String name, Long ownerUserId) {
-        this.name = name;
-        this.isSystem = false;
-        this.ownerUserId = ownerUserId;
-        this.createdAt = ZonedDateTime.now();
-    }
+    // ============ Lifecycle Callbacks ============
 
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = ZonedDateTime.now();
         }
-        if (isSystem == null) {
-            isSystem = false;
-        }
     }
 
-    // ✅ Helper methods
-    public Boolean getIsSystem() {
-        return isSystem != null ? isSystem : false;
+    // ============ Helper Methods ============
+
+    public boolean isSystemCategory() {
+        return isSystem != null && isSystem;
+    }
+
+    public boolean isPublic() {
+        return "PUBLIC".equals(visibility);
+    }
+
+    public boolean isPrivate() {
+        return "PRIVATE".equals(visibility);
     }
 
     public boolean isOwnedBy(Long userId) {
         return ownerUserId != null && ownerUserId.equals(userId);
     }
 
-    public boolean isSystemCategory() {
-        return Boolean.TRUE.equals(isSystem);
-    }
-
-    public boolean isUserCategory() {
-        return !isSystemCategory() && classId == null;
-    }
-
-    public boolean isClassCategory() {
+    public boolean isInClass() {
         return classId != null;
     }
 
+    public boolean isIndependent() {
+        return classId == null;
+    }
+
+    /**
+     * Check if this category can be shared (PUBLIC)
+     */
+    public boolean canBeShared() {
+        return isPublic() && (isSystem || ownerUserId != null);
+    }
+
+    /**
+     * Get category type for display
+     */
     public String getCategoryType() {
-        if (isSystemCategory()) return "SYSTEM";
-        if (isClassCategory()) return "CLASS";
-        return "USER";
+        if (isSystem) return "SYSTEM";
+        if (isPublic()) return "PUBLIC";
+        return "PRIVATE";
     }
 
     @Override
@@ -109,9 +122,9 @@ public class Category {
         return "Category{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
-                ", type=" + getCategoryType() +
-                ", ownerUserId=" + ownerUserId +
+                ", isSystem=" + isSystem +
                 ", classId=" + classId +
+                ", visibility='" + visibility + '\'' +
                 '}';
     }
 }

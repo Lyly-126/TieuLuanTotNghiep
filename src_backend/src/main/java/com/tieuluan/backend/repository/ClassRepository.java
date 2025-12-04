@@ -21,4 +21,10 @@ public interface ClassRepository extends JpaRepository<Class, Long> {
 
     // Lấy lớp với owner info (eager fetch)
     Optional<Class> findByIdAndOwnerId(Long id, Long ownerId);
+
+    // Tìm lớp theo invite code
+    Optional<Class> findByInviteCode(String inviteCode);
+
+    // Kiểm tra invite code đã tồn tại chưa
+    boolean existsByInviteCode(String inviteCode);
 }

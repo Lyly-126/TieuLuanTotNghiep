@@ -6,6 +6,69 @@ import '../models/user_model.dart';
 class UserService {
   static const String baseUrl = 'http://localhost:8080/api/users';
 
+  /// ✅ Lấy thông tin user hiện tại từ SharedPreferences
+  /// Đọc từ các field riêng lẻ: user_id, user_email, user_role...
+  static Future<UserModel?> getCurrentUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Đọc từng field riêng lẻ (theo cách login_screen.dart đang lưu)
+      final userId = prefs.getInt('user_id');
+      final userEmail = prefs.getString('user_email');
+      final userRole = prefs.getString('user_role');
+      final userStatus = prefs.getString('user_status');
+      final userFullName = prefs.getString('user_fullname');
+
+      print('📦 Reading from SharedPreferences:');
+      print('   user_id: $userId');
+      print('   user_email: $userEmail');
+      print('   user_role: $userRole');
+      print('   user_status: $userStatus');
+      print('   user_fullname: $userFullName');
+
+      // Nếu không có user_id hoặc email thì chưa login
+      if (userId == null || userEmail == null) {
+        print('⚠️ Chưa có thông tin user trong SharedPreferences');
+        return null;
+      }
+
+      // Tạo UserModel từ các field riêng lẻ
+      final userMap = {
+        'id': userId,
+        'email': userEmail,
+        'role': userRole ?? 'NORMAL_USER',
+        'status': userStatus ?? 'VERIFIED',
+        'fullName': userFullName ?? userEmail.split('@')[0],
+        'isBlocked': false,
+      };
+
+      print('✅ Constructed user data: $userMap');
+
+      return UserModel.fromJson(userMap);
+    } catch (e) {
+      print('❌ Error in getCurrentUser: $e');
+      return null;
+    }
+  }
+
+  /// ✅ Logout - xóa tất cả thông tin user
+  static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('user_id');
+    await prefs.remove('user_email');
+    await prefs.remove('user_role');
+    await prefs.remove('user_status');
+    await prefs.remove('user_fullname');
+    print('✅ Đã logout và xóa tất cả thông tin user');
+  }
+
+  /// ✅ Kiểm tra đã login chưa
+  static Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey('auth_token') && prefs.containsKey('user_id');
+  }
+
   /// Lấy token từ SharedPreferences
   Future<String> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -20,10 +83,8 @@ class UserService {
     try {
       final token = await _getToken();
 
-      // ✅ SỬA ENDPOINT: Thêm /admin/all
       final uri = Uri.parse('$baseUrl/admin/all');
 
-      // ✅ THÊM AUTHORIZATION HEADER
       final response = await http.get(
         uri,
         headers: {

@@ -49,10 +49,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtUtil.validateToken(jwt, email)) {
                 SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
 
+                // ✅ FIX: LƯU TOKEN VÀO CREDENTIALS
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
                                 email,
-                                null,
+                                jwt,  // ← THAY ĐỔI TỪ null THÀNH jwt
                                 Collections.singletonList(authority)
                         );
 

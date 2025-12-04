@@ -64,10 +64,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // ✅ ENDPOINT ĐÚNG
-    // Localhost: http://localhost:8080/api/users/login
-    // Android Emulator: http://10.0.2.2:8080/api/users/login
-    // Thiết bị thật: http://YOUR_IP:8080/api/users/login
     final uri = Uri.parse('http://localhost:8080/api/users/login');
     late http.Response response;
 
@@ -80,6 +76,9 @@ class _LoginScreenState extends State<LoginScreen> {
           'password': password,
         }),
       );
+
+      print('📡 Login Response Status: ${response.statusCode}');
+      print('📦 Login Response Body: ${response.body}');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -99,31 +98,74 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         // Parse response JSON
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final String token = data['token'];
-        final Map<String, dynamic> user = data['user'];
+
+        // ✅ NULL-SAFE: Kiểm tra structure của response
+        if (data == null) {
+          throw Exception('Response data is null');
+        }
+
+        print('📦 Parsed data: $data');
+
+        // ✅ NULL-SAFE: Kiểm tra token
+        final String? token = data['token'] as String?;
+        if (token == null || token.isEmpty) {
+          throw Exception('Token không hợp lệ hoặc không tồn tại');
+        }
+
+        print('✅ Token: $token');
+
+        // ✅ NULL-SAFE: Kiểm tra user object
+        final Map<String, dynamic>? user = data['user'] as Map<String, dynamic>?;
+        if (user == null) {
+          throw Exception('Thông tin người dùng không hợp lệ');
+        }
+
+        print('✅ User data: $user');
 
         final prefs = await SharedPreferences.getInstance();
 
         // Lưu token
         await prefs.setString('auth_token', token);
 
-        // Lưu thông tin user
-        await prefs.setInt('user_id', user['id']);
-        await prefs.setString('user_email', user['email']);
-        await prefs.setString('user_role', user['role']);
-        await prefs.setString('user_status', user['status']);
+        // ✅ NULL-SAFE: Lưu thông tin user với kiểm tra null từng trường
+        final int? userIdRaw = user['id'] as int?;
+        final int userId = userIdRaw ?? 0;
+
+        final String? userEmail = user['email'] as String?;
+        final String? userRole = user['role'] as String?;
+        final String? userStatus = user['status'] as String?;
+        final String? userFullName = user['fullName'] as String?;
+
+        print('✅ userId: $userId');
+        print('✅ userEmail: $userEmail');
+        print('✅ userRole: $userRole');
+        print('✅ userStatus: $userStatus');
+        print('✅ userFullName: $userFullName');
+
+        // ✅ VALIDATE dữ liệu bắt buộc
+        if (userId == 0) {
+          throw Exception('User ID không hợp lệ');
+        }
+        if (userEmail == null || userEmail.isEmpty) {
+          throw Exception('Email không hợp lệ');
+        }
+
+        await prefs.setInt('user_id', userId);
+        await prefs.setString('user_email', userEmail);
+        await prefs.setString('user_role', userRole ?? 'NORMAL_USER');
+        await prefs.setString('user_status', userStatus ?? 'VERIFIED');
 
         // Lưu fullName, nếu không có thì dùng email
         await prefs.setString('user_fullname',
-            user['fullName'] ?? user['email'].split('@')[0]
+            userFullName ?? userEmail.split('@')[0]
         );
-
-        // ✅ PHÂN LUỒNG USER/ADMIN DỰA TRÊN ROLE
-        final String userRole = user['role'];
 
         if (!mounted) return;
 
-        if (userRole == 'ADMIN') {
+        // ✅ PHÂN LUỒNG USER/ADMIN DỰA TRÊN ROLE
+        final String finalUserRole = userRole ?? 'NORMAL_USER';
+
+        if (finalUserRole == 'ADMIN') {
           // ✅ ADMIN → Chuyển đến Admin Dashboard
           Navigator.pushReplacementNamed(context, '/admin_home');
           ScaffoldMessenger.of(context).showSnackBar(
@@ -143,12 +185,18 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
 
-      } catch (e) {
-        // Xử lý lỗi
+      } catch (e, stackTrace) {
+        // Xử lý lỗi với stack trace để debug
+        print('❌ Login Error: $e');
+        print('❌ Stack trace: $stackTrace');
+
+        if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi xử lý dữ liệu: $e'),
+            content: Text('Lỗi xử lý dữ liệu: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }

@@ -364,7 +364,7 @@ class _FlashcardCreationScreenState extends State<FlashcardCreationScreen>
 
           // Term
           Text(
-            card.term,
+            card.question,
             style: AppTextStyles.heading2.copyWith(color: AppColors.primary),
           ),
           if (card.phonetic != null && card.phonetic!.isNotEmpty) ...[
@@ -400,7 +400,7 @@ class _FlashcardCreationScreenState extends State<FlashcardCreationScreen>
 
           // Meaning
           Text(
-            card.meaning,
+            card.answer,
             style: AppTextStyles.body,
           ),
         ],

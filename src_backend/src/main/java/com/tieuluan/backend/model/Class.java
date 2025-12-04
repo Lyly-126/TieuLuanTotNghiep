@@ -7,9 +7,12 @@ import lombok.NoArgsConstructor;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Random;
 
 /**
- * Model cho lớp học - Teacher quản lý
+ * Class entity - ONE-TO-MANY with Categories
+ * ✅ 1 class → many categories
+ * ✅ Keep inviteCode for student invitations
  */
 @Entity
 @Table(name = "classes")
@@ -29,7 +32,13 @@ public class Class {
     private String description;
 
     @Column(name = "ownerId", nullable = false)
-    private Long ownerId;  // Teacher ID
+    private Long ownerId;
+
+    @Column(name = "inviteCode", unique = true, length = 10)
+    private String inviteCode;  // ✅ KEPT for inviting students
+
+    @Column(name = "\"isPublic\"", nullable = false)  // ✅ WITH QUOTES
+    private Boolean isPublic = false;
 
     @Column(name = "createdAt", nullable = false, updatable = false)
     private ZonedDateTime createdAt = ZonedDateTime.now();
@@ -37,15 +46,21 @@ public class Class {
     @Column(name = "updatedAt", nullable = false)
     private ZonedDateTime updatedAt = ZonedDateTime.now();
 
-    // ✅ Relations
+    // ============ Relations ============
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ownerId", insertable = false, updatable = false)
     private User owner;
 
-    @OneToMany(mappedBy = "clazz")
+    // ✅ ONE-TO-MANY: 1 class → many categories
+    @OneToMany(mappedBy = "classEntity", cascade = CascadeType.ALL, orphanRemoval = false)
     private List<Category> categories;
 
-    // ✅ Lifecycle hooks
+    @OneToMany(mappedBy = "classEntity", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ClassMember> members;
+
+    // ============ Lifecycle Callbacks ============
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
@@ -54,6 +69,9 @@ public class Class {
         if (updatedAt == null) {
             updatedAt = ZonedDateTime.now();
         }
+        if (inviteCode == null || inviteCode.isEmpty()) {
+            inviteCode = generateInviteCode();
+        }
     }
 
     @PreUpdate
@@ -61,7 +79,8 @@ public class Class {
         updatedAt = ZonedDateTime.now();
     }
 
-    // ✅ Helper methods
+    // ============ Helper Methods ============
+
     public boolean isOwnedBy(Long userId) {
         return ownerId != null && ownerId.equals(userId);
     }
@@ -70,13 +89,32 @@ public class Class {
         return categories != null ? categories.size() : 0;
     }
 
+    public int getMemberCount() {
+        return members != null ? members.size() : 0;
+    }
+
+    public static String generateInviteCode() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        Random random = new Random();
+        StringBuilder code = new StringBuilder();
+        int length = 6 + random.nextInt(3);
+
+        for (int i = 0; i < length; i++) {
+            code.append(chars.charAt(random.nextInt(chars.length())));
+        }
+
+        return code.toString();
+    }
+
     @Override
     public String toString() {
         return "Class{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", ownerId=" + ownerId +
+                ", inviteCode='" + inviteCode + '\'' +
                 ", categoryCount=" + getCategoryCount() +
+                ", memberCount=" + getMemberCount() +
                 '}';
     }
 }

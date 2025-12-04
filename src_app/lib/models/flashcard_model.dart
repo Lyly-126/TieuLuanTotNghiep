@@ -1,82 +1,49 @@
-// ✅ FIXED: Parse JSON với camelCase (match với backend)
-
 class FlashcardModel {
   final int id;
-  final String term;
+  final String question;  // Maps to 'term' from backend
+  final String answer;    // Maps to 'meaning' from backend
   final String? partOfSpeech;
   final String? phonetic;
   final String? imageUrl;
-  final String meaning;
-  final int? categoryId;
   final String? ttsUrl;
+  final int? categoryId;
 
   FlashcardModel({
     required this.id,
-    required this.term,
+    required this.question,
+    required this.answer,
     this.partOfSpeech,
     this.phonetic,
     this.imageUrl,
-    required this.meaning,
-    this.categoryId,
     this.ttsUrl,
+    this.categoryId,
   });
 
-  /// ✅ ĐÚNG: Parse từ JSON với camelCase (vì backend trả về camelCase)
+  // ✅ CRITICAL: Map backend fields to Flutter fields
   factory FlashcardModel.fromJson(Map<String, dynamic> json) {
-    print('\n🔍 ===== PARSING FLASHCARD =====');
-    print('📦 Raw JSON: $json');
-    print('🔑 Keys: ${json.keys.toList()}');
-
-    // ✅ Parse với camelCase
-    final model = FlashcardModel(
-      id: json['id'] ?? 0,
-      term: json['term'] ?? '',
-      partOfSpeech: json['partOfSpeech'],      // ✅ camelCase
-      phonetic: json['phonetic'],
-      imageUrl: json['imageUrl'],              // ✅ camelCase - QUAN TRỌNG!
-      meaning: json['meaning'] ?? '',
-      categoryId: json['categoryId'],          // ✅ camelCase
-      ttsUrl: json['ttsUrl'],                  // ✅ camelCase
+    return FlashcardModel(
+      id: json['id'] as int,
+      question: json['term'] as String,      // ← Map term → question
+      answer: json['meaning'] as String,     // ← Map meaning → answer
+      partOfSpeech: json['part_of_speech'] as String?,
+      phonetic: json['phonetic'] as String?,
+      imageUrl: json['image_url'] as String?,
+      ttsUrl: json['tts_url'] as String?,
+      categoryId: json['category_id'] as int?,
     );
-
-    print('✅ Parsed imageUrl: "${model.imageUrl}"');
-    print('✅ Parsed categoryId: ${model.categoryId}');
-    print('===============================\n');
-
-    return model;
   }
 
-  /// Convert to JSON (camelCase để gửi lên backend)
+  // ✅ CRITICAL: Map Flutter fields to backend fields
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'term': term,
-      'partOfSpeech': partOfSpeech,      // ✅ camelCase
+      'term': question,          // ← Map question → term
+      'meaning': answer,         // ← Map answer → meaning
+      'part_of_speech': partOfSpeech,
       'phonetic': phonetic,
-      'imageUrl': imageUrl,              // ✅ camelCase
-      'meaning': meaning,
-      'categoryId': categoryId,          // ✅ camelCase
-      'ttsUrl': ttsUrl,                  // ✅ camelCase
+      'image_url': imageUrl,
+      'tts_url': ttsUrl,
+      'category_id': categoryId,
     };
-  }
-
-  /// Check if flashcard has valid image
-  bool get hasImage {
-    return imageUrl != null &&
-        imageUrl!.isNotEmpty &&
-        imageUrl != 'null' &&
-        (imageUrl!.startsWith('http://') || imageUrl!.startsWith('https://'));
-  }
-
-  /// Check if flashcard has TTS audio
-  bool get hasAudio {
-    return ttsUrl != null &&
-        ttsUrl!.isNotEmpty &&
-        ttsUrl != 'null';
-  }
-
-  @override
-  String toString() {
-    return 'FlashcardModel(id: $id, term: $term, imageUrl: $imageUrl, categoryId: $categoryId)';
   }
 }

@@ -244,29 +244,27 @@ public class AIFlashcardService {
      * Kiểm tra user có quyền access category không
      */
     private boolean canUserAccessCategory(Long categoryId, Long userId) {
-        if (userId == null) {
-            return false;
-        }
-
         try {
-            Category category = categoryRepository.findById(categoryId).orElse(null);
+            Category category = categoryRepository.findById(categoryId)
+                    .orElse(null);
+
             if (category == null) {
                 return false;
             }
 
-            // System category: ai cũng dùng được
-            if (category.getIsSystem() != null && category.getIsSystem()) {
+            // System category: anyone can use
+            if (category.isSystemCategory()) {
                 return true;
             }
 
-            // User category: chỉ owner dùng được
+            // PUBLIC category: anyone can use
+            if (category.isPublic()) {
+                return true;
+            }
+
+            // PRIVATE category: only owner can use
             if (category.getOwnerUserId() != null && category.getOwnerUserId().equals(userId)) {
                 return true;
-            }
-
-            // Class category: chỉ owner (teacher) dùng được
-            if (category.getClassId() != null) {
-                return category.getOwnerUserId() != null && category.getOwnerUserId().equals(userId);
             }
 
             return false;

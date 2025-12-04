@@ -19,4 +19,6 @@ class AppConstants {
 
   // Kích thước hình minh họa (welcome, empty states,...)
   static const double illustrationWidth = 250;
+
+  static const String baseUrl = 'http://localhost:8080';
 }
