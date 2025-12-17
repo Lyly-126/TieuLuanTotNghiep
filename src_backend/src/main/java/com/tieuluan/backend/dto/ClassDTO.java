@@ -16,13 +16,16 @@ public class ClassDTO {
     private String description;
     private Long ownerId;
     private String ownerEmail;          // ✅ CHỈ EMAIL
+    private String ownerName;           // ✅ THÊM owner full name
+    private String inviteCode;          // ✅ THÊM dòng này
+    private Boolean isPublic;           // ✅ THÊM dòng này
     private ZonedDateTime createdAt;
     private ZonedDateTime updatedAt;
     private Long categoryCount;
     private Long studentCount;
 
     /**
-     * Convert từ Entity sang DTO
+     * Convert từ Entity sang DTO (full)
      */
     public static ClassDTO fromEntity(Class clazz) {
         ClassDTO dto = new ClassDTO();
@@ -30,12 +33,15 @@ public class ClassDTO {
         dto.setName(clazz.getName());
         dto.setDescription(clazz.getDescription());
         dto.setOwnerId(clazz.getOwnerId());
+        dto.setInviteCode(clazz.getInviteCode());     // ✅ THÊM dòng này
+        dto.setIsPublic(clazz.getIsPublic());         // ✅ THÊM dòng này
         dto.setCreatedAt(clazz.getCreatedAt());
         dto.setUpdatedAt(clazz.getUpdatedAt());
 
-        // ✅ CHỈ LẤY EMAIL
+        // ✅ LẤY EMAIL VÀ FULL NAME
         if (clazz.getOwner() != null) {
             dto.setOwnerEmail(clazz.getOwner().getEmail());
+            dto.setOwnerName(clazz.getOwner().getFullName());
         }
 
         // ✅ Đếm số categories (ONE-TO-MANY)
@@ -47,7 +53,8 @@ public class ClassDTO {
     }
 
     /**
-     * Convert từ Entity sang DTO (simple)
+     * Convert từ Entity sang DTO (simple) - cho search
+     * ✅ UPDATED: Thêm ownerName để phân biệt chủ nhân lớp học
      */
     public static ClassDTO fromEntitySimple(Class clazz) {
         ClassDTO dto = new ClassDTO();
@@ -55,8 +62,17 @@ public class ClassDTO {
         dto.setName(clazz.getName());
         dto.setDescription(clazz.getDescription());
         dto.setOwnerId(clazz.getOwnerId());
+        dto.setInviteCode(clazz.getInviteCode());     // ✅ THÊM dòng này
+        dto.setIsPublic(clazz.getIsPublic());         // ✅ THÊM dòng này
         dto.setCreatedAt(clazz.getCreatedAt());
         dto.setUpdatedAt(clazz.getUpdatedAt());
+
+        // ✅ THÊM ownerName cho search results
+        if (clazz.getOwner() != null) {
+            dto.setOwnerName(clazz.getOwner().getFullName());
+            dto.setOwnerEmail(clazz.getOwner().getEmail());
+        }
+
         return dto;
     }
 
@@ -68,6 +84,7 @@ public class ClassDTO {
     public static class CreateRequest {
         private String name;
         private String description;
+        private Boolean isPublic;        // ✅ THÊM dòng này
     }
 
     @Data
@@ -76,5 +93,6 @@ public class ClassDTO {
     public static class UpdateRequest {
         private String name;
         private String description;
+        private Boolean isPublic;        // ✅ THÊM dòng này
     }
 }

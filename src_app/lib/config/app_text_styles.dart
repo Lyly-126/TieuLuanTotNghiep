@@ -3,6 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTextStyles {
+  // 🏷️ Tiêu đề lớn nhất
+  static final TextStyle heading1 = GoogleFonts.inter(
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+    height: 1.3,
+    letterSpacing: -0.5,
+  );
+
   // 🏷️ Tiêu đề lớn: "Đăng nhập", "Đăng ký"
   static final TextStyle title = GoogleFonts.inter(
     fontSize: 24,
@@ -28,7 +37,7 @@ class AppTextStyles {
     height: 1.3,
   );
 
-  // ✅ THÊM: Heading4 cho card title
+  // ✅ Heading4 cho card title
   static final TextStyle heading4 = GoogleFonts.inter(
     fontSize: 15,
     fontWeight: FontWeight.w600,
@@ -68,7 +77,7 @@ class AppTextStyles {
     height: 1.3,
   );
 
-  // ✅ THÊM: Body text
+  // ✅ Body text (regular)
   static final TextStyle body = GoogleFonts.inter(
     fontSize: 14,
     fontWeight: FontWeight.w400,
@@ -76,10 +85,50 @@ class AppTextStyles {
     height: 1.5,
   );
 
-  // ✅ THÊM: Caption (chữ nhỏ)
+  // ✅ Body text (medium)
+  static final TextStyle bodyMedium = GoogleFonts.inter(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.textPrimary,
+    height: 1.5,
+  );
+
+  // ✅ Body text (bold)
+  static final TextStyle bodyBold = GoogleFonts.inter(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+    height: 1.5,
+  );
+
+  // ✅ Body large
+  static final TextStyle bodyLarge = GoogleFonts.inter(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 1.5,
+  );
+
+  // ✅ Body small
+  static final TextStyle bodySmall = GoogleFonts.inter(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 1.4,
+  );
+
+  // ✅ Caption (chữ nhỏ)
   static final TextStyle caption = GoogleFonts.inter(
     fontSize: 12,
     fontWeight: FontWeight.w400,
+    color: AppColors.textSecondary,
+    height: 1.4,
+  );
+
+  // ✅ Caption medium
+  static final TextStyle captionMedium = GoogleFonts.inter(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
     color: AppColors.textSecondary,
     height: 1.4,
   );
@@ -90,5 +139,22 @@ class AppTextStyles {
     fontWeight: FontWeight.w500,
     color: AppColors.error,
     height: 1.4,
+  );
+
+  // ✅ Success text
+  static final TextStyle success = GoogleFonts.inter(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AppColors.success,
+    height: 1.4,
+  );
+
+  // ✅ Overline (chữ rất nhỏ uppercase)
+  static final TextStyle overline = GoogleFonts.inter(
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textSecondary,
+    height: 1.6,
+    letterSpacing: 0.5,
   );
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:src_app/screens/home/search_screen.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
@@ -27,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadCurrentUser();
   }
 
-  /// Load thông tin user hiện tại
   Future<void> _loadCurrentUser() async {
     try {
       final user = await UserService.getCurrentUser();
@@ -35,27 +35,35 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentUser = user;
         _isLoadingUser = false;
       });
-      print('✅ Loaded user: ${user?.email}, role: ${user?.role}');
-      print('✅ Can create class: ${user?.canCreateClass}');
+      print('Loaded user: ${user?.email}, role: ${user?.role}');
+      print('Can create class: ${user?.canCreateClass}');
     } catch (e) {
       setState(() {
         _isLoadingUser = false;
       });
-      debugPrint('❌ Lỗi load user: $e');
+      debugPrint('Error loading user: $e');
     }
   }
 
   void _onItemTapped(int index) {
     if (index == 1) {
-      // Nút "Tạo" - hiển thị bottom sheet, KHÔNG thay đổi selected index
       _showCreateBottomSheet();
     } else {
       setState(() => _selectedIndex = index);
     }
   }
 
-  /// Hiển thị bottom sheet với options tạo flashcard/lớp học
   void _showCreateBottomSheet() {
+    // Check if user can create (Premium or Teacher)
+    final canCreate = _currentUser?.hasPremiumAccess ?? false;
+
+    if (!canCreate) {
+      // Show upgrade dialog for normal users
+      _showUpgradeDialog();
+      return;
+    }
+
+    // Show create options for Premium/Teacher
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -70,7 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 width: 40,
@@ -83,7 +90,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Title
             const Text(
               'Tạo mới',
               style: TextStyle(
@@ -101,13 +107,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Option 1: Học phần - CHO TẤT CẢ USERS
+            // Option 1: Tạo thẻ - CHO PREMIUM/TEACHER
             _buildCreateOption(
               icon: Icons.style_outlined,
               iconColor: AppColors.primary,
               iconBgColor: AppColors.primary.withOpacity(0.1),
-              title: 'Học phần',
-              subtitle: 'Tạo bộ flashcard học tập mới',
+              title: 'Tạo thẻ',
+              subtitle: 'Tạo flashcard học tập mới',
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -119,31 +125,147 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
 
-            // Option 2: Lớp học - CHỈ CHO TEACHER & ADMIN
-            if (_currentUser?.canCreateClass ?? false) ...[
-              const SizedBox(height: 12),
-              _buildCreateOption(
-                icon: Icons.school_outlined,
-                iconColor: const Color(0xFF10B981),
-                iconBgColor: const Color(0xFF10B981).withOpacity(0.1),
-                title: 'Lớp học',
-                subtitle: 'Tạo lớp học cho học sinh',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TeacherClassManagementScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
+            const SizedBox(height: 12),
+
+            // Option 2: Tạo chủ đề - CHO PREMIUM/TEACHER
+            _buildCreateOption(
+              icon: Icons.folder_outlined,
+              iconColor: const Color(0xFF10B981),
+              iconBgColor: const Color(0xFF10B981).withOpacity(0.1),
+              title: 'Tạo chủ đề',
+              subtitle: 'Tạo chủ đề để quản lý thẻ',
+              onTap: () {
+                Navigator.pop(context);
+                // TODO: Navigate to Create Category Screen
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tính năng đang phát triển'),
+                    backgroundColor: AppColors.info,
+                  ),
+                );
+              },
+            ),
 
             const SizedBox(height: 24),
           ],
         ),
       ),
+    );
+  }
+
+  void _showUpgradeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.warning,
+                      AppColors.warning.withOpacity(0.7),
+                    ],
+                  ),
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  size: 40,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Title
+              const Text(
+                'Nâng cấp tài khoản',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Description
+              Text(
+                'Bạn cần nâng cấp lên Premium để sử dụng tính năng tạo thẻ và tạo chủ đề',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Benefits
+              _buildBenefit(Icons.check_circle, 'Tạo thẻ không giới hạn'),
+              const SizedBox(height: 8),
+              _buildBenefit(Icons.check_circle, 'Tạo và quản lý chủ đề'),
+              const SizedBox(height: 8),
+              _buildBenefit(Icons.check_circle, 'Truy cập tất cả tính năng'),
+              const SizedBox(height: 24),
+
+              // Buttons
+              CustomButton(
+                text: 'Nâng cấp ngay',
+                onPressed: () {
+                  Navigator.pop(context);
+                  // Navigate to Upgrade Premium Screen using named route
+                  Navigator.pushNamed(context, '/upgrade_premium');
+                },
+                icon: Icons.arrow_forward_rounded,
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Để sau',
+                  style: TextStyle(
+                    color: AppColors.textGray,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBenefit(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: AppColors.success,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -222,20 +344,37 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBody() {
-    // Chuyển đổi giữa các tab
-    switch (_selectedIndex) {
-      case 0:
-        return _buildHomeTab();
-      case 2:
-        return _buildLibraryTab();
-      case 3:
-        return _buildProfileTab();
-      default:
-        return _buildHomeTab();
+    final isTeacher = _currentUser?.canCreateClass ?? false;
+
+    if (isTeacher) {
+      // TEACHER: 5 tabs
+      switch (_selectedIndex) {
+        case 0:
+          return _buildHomeTab();
+        case 2:
+          return _buildCoursesTab();
+        case 3:
+          return _buildClassesTab();
+        case 4:
+          return _buildLibraryTab();
+        default:
+          return _buildHomeTab();
+      }
+    } else {
+      // NORMAL/PREMIUM USER: 4 tabs
+      switch (_selectedIndex) {
+        case 0:
+          return _buildHomeTab();
+        case 2:
+          return _buildCoursesTab();
+        case 3:
+          return _buildLibraryTab();
+        default:
+          return _buildHomeTab();
+      }
     }
   }
 
-  /// Tab Home (nội dung chính)
   Widget _buildHomeTab() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -243,7 +382,6 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ---------------- HEADER ----------------
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -268,7 +406,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
 
-              // ---------------- AVATAR ----------------
               InkWell(
                 borderRadius: BorderRadius.circular(50),
                 onTap: () {
@@ -319,38 +456,42 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 28),
 
-          // ---------------- SEARCH BAR ----------------
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.inputBackground,
-              borderRadius:
-              BorderRadius.circular(AppConstants.borderRadius * 1.2),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.search_outlined,
-                    color: AppColors.textGray, size: 22),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: 'Tìm bộ thẻ hoặc từ vựng...',
-                      hintStyle: AppTextStyles.hint.copyWith(
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SearchScreen(),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.inputBackground,
+                borderRadius:
+                BorderRadius.circular(AppConstants.borderRadius * 1.2),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_outlined,
+                      color: AppColors.textGray, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Tìm chủ đề, lớp học, mã lớp...',
+                      style: AppTextStyles.hint.copyWith(
                         color: AppColors.textGray,
                         fontSize: 14,
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 36),
 
-          // ---------------- BỘ THẺ ĐANG HỌC ----------------
           Text(
             'Bộ thẻ đang học',
             style: AppTextStyles.heading3.copyWith(
@@ -419,7 +560,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 40),
 
-          // ---------------- GỢI Ý HỌC TẬP ----------------
           Text(
             'Gợi ý cho bạn',
             style: AppTextStyles.heading3.copyWith(
@@ -462,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Giúp bạn ghi nhớ từ vựng nhanh hơn ✈️',
+                        'Giúp bạn ghi nhớ từ vựng nhanh hơn',
                         style: AppTextStyles.hint.copyWith(
                           color: AppColors.textSecondary,
                           fontSize: 13,
@@ -487,7 +627,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Tab Thư viện (danh sách chủ đề)
   Widget _buildLibraryTab() {
     return Center(
       child: Column(
@@ -519,13 +658,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Tab Profile
-  Widget _buildProfileTab() {
-    return const ProfileScreen();
+  Widget _buildCoursesTab() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.school_outlined,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Các khóa học',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Danh sách khóa học của bạn',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  /// Bottom Navigation Bar mới (4 tabs)
+  Widget _buildClassesTab() {
+    return const TeacherClassManagementScreen();
+  }
+
   Widget _buildBottomNav() {
+    final isTeacher = _currentUser?.canCreateClass ?? false;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -543,7 +713,6 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              // Tab 1: Trang chủ
               _buildNavItem(
                 index: 0,
                 icon: Icons.home_outlined,
@@ -551,7 +720,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'Trang chủ',
               ),
 
-              // Tab 2: Tạo (nút +) - KHÔNG BAO GIỜ ACTIVE
               _buildNavItem(
                 index: 1,
                 icon: Icons.add_outlined,
@@ -560,20 +728,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 isCreateButton: false,
               ),
 
-              // Tab 3: Thư viện
               _buildNavItem(
                 index: 2,
+                icon: Icons.school_outlined,
+                activeIcon: Icons.school_rounded,
+                label: 'Khóa học',
+              ),
+
+              if (isTeacher)
+                _buildNavItem(
+                  index: 3,
+                  icon: Icons.class_outlined,
+                  activeIcon: Icons.class_rounded,
+                  label: 'Lớp học',
+                ),
+
+              _buildNavItem(
+                index: isTeacher ? 4 : 3,
                 icon: Icons.folder_open_outlined,
                 activeIcon: Icons.folder_open_rounded,
                 label: 'Thư viện',
-              ),
-
-              // Tab 4: Thư miễn phí (Profile)
-              _buildNavItem(
-                index: 3,
-                icon: Icons.search_outlined,
-                activeIcon: Icons.search_rounded,
-                label: 'Thư miễn phí',
               ),
             ],
           ),
@@ -589,7 +763,6 @@ class _HomeScreenState extends State<HomeScreen> {
     required String label,
     bool isCreateButton = false,
   }) {
-    // ✅ FIX: Nút Tạo không bao giờ là selected
     final isSelected = !isCreateButton && _selectedIndex == index;
 
     return InkWell(

@@ -1,3 +1,5 @@
+// File: src/main/java/.../model/ClassMember.java
+
 package com.tieuluan.backend.model;
 
 import jakarta.persistence.*;
@@ -8,35 +10,31 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "\"classMembers\"")
+@Table(name = "\"classMembers\"") // ✅ THÊM QUOTES
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClassMember {
 
-    @EmbeddedId  // ✅ Change from @IdClass to @EmbeddedId
+    @EmbeddedId
     private ClassMemberId id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("classId")  // ✅ Maps to ClassMemberId.classId
-    @JoinColumn(name = "\"classId\"", insertable = false, updatable = false)
+    @ManyToOne
+    @MapsId("classId")
+    @JoinColumn(name = "\"classId\"") // ✅ THÊM QUOTES
     private Class classEntity;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("userId")  // ✅ Maps to ClassMemberId.userId
-    @JoinColumn(name = "\"userId\"", insertable = false, updatable = false)
+    @ManyToOne
+    @MapsId("userId")
+    @JoinColumn(name = "\"userId\"") // ✅ THÊM QUOTES
     private User user;
 
-    @Column(name = "\"role\"", nullable = false, length = 50)
-    private String role = "STUDENT";  // ✅ String, not enum
+    @Column(name = "role", nullable = false, length = 50)
+    private String role = "STUDENT";
 
-    @Column(name = "\"joinedAt\"", nullable = false)
-    private LocalDateTime joinedAt = LocalDateTime.now();  // ✅ LocalDateTime
+    @Column(name = "status", nullable = false, length = 20) // ✅ THÊM CỘT STATUS
+    private String status = "APPROVED";
 
-    @PrePersist
-    protected void onCreate() {
-        if (joinedAt == null) {
-            joinedAt = LocalDateTime.now();
-        }
-    }
+    @Column(name = "\"joinedAt\"", nullable = false) // ✅ THÊM QUOTES
+    private LocalDateTime joinedAt = LocalDateTime.now();
 }

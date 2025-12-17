@@ -1,67 +1,69 @@
-  import 'package:flutter/material.dart';
-  import '../../config/app_colors.dart';
-  import '../../config/app_constants.dart';
-  import '../../config/app_text_styles.dart';
-  import '../../models/class_model.dart';
-  import '../../services/class_service.dart';
-  import '../../widgets/custom_button.dart';
-  import 'class_detail_screen.dart';
+import 'package:flutter/material.dart';
+import '../../config/app_colors.dart';
+import '../../config/app_constants.dart';
+import '../../config/app_text_styles.dart';
+import '../../models/class_model.dart';
+import '../../services/class_service.dart';
+import '../../widgets/custom_button.dart';
+import 'class_detail_screen.dart';
 
-  class TeacherClassManagementScreen extends StatefulWidget {
-    const TeacherClassManagementScreen({Key? key}) : super(key: key);
+class TeacherClassManagementScreen extends StatefulWidget {
+  const TeacherClassManagementScreen({Key? key}) : super(key: key);
 
-    @override
-    State<TeacherClassManagementScreen> createState() =>
-        _TeacherClassManagementScreenState();
+  @override
+  State<TeacherClassManagementScreen> createState() =>
+      _TeacherClassManagementScreenState();
+}
+
+class _TeacherClassManagementScreenState
+    extends State<TeacherClassManagementScreen> {
+  List<ClassModel> _ownedClasses = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClasses();
   }
 
-  class _TeacherClassManagementScreenState
-      extends State<TeacherClassManagementScreen> {
-    List<ClassModel> _ownedClasses = [];
-    bool _isLoading = false;
+  Future<void> _loadClasses() async {
+    setState(() {
+      _isLoading = true;
+    });
 
-    @override
-    void initState() {
-      super.initState();
-      _loadClasses();
-    }
+    try {
+      final owned = await ClassService.getMyClasses();
 
-    Future<void> _loadClasses() async {
       setState(() {
-        _isLoading = true;
+        _ownedClasses = owned;
+        _isLoading = false;
       });
-
-      try {
-        final owned = await ClassService.getMyClasses();
-
-        setState(() {
-          _ownedClasses = owned;
-          _isLoading = false;
-        });
-      } catch (e) {
-        setState(() {
-          _isLoading = false;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Lỗi: $e'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
+  }
 
-    void _showCreateClassDialog() {
-      final nameController = TextEditingController();
-      final descriptionController = TextEditingController();
+  void _showCreateClassDialog() {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    bool isPublic = false;
 
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -176,6 +178,66 @@
                     ),
                   ),
                 ),
+                const SizedBox(height: 20),
+
+                // ✅ THÊM: Toggle công khai/riêng tư
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.inputBackground,
+                    borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                    border: Border.all(
+                      color: isPublic
+                          ? AppColors.success.withOpacity(0.3)
+                          : AppColors.textGray.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isPublic ? Icons.public_rounded : Icons.lock_rounded,
+                        color: isPublic ? AppColors.success : AppColors.textGray,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isPublic ? 'Công khai' : 'Riêng tư',
+                              style: AppTextStyles.label.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isPublic
+                                    ? AppColors.success
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isPublic
+                                  ? 'Bất kỳ ai cũng có thể tìm thấy lớp này'
+                                  : 'Chỉ người có mã mời mới tham gia được',
+                              style: AppTextStyles.hint.copyWith(
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: isPublic,
+                        onChanged: (value) {
+                          setModalState(() {
+                            isPublic = value;
+                          });
+                        },
+                        activeColor: AppColors.success,
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 24),
 
                 // Buttons
@@ -207,6 +269,7 @@
                             await ClassService.createClass(
                               name: nameController.text.trim(),
                               description: descriptionController.text.trim(),
+                              isPublic: isPublic,
                             );
 
                             Navigator.pop(context);
@@ -214,8 +277,9 @@
 
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('✅ Tạo lớp thành công'),
+                                SnackBar(
+                                  content: Text(
+                                      '✅ Tạo lớp ${isPublic ? "công khai" : "riêng tư"} thành công'),
                                   backgroundColor: AppColors.success,
                                 ),
                               );
@@ -239,19 +303,22 @@
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    void _showEditDialog(ClassModel classModel) {
-      final nameController = TextEditingController(text: classModel.name);
-      final descriptionController =
-      TextEditingController(text: classModel.description);
+  void _showEditDialog(ClassModel classModel) {
+    final nameController = TextEditingController(text: classModel.name);
+    final descriptionController =
+    TextEditingController(text: classModel.description ?? '');
+    bool isPublic = classModel.isPublic ?? false;
 
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -267,7 +334,6 @@
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Handle bar
                 Center(
                   child: Container(
                     width: 40,
@@ -279,16 +345,14 @@
                   ),
                 ),
                 const SizedBox(height: 24),
-
                 Text(
-                  'Sửa thông tin lớp',
+                  'Sửa lớp học',
                   style: AppTextStyles.heading2.copyWith(
                     color: AppColors.primaryDark,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 24),
-
                 Text('Tên lớp *', style: AppTextStyles.label),
                 const SizedBox(height: AppConstants.labelSpacing),
                 TextFormField(
@@ -322,7 +386,6 @@
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 Text('Mô tả', style: AppTextStyles.label),
                 const SizedBox(height: AppConstants.labelSpacing),
                 TextFormField(
@@ -356,8 +419,66 @@
                     ),
                   ),
                 ),
+                const SizedBox(height: 20),
+                // ✅ Toggle công khai/riêng tư
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.inputBackground,
+                    borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                    border: Border.all(
+                      color: isPublic
+                          ? AppColors.success.withOpacity(0.3)
+                          : AppColors.textGray.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isPublic ? Icons.public_rounded : Icons.lock_rounded,
+                        color: isPublic ? AppColors.success : AppColors.textGray,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isPublic ? 'Công khai' : 'Riêng tư',
+                              style: AppTextStyles.label.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isPublic
+                                    ? AppColors.success
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isPublic
+                                  ? 'Bất kỳ ai cũng có thể tìm thấy lớp này'
+                                  : 'Chỉ người có mã mời mới tham gia được',
+                              style: AppTextStyles.hint.copyWith(
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: isPublic,
+                        onChanged: (value) {
+                          setModalState(() {
+                            isPublic = value;
+                          });
+                        },
+                        activeColor: AppColors.success,
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 24),
-
                 Row(
                   children: [
                     Expanded(
@@ -372,11 +493,22 @@
                       child: CustomButton(
                         text: 'Lưu',
                         onPressed: () async {
+                          if (nameController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('⚠️ Vui lòng nhập tên lớp'),
+                                backgroundColor: AppColors.warning,
+                              ),
+                            );
+                            return;
+                          }
+
                           try {
                             await ClassService.updateClass(
                               classId: classModel.id,
                               name: nameController.text.trim(),
                               description: descriptionController.text.trim(),
+                              isPublic: isPublic,
                             );
 
                             Navigator.pop(context);
@@ -385,7 +517,7 @@
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('✅ Cập nhật thành công'),
+                                  content: Text('✅ Cập nhật lớp thành công'),
                                   backgroundColor: AppColors.success,
                                 ),
                               );
@@ -409,391 +541,406 @@
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    Future<void> _deleteClass(ClassModel classModel) async {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.5),
-          ),
-          title: Text(
-            'Xác nhận xóa',
-            style: AppTextStyles.heading2.copyWith(
-              color: AppColors.primaryDark,
-            ),
-          ),
-          content: Text(
-            'Bạn có chắc muốn xóa lớp "${classModel.name}"?\n\n⚠️ Hành động này không thể hoàn tác.',
-            style: AppTextStyles.body,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(
-                'Hủy',
-                style: AppTextStyles.label.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-            CustomButton(
-              text: 'Xóa',
-              backgroundColor: AppColors.error,
-              width: 100,
-              height: 40,
-              onPressed: () => Navigator.pop(context, true),
-            ),
-          ],
+  Future<void> _deleteClass(ClassModel classModel) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.5),
         ),
-      );
-
-      if (confirm == true) {
-        try {
-          await ClassService.deleteClass(classModel.id);
-          _loadClasses();
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ Đã xóa lớp'),
-                backgroundColor: AppColors.success,
+        title: Text(
+          'Xác nhận xóa',
+          style: AppTextStyles.heading2.copyWith(
+            color: AppColors.primaryDark,
+          ),
+        ),
+        content: Text(
+          'Bạn có chắc muốn xóa lớp "${classModel.name}"?\nTất cả dữ liệu liên quan sẽ bị xóa.',
+          style: AppTextStyles.body,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Hủy',
+              style: AppTextStyles.label.copyWith(
+                color: AppColors.textSecondary,
               ),
-            );
-          }
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('❌ $e'),
-                backgroundColor: AppColors.error,
-              ),
-            );
-          }
+            ),
+          ),
+          CustomButton(
+            text: 'Xóa',
+            backgroundColor: AppColors.error,
+            width: 100,
+            height: 40,
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await ClassService.deleteClass(classModel.id);
+        _loadClasses();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Đã xóa lớp'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
         }
       }
     }
+  }
 
-    void _navigateToClassDetail(ClassModel classModel) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ClassDetailScreen(classId: classModel.id),
-        ),
-      ).then((_) => _loadClasses());
-    }
+  void _navigateToClassDetail(ClassModel classModel) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ClassDetailScreen(classId: classModel.id),
+      ),
+    ).then((_) => _loadClasses());
+  }
 
-    @override
-    Widget build(BuildContext context) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: AppColors.primary, size: 22),
-            onPressed: () => Navigator.pop(context),
-          ),
-          centerTitle: true,
-          title: Text(
-            'Lớp học của tôi',
-            style: AppTextStyles.heading2.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: AppColors.primary, size: 22),
+          onPressed: () => Navigator.pop(context),
         ),
-        body: _isLoading
-            ? const Center(
-          child: CircularProgressIndicator(
+        centerTitle: true,
+        title: Text(
+          'Lớp học của tôi',
+          style: AppTextStyles.heading2.copyWith(
             color: AppColors.primary,
-          ),
-        )
-            : _buildOwnedClassesTab(),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: _showCreateClassDialog,
-          backgroundColor: AppColors.primary,
-          elevation: 4,
-          icon: const Icon(Icons.add_rounded, color: Colors.white),
-          label: const Text(
-            'Tạo lớp',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
-            ),
+            fontWeight: FontWeight.w700,
           ),
         ),
-      );
-    }
-
-    Widget _buildOwnedClassesTab() {
-      if (_ownedClasses.isEmpty) {
-        return _buildEmptyState(
-          icon: Icons.school_outlined,
-          title: 'Chưa có lớp học nào',
-          subtitle: 'Tạo lớp đầu tiên để bắt đầu',
-          buttonText: 'Tạo lớp học',
-          onPressed: _showCreateClassDialog,
-        );
-      }
-
-      return RefreshIndicator(
+      ),
+      body: _isLoading
+          ? const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      )
+          : _ownedClasses.isEmpty
+          ? _buildEmptyState()
+          : RefreshIndicator(
         onRefresh: _loadClasses,
-        color: AppColors.primary,
         child: ListView.builder(
-          padding: AppConstants.screenPadding.copyWith(top: 16, bottom: 100),
-          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           itemCount: _ownedClasses.length,
           itemBuilder: (context, index) {
-            final classModel = _ownedClasses[index];
-            return _buildClassCard(classModel);
+            return _buildClassCard(_ownedClasses[index]);
           },
         ),
-      );
-    }
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showCreateClassDialog,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white, // ✅ THÊM: Màu chữ trắng
+        icon: const Icon(Icons.add_rounded, size: 24),
+        label: const Text('Tạo lớp'),
+      ),
+    );
+  }
 
-    Widget _buildEmptyState({
-      required IconData icon,
-      required String title,
-      required String subtitle,
-      required String buttonText,
-      required VoidCallback onPressed,
-    }) {
-      return Center(
-        child: Padding(
-          padding: AppConstants.screenPadding,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: AppColors.inputBackground,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  size: 60,
-                  color: AppColors.primary.withOpacity(0.5),
-                ),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: AppConstants.screenPadding,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: AppColors.inputBackground,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 24),
-              Text(
-                title,
-                style: AppTextStyles.heading2.copyWith(
-                  color: AppColors.primaryDark,
-                ),
+              child: Icon(
+                Icons.school_rounded,
+                size: 60,
+                color: AppColors.primary.withOpacity(0.5),
               ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: AppTextStyles.hint.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Chưa có lớp học nào',
+              style: AppTextStyles.heading2.copyWith(
+                color: AppColors.primaryDark,
               ),
-              const SizedBox(height: 32),
-              CustomButton(
-                text: buttonText,
-                onPressed: onPressed,
-                width: 200,
-                icon: Icons.add_rounded,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tạo lớp học đầu tiên để bắt đầu',
+              style: AppTextStyles.hint.copyWith(
+                color: AppColors.textSecondary,
               ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    Widget _buildClassCard(ClassModel classModel) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+            ),
+            const SizedBox(height: 32),
+            CustomButton(
+              text: 'Tạo lớp đầu tiên',
+              onPressed: _showCreateClassDialog,
+              width: 200,
+              icon: Icons.add_rounded,
             ),
           ],
         ),
-        child: InkWell(
-          onTap: () => _navigateToClassDetail(classModel),
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header với gradient
-              Container(
-                height: 100,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.primary,
-                      AppColors.primary.withOpacity(0.7),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(AppConstants.borderRadius * 1.2),
-                    topRight: Radius.circular(AppConstants.borderRadius * 1.2),
-                  ),
+      ),
+    );
+  }
+
+  Widget _buildClassCard(ClassModel classModel) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () => _navigateToClassDetail(classModel),
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header với gradient
+            Container(
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primary.withOpacity(0.7),
+                  ],
                 ),
-                child: Stack(
-                  children: [
-                    // Icon
-                    const Center(
-                      child: Icon(
-                        Icons.school_rounded,
-                        size: 48,
-                        color: Colors.white24,
-                      ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(AppConstants.borderRadius * 1.2),
+                  topRight: Radius.circular(AppConstants.borderRadius * 1.2),
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // Icon
+                  const Center(
+                    child: Icon(
+                      Icons.school_rounded,
+                      size: 48,
+                      color: Colors.white24,
                     ),
-                    // Menu
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: PopupMenuButton(
-                        icon: const Icon(Icons.more_vert_rounded,
-                            color: Colors.white),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(AppConstants.borderRadius),
+                  ),
+                  // ✅ Badge công khai/riêng tư
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (classModel.isPublic ?? false)
+                            ? AppColors.success.withOpacity(0.9)
+                            : Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 1,
                         ),
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.edit_outlined, size: 20),
-                                const SizedBox(width: 12),
-                                Text('Sửa', style: AppTextStyles.label),
-                              ],
-                            ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            (classModel.isPublic ?? false)
+                                ? Icons.public_rounded
+                                : Icons.lock_rounded,
+                            size: 14,
+                            color: Colors.white,
                           ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.delete_outline,
-                                    size: 20, color: AppColors.error),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Xóa',
-                                  style: AppTextStyles.label.copyWith(
-                                    color: AppColors.error,
-                                  ),
-                                ),
-                              ],
+                          const SizedBox(width: 4),
+                          Text(
+                            (classModel.isPublic ?? false)
+                                ? 'Công khai'
+                                : 'Riêng tư',
+                            style: AppTextStyles.hint.copyWith(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            _showEditDialog(classModel);
-                          } else if (value == 'delete') {
-                            _deleteClass(classModel);
-                          }
-                        },
                       ),
                     ),
-                  ],
-                ),
-              ),
-
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Tên lớp
-                    Text(
-                      classModel.name,
-                      style: AppTextStyles.heading3.copyWith(
-                        color: AppColors.primaryDark,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
+                  ),
+                  // Menu
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: PopupMenuButton(
+                      icon: const Icon(Icons.more_vert_rounded,
+                          color: Colors.white),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                        BorderRadius.circular(AppConstants.borderRadius),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (classModel.description != null &&
-                        classModel.description!.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        classModel.description!,
-                        style: AppTextStyles.hint.copyWith(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.edit_outlined, size: 20),
+                              const SizedBox(width: 12),
+                              Text('Sửa', style: AppTextStyles.label),
+                            ],
+                          ),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-
-                    // Stats
-                    Row(
-                      children: [
-                        _buildStat(
-                          icon: Icons.folder_outlined,
-                          value: '${classModel.categoryCount ?? 0}',
-                          label: 'Học phần',
-                        ),
-                        const SizedBox(width: 20),
-                        _buildStat(
-                          icon: Icons.people_outline_rounded,
-                          value: '${classModel.memberCount ?? 0}',
-                          label: 'Thành viên',
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.delete_outline,
+                                  size: 20, color: AppColors.error),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Xóa',
+                                style: AppTextStyles.label.copyWith(
+                                  color: AppColors.error,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _showEditDialog(classModel);
+                        } else if (value == 'delete') {
+                          _deleteClass(classModel);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tên lớp
+                  Text(
+                    classModel.name,
+                    style: AppTextStyles.heading3.copyWith(
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (classModel.description != null &&
+                      classModel.description!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      classModel.description!,
+                      style: AppTextStyles.hint.copyWith(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
+                  const SizedBox(height: 12),
+
+                  // Stats
+                  Row(
+                    children: [
+                      _buildStat(
+                        icon: Icons.folder_outlined,
+                        value: '${classModel.categoryCount ?? 0}',
+                        label: 'Học phần',
+                      ),
+                      const SizedBox(width: 20),
+                      _buildStat(
+                        icon: Icons.people_outline_rounded,
+                        value: '${classModel.memberCount ?? 0}',
+                        label: 'Thành viên',
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStat({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: AppColors.primary,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          value,
+          style: AppTextStyles.label.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppColors.primaryDark,
           ),
         ),
-      );
-    }
-
-    Widget _buildStat({
-      required IconData icon,
-      required String value,
-      required String label,
-    }) {
-      return Row(
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: AppColors.primary,
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: AppTextStyles.hint.copyWith(
+            fontSize: 12,
+            color: AppColors.textSecondary,
           ),
-          const SizedBox(width: 6),
-          Text(
-            value,
-            style: AppTextStyles.label.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppColors.primaryDark,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: AppTextStyles.hint.copyWith(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      );
-    }
+        ),
+      ],
+    );
   }
+}

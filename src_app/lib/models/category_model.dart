@@ -1,17 +1,18 @@
-// lib/models/category_model.dart
-
 class CategoryModel {
   final int id;
   final String name;
   final String? description;
   final int? flashcardCount;
   final int? classId;
-  final String? className;        // ← THÊM
-  final bool isSystem;            // ← THÊM
-  final bool isUserCategory;      // ← THÊM
-  final bool isClassCategory;     // ← THÊM
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final String? className;
+  final bool isSystem;
+  final bool isUserCategory;
+  final bool isClassCategory;
+
+  // ✅ SỬ DỤNG DB CÓ SẴN
+  final int? ownerUserId;     // DB field: ownerUserId (không phải creatorId)
+  final String? visibility;   // DB field: visibility (PUBLIC/PRIVATE)
+  final bool isSaved;         // Computed từ userSavedCategories table
 
   CategoryModel({
     required this.id,
@@ -23,8 +24,9 @@ class CategoryModel {
     this.isSystem = false,
     this.isUserCategory = false,
     this.isClassCategory = false,
-    this.createdAt,
-    this.updatedAt,
+    this.ownerUserId,           // ✅ Sử dụng ownerUserId từ DB
+    this.visibility,            // ✅ Sử dụng visibility từ DB
+    this.isSaved = false,
   });
 
   /// ✅ Type display name helper
@@ -35,6 +37,10 @@ class CategoryModel {
     return 'Category';
   }
 
+  /// ✅ Check if category is public
+  bool get isPublic => visibility == 'PUBLIC';
+
+  /// ✅ UPDATED: Parse từ JSON theo DB structure
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     return CategoryModel(
       id: json['id'] as int,
@@ -43,15 +49,12 @@ class CategoryModel {
       flashcardCount: json['flashcard_count'] as int?,
       classId: json['class_id'] as int?,
       className: json['class_name'] as String?,
-      isSystem: json['is_system'] as bool? ?? false,
+      isSystem: json['is_system'] as bool? ?? json['isSystem'] as bool? ?? false,
       isUserCategory: json['is_user_category'] as bool? ?? false,
       isClassCategory: json['is_class_category'] as bool? ?? false,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : null,
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
-          : null,
+      ownerUserId: json['owner_user_id'] as int? ?? json['ownerUserId'] as int?,
+      visibility: json['visibility'] as String?,
+      isSaved: json['is_saved'] as bool? ?? false,
     );
   }
 
@@ -66,8 +69,9 @@ class CategoryModel {
       'is_system': isSystem,
       'is_user_category': isUserCategory,
       'is_class_category': isClassCategory,
-      'created_at': createdAt?.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
+      'owner_user_id': ownerUserId,
+      'visibility': visibility,
+      'is_saved': isSaved,
     };
   }
 
@@ -82,8 +86,9 @@ class CategoryModel {
     bool? isSystem,
     bool? isUserCategory,
     bool? isClassCategory,
-    DateTime? createdAt,
-    DateTime? updatedAt,
+    int? ownerUserId,
+    String? visibility,
+    bool? isSaved,
   }) {
     return CategoryModel(
       id: id ?? this.id,
@@ -95,8 +100,16 @@ class CategoryModel {
       isSystem: isSystem ?? this.isSystem,
       isUserCategory: isUserCategory ?? this.isUserCategory,
       isClassCategory: isClassCategory ?? this.isClassCategory,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      visibility: visibility ?? this.visibility,
+      isSaved: isSaved ?? this.isSaved,
     );
+  }
+
+  @override
+  String toString() {
+    return 'CategoryModel(id: $id, name: $name, description: $description, '
+        'isSystem: $isSystem, classId: $classId, ownerUserId: $ownerUserId, '
+        'visibility: $visibility, isSaved: $isSaved)';
   }
 }

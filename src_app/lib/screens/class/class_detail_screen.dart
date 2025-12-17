@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -6,15 +7,21 @@ import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
 import '../../models/class_model.dart';
 import '../../models/class_member_model.dart';
+import '../../models/category_model.dart';
 import '../../services/class_service.dart';
+import '../../services/category_service.dart';
 import '../../widgets/custom_button.dart';
 import '../../screens/class/add_members_screen.dart';
-//lỗi ch sửa đc
 
 class ClassDetailScreen extends StatefulWidget {
   final int classId;
+  final bool isOwner; // ✅ THÊM PARAMETER
 
-  const ClassDetailScreen({Key? key, required this.classId}) : super(key: key);
+  const ClassDetailScreen({
+    Key? key,
+    required this.classId,
+    this.isOwner = false, // ✅ DEFAULT = false
+  }) : super(key: key);
 
   @override
   State<ClassDetailScreen> createState() => _ClassDetailScreenState();
@@ -30,8 +37,10 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    // ✅ CHỈ CÒN 2 TABS (không có tab pending ở đây)
+    _tabController = TabController(length: 2, vsync: this);
     _loadClassDetail();
+    print('📱 [SCREEN] ${runtimeType.toString()}'); // ← THÊM DÒNG NÀY
   }
 
   @override
@@ -54,12 +63,9 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
       });
     } catch (e) {
       setState(() {
-        // Log toàn bộ chi tiết lỗi
         _errorMessage = e.toString();
         _isLoading = false;
       });
-
-      // In ra log để debug
       print('Chi tiết lỗi khi tải thông tin lớp: $e');
     }
   }
@@ -227,9 +233,14 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // Header với gradient
+          // ✅ HEADER - ĐÃ SỬA: Giảm chiều cao để không che mất nội dung
           Container(
-            height: 220,
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 8,
+              bottom: 16,
+              left: 16,
+              right: 16,
+            ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -240,246 +251,113 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
                 ],
               ),
             ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                children: [
-                  // AppBar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                              color: Colors.white, size: 22),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        Expanded(
-                          child: Text(
-                            _classDetail!.name,
-                            style: AppTextStyles.heading2.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.share_rounded,
-                              color: Colors.white),
-                          onPressed: _shareInviteCode,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Icon
-                  const Icon(
-                    Icons.school_rounded,
-                    size: 80,
-                    color: Colors.white38,
-                  ),
-
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ),
-
-          // Content
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Info card
-                Transform.translate(
-                  offset: const Offset(0, -30),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(
-                          AppConstants.borderRadius * 1.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
+                // Back button & Share button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white, size: 22),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Description
-                        if (_classDetail!.description != null &&
-                            _classDetail!.description!.isNotEmpty) ...[
-                          Text(
-                            _classDetail!.description!,
-                            style: AppTextStyles.body.copyWith(
-                              color: AppColors.textSecondary,
-                              height: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-
-                        // Stats
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard(
-                                icon: Icons.people_rounded,
-                                count: _classDetail!.memberCount ?? 0,
-                                label: 'Thành viên',
-                                color: AppColors.info,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                icon: Icons.folder_rounded,
-                                count: _classDetail!.categoryCount ?? 0,
-                                label: 'Học phần',
-                                color: AppColors.warning,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 20),
-
-                        // Invite code
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppColors.inputBackground,
-                                  borderRadius: BorderRadius.circular(
-                                      AppConstants.borderRadius),
-                                  border: Border.all(
-                                    color: AppColors.primary.withOpacity(0.2),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.vpn_key_rounded,
-                                          size: 16,
-                                          color: AppColors.primary,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Mã lớp',
-                                          style: AppTextStyles.hint.copyWith(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _classDetail!.inviteCode ?? '',
-                                      style: AppTextStyles.heading2.copyWith(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 3,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.inputBackground,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.copy_rounded),
-                                    onPressed: _copyInviteCode,
-                                    color: AppColors.primary,
-                                    tooltip: 'Sao chép',
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.inputBackground,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.share_rounded),
-                                    onPressed: _shareInviteCode,
-                                    color: AppColors.primary,
-                                    tooltip: 'Chia sẻ',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.share_rounded,
+                          color: Colors.white, size: 24),
+                      onPressed: _shareInviteCode,
                     ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Class name
+                Text(
+                  _classDetail!.name,
+                  style: AppTextStyles.heading2.copyWith(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-
-                // Tabs
-                Transform.translate(
-                  offset: const Offset(0, -20),
-                  child: Column(
+                const SizedBox(height: 8),
+                // Description (if exists)
+                if (_classDetail!.description != null &&
+                    _classDetail!.description!.isNotEmpty) ...[
+                  Text(
+                    _classDetail!.description!,
+                    style: AppTextStyles.hint.copyWith(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                const SizedBox(height: 8),
+                // ✅ STATS: Hiển thị số học phần và thành viên
+                Row(
+                  children: [
+                    _buildStatChip(
+                      icon: Icons.folder_outlined,
+                      value: '${_classDetail!.categoryCount ?? 0}',
+                      label: 'Học phần',
+                    ),
+                    const SizedBox(width: 12),
+                    _buildStatChip(
+                      icon: Icons.people_outline_rounded,
+                      value: '${_classDetail!.memberCount ?? 0}',
+                      label: 'Thành viên',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Invite code card
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(
-                              AppConstants.borderRadius),
-                        ),
-                        child: TabBar(
-                          controller: _tabController,
-                          labelColor: AppColors.primary,
-                          unselectedLabelColor: AppColors.textSecondary,
-                          indicatorColor: AppColors.primary,
-                          indicatorWeight: 3,
-                          labelStyle: AppTextStyles.label.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          tabs: const [
-                            Tab(text: 'Học phần'),
-                            Tab(text: 'Thành viên'),
-                            Tab(text: 'Hoạt động'),
+                      const Icon(Icons.vpn_key_rounded,
+                          color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Mã lớp',
+                              style: AppTextStyles.hint.copyWith(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 11,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _classDetail!.inviteCode ?? 'N/A',
+                              style: AppTextStyles.label.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 400,
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildSetsTab(),
-                            _buildMembersTab(),
-                            _buildActivityTab(),
-                          ],
-                        ),
+                      IconButton(
+                        icon: const Icon(Icons.content_copy_rounded,
+                            color: Colors.white, size: 20),
+                        onPressed: _copyInviteCode,
+                        tooltip: 'Sao chép mã',
                       ),
                     ],
                   ),
@@ -487,52 +365,32 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required int count,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-      ),
-      child: Row(
-        children: [
+          // ✅ TABS - CHỈ CÒN 2: Học phần & Thành viên
           Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textGray,
+              indicatorColor: AppColors.primary,
+              indicatorWeight: 3,
+              labelStyle: AppTextStyles.label.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+              tabs: const [
+                Tab(text: 'Học phần'),
+                Tab(text: 'Thành viên'),
+              ],
             ),
-            child: Icon(icon, size: 20, color: color),
           ),
-          const SizedBox(width: 12),
+          // Tab Content
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: TabBarView(
+              controller: _tabController,
               children: [
-                Text(
-                  '$count',
-                  style: AppTextStyles.heading2.copyWith(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: AppTextStyles.hint.copyWith(
-                    fontSize: 12,
-                  ),
-                ),
+                _buildCategoriesTab(),
+                _buildMembersTab(),
               ],
             ),
           ),
@@ -541,16 +399,629 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
     );
   }
 
-  Widget _buildSetsTab() {
-    return _buildEmptyTab(
-      icon: Icons.folder_open_rounded,
-      title: 'Danh sách học phần',
-      subtitle: 'Chức năng đang được phát triển',
+  // ✅ STAT CHIP WIDGET cho header
+  Widget _buildStatChip({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: AppTextStyles.label.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: AppTextStyles.hint.copyWith(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
+  // ✅ TAB 1: HỌC PHẦN (CATEGORIES)
+  Widget _buildCategoriesTab() {
+    return Container(
+      color: AppColors.background,
+      child: Column(
+        children: [
+          // ✅ FIXED: Header với nút tạo chủ đề - style đồng bộ
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_classDetail!.categoryCount ?? 0} chủ đề',
+                  style: AppTextStyles.label.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                // ✅ FIXED: Nút tạo chủ đề - style giống nút "Thêm"
+                TextButton.icon(
+                  onPressed: _showCreateCategoryDialog,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Tạo chủ đề'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // List categories hoặc empty state
+          Expanded(
+            child: _buildCategoriesList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ HIỂN THỊ DANH SÁCH CATEGORIES
+  Widget _buildCategoriesList() {
+    return FutureBuilder<List<CategoryModel>>(
+      future: CategoryService.getCategoriesByClassId(widget.classId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 60,
+                    color: AppColors.error.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Không thể tải học phần',
+                    style: AppTextStyles.heading3.copyWith(
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    snapshot.error.toString(),
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.hint.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final categories = snapshot.data ?? [];
+
+        if (categories.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: AppColors.inputBackground,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.folder_open_rounded,
+                    size: 50,
+                    color: AppColors.primary.withOpacity(0.5),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Chưa có chủ đề nào',
+                  style: AppTextStyles.heading3.copyWith(
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tạo chủ đề để thêm flashcard',
+                  style: AppTextStyles.hint.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                CustomButton(
+                  text: 'Tạo chủ đề đầu tiên',
+                  onPressed: _showCreateCategoryDialog,
+                  icon: Icons.add_rounded,
+                ),
+              ],
+            ),
+          );
+        }
+
+        // ✅ HIỂN THỊ DANH SÁCH CATEGORIES
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() {});
+            await _loadClassDetail();
+          },
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              return _buildCategoryCard(category);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // ✅ CARD CATEGORY
+  Widget _buildCategoryCard(CategoryModel category) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        onTap: () {
+          // ✅ Navigate to category flashcards
+          Navigator.pushNamed(
+            context,
+            '/class-category-flashcards',
+            arguments: {
+              'category': category,
+              'classModel': ClassModel(
+                id: widget.classId,
+                name: _classDetail!.name,
+                description: _classDetail!.description,
+              ),
+            },
+          ).then((_) {
+            setState(() {});
+            _loadClassDetail();
+          });
+        },
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.primary,
+                AppColors.primary.withOpacity(0.7),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(
+            Icons.folder_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+        title: Text(
+          category.name,
+          style: AppTextStyles.label.copyWith(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (category.description != null &&
+                category.description!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                category.description!,
+                style: AppTextStyles.hint,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.style_rounded,
+                  size: 14,
+                  color: AppColors.primary.withOpacity(0.7),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${category.flashcardCount ?? 0} thẻ',
+                  style: AppTextStyles.hint.copyWith(
+                    fontSize: 12,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        trailing: PopupMenuButton(
+          icon: const Icon(Icons.more_vert_rounded),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+          ),
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_outlined,
+                      size: 20, color: AppColors.primary),
+                  const SizedBox(width: 12),
+                  Text('Sửa', style: AppTextStyles.label),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  const Icon(Icons.delete_outlined,
+                      size: 20, color: AppColors.error),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Xóa',
+                    style: AppTextStyles.label.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          onSelected: (value) {
+            if (value == 'edit') {
+              _showEditCategoryDialog(category);
+            } else if (value == 'delete') {
+              _deleteCategory(category);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  // ✅ DIALOG TẠO CATEGORY
+  void _showCreateCategoryDialog() {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.5),
+        ),
+        title: Text(
+          'Tạo chủ đề mới',
+          style: AppTextStyles.heading2.copyWith(
+            color: AppColors.primaryDark,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Tên chủ đề *',
+                hintText: 'VD: Từ vựng Unit 1',
+                labelStyle: AppTextStyles.label,
+                hintStyle: AppTextStyles.hint,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: InputDecoration(
+                labelText: 'Mô tả',
+                hintText: 'VD: 20 từ vựng về gia đình',
+                labelStyle: AppTextStyles.label,
+                hintStyle: AppTextStyles.hint,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                ),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Hủy',
+              style: AppTextStyles.label.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          CustomButton(
+            text: 'Tạo',
+            width: 100,
+            height: 40,
+            onPressed: () async {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('⚠️ Vui lòng nhập tên chủ đề'),
+                    backgroundColor: AppColors.warning,
+                  ),
+                );
+                return;
+              }
+
+              try {
+                await CategoryService.createCategory(
+                  name: nameController.text.trim(),
+                  classId: widget.classId,
+                  description: descriptionController.text.trim().isNotEmpty
+                      ? descriptionController.text.trim()
+                      : null,
+                );
+
+                Navigator.pop(context);
+                setState(() {});
+                _loadClassDetail();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Tạo chủ đề thành công'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('❌ $e'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ DIALOG SỬA CATEGORY
+  void _showEditCategoryDialog(CategoryModel category) {
+    final nameController = TextEditingController(text: category.name);
+    final descriptionController =
+    TextEditingController(text: category.description ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.5),
+        ),
+        title: Text(
+          'Sửa chủ đề',
+          style: AppTextStyles.heading2.copyWith(
+            color: AppColors.primaryDark,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Tên chủ đề *',
+                labelStyle: AppTextStyles.label,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: InputDecoration(
+                labelText: 'Mô tả',
+                labelStyle: AppTextStyles.label,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                ),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Hủy',
+              style: AppTextStyles.label.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          CustomButton(
+            text: 'Lưu',
+            width: 100,
+            height: 40,
+            onPressed: () async {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('⚠️ Vui lòng nhập tên chủ đề'),
+                    backgroundColor: AppColors.warning,
+                  ),
+                );
+                return;
+              }
+
+              try {
+                await CategoryService.updateCategory(
+                  categoryId: category.id,
+                  name: nameController.text.trim(),
+                  description: descriptionController.text.trim().isNotEmpty
+                      ? descriptionController.text.trim()
+                      : null,
+                );
+
+                Navigator.pop(context);
+                setState(() {});
+                _loadClassDetail();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Cập nhật thành công'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('❌ $e'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ XÓA CATEGORY
+  Future<void> _deleteCategory(CategoryModel category) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.5),
+        ),
+        title: Text(
+          'Xác nhận xóa',
+          style: AppTextStyles.heading2.copyWith(
+            color: AppColors.primaryDark,
+          ),
+        ),
+        content: Text(
+          'Bạn có chắc muốn xóa chủ đề "${category.name}"?\nTất cả flashcard trong chủ đề này cũng sẽ bị xóa.',
+          style: AppTextStyles.body,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Hủy',
+              style: AppTextStyles.label.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          CustomButton(
+            text: 'Xóa',
+            backgroundColor: AppColors.error,
+            width: 100,
+            height: 40,
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await CategoryService.deleteCategory(category.id);
+        setState(() {});
+        _loadClassDetail();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Đã xóa chủ đề'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  // ✅ TAB 2: THÀNH VIÊN
   Widget _buildMembersTab() {
-    if (_classDetail?.members == null || _classDetail!.members!.isEmpty) {
+    if (_classDetail!.members == null || _classDetail!.members!.isEmpty) {
       return Center(
         child: Padding(
           padding: AppConstants.screenPadding,
@@ -614,7 +1085,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
 
     return Column(
       children: [
-        // Header với nút thêm thành viên
+        // ✅ Header với nút thêm thành viên - GIỮ NGUYÊN style này
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -771,55 +1242,6 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildActivityTab() {
-    return _buildEmptyTab(
-      icon: Icons.assessment_outlined,
-      title: 'Lịch sử hoạt động',
-      subtitle: 'Chức năng đang được phát triển',
-    );
-  }
-
-  Widget _buildEmptyTab({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: AppColors.inputBackground,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 50,
-              color: AppColors.primary.withOpacity(0.5),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: AppTextStyles.heading3.copyWith(
-              color: AppColors.primaryDark,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: AppTextStyles.hint.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

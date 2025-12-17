@@ -5,14 +5,15 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
  * Category entity - ONE-TO-MANY with Class
+ * ✅ Matches DB schema exactly
  * ✅ classId can be NULL (independent categories)
  * ✅ 1 category → 0 or 1 class
  * ✅ Teacher/Premium can create PUBLIC categories
+ * ✅ Has description field
  */
 @Entity
 @Table(name = "categories")
@@ -28,6 +29,9 @@ public class Category {
     @Column(nullable = false, length = 100)
     private String name;
 
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     @Column(nullable = false)
     private Boolean isSystem = false;
 
@@ -40,21 +44,14 @@ public class Category {
     @Column(length = 30, nullable = false)
     private String visibility = "PRIVATE";
 
-    @Column(length = 255)
-    private String sharePassword;
-
     @Column(length = 32, unique = true)
     private String shareToken;
 
-    @Column(nullable = false, updatable = false)
-    private ZonedDateTime createdAt = ZonedDateTime.now();
-
-    private ZonedDateTime deletedAt;
+    // ============ Relations ============
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "\"classId\"", insertable = false, updatable = false)
     private Class classEntity;
-    // ============ Relations ============
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ownerUserId", insertable = false, updatable = false)
@@ -65,15 +62,6 @@ public class Category {
 
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserSavedCategory> savedByUsers;
-
-    // ============ Lifecycle Callbacks ============
-
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = ZonedDateTime.now();
-        }
-    }
 
     // ============ Helper Methods ============
 
@@ -122,6 +110,7 @@ public class Category {
         return "Category{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
+                ", description='" + description + '\'' +
                 ", isSystem=" + isSystem +
                 ", classId=" + classId +
                 ", visibility='" + visibility + '\'' +

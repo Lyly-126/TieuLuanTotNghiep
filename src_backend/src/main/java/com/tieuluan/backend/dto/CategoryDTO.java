@@ -5,12 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.ZonedDateTime;
-
 /**
- * CategoryDTO - ONE-TO-MANY Architecture
- * ✅ Category has classId (nullable)
- * ✅ Simple, no complex relationships
+ * CategoryDTO - Data Transfer Object for Category
+ * ✅ Matches DB schema (with description, no timestamps)
  */
 @Data
 @NoArgsConstructor
@@ -18,107 +15,100 @@ import java.time.ZonedDateTime;
 public class CategoryDTO {
     private Long id;
     private String name;
+    private String description;
     private Boolean isSystem;
     private Long ownerUserId;
-    private String ownerEmail;
-    private Long classId;            // ✅ ONE-TO-MANY: category thuộc 1 class
-    private String visibility;       // PUBLIC, PRIVATE, etc.
-    private ZonedDateTime createdAt;
-    private Long flashcardCount;
+    private Long classId;
+    private String className;
+    private String visibility;
+    private String shareToken;
+    private Integer flashcardCount;
+    private Boolean isUserCategory;
+    private Boolean isClassCategory;
+    private Boolean isSaved;
+
+    // ============ FACTORY METHODS ============
 
     /**
-     * Convert từ Entity sang DTO (basic)
-     */
-    public static CategoryDTO fromEntity(Category category) {
-        CategoryDTO dto = new CategoryDTO();
-        dto.setId(category.getId());
-        dto.setName(category.getName());
-        dto.setIsSystem(category.getIsSystem());
-        dto.setOwnerUserId(category.getOwnerUserId());
-        dto.setClassId(category.getClassId());  // ✅ ONE-TO-MANY
-        dto.setVisibility(category.getVisibility());
-        dto.setCreatedAt(category.getCreatedAt());
-
-        // Lấy thông tin owner (nếu có)
-        if (category.getOwner() != null) {
-            dto.setOwnerEmail(category.getOwner().getEmail());
-        }
-
-        // Đếm số flashcards
-        if (category.getFlashcards() != null) {
-            dto.setFlashcardCount((long) category.getFlashcards().size());
-        }
-
-        return dto;
-    }
-
-    /**
-     * Convert từ Entity sang DTO (simple - không load relationships)
+     * Simple conversion (without flashcard count)
      */
     public static CategoryDTO fromEntitySimple(Category category) {
         CategoryDTO dto = new CategoryDTO();
         dto.setId(category.getId());
         dto.setName(category.getName());
+        dto.setDescription(category.getDescription());
         dto.setIsSystem(category.getIsSystem());
         dto.setOwnerUserId(category.getOwnerUserId());
-        dto.setClassId(category.getClassId());  // ✅ ONE-TO-MANY
+        dto.setClassId(category.getClassId());
         dto.setVisibility(category.getVisibility());
-        dto.setCreatedAt(category.getCreatedAt());
+        dto.setShareToken(category.getShareToken());
+
+        // Set flags
+        dto.setIsUserCategory(category.getOwnerUserId() != null && !category.isSystemCategory());
+        dto.setIsClassCategory(category.getClassId() != null);
+
         return dto;
     }
 
-    // ========== INNER CLASSES ==========
-
     /**
-     * Request: Tạo system category (Admin)
+     * Full conversion with flashcard count
      */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class CreateSystemRequest {
-        private String name;
+    public static CategoryDTO fromEntity(Category category) {
+        CategoryDTO dto = fromEntitySimple(category);
+
+        // Count flashcards if loaded
+        if (category.getFlashcards() != null) {
+            dto.setFlashcardCount(category.getFlashcards().size());
+        }
+
+        // Get class name if available
+        if (category.getClassEntity() != null) {
+            dto.setClassName(category.getClassEntity().getName());
+        }
+
+        return dto;
     }
 
-    /**
-     * Request: Tạo user category (any user)
-     */
+    // ============ REQUEST DTOs ============
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CreateUserRequest {
         private String name;
-        private String visibility; // PRIVATE (default), PUBLIC (Teacher/Premium only)
+        private String description;
+        private String visibility; // For Teacher/Premium
     }
 
-    /**
-     * Request: Tạo category cho class (Teacher)
-     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class CreateClassCategoryRequest {
+    public static class CreateSystemRequest {
         private String name;
-        private Long classId;  // ✅ ONE-TO-MANY
+        private String description;
     }
 
-    /**
-     * Request: Update category
-     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class UpdateRequest {
         private String name;
-        private String visibility;
+        private String description;
     }
 
-    /**
-     * Request: Add category to class (set classId)
-     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class AddToClassRequest {
         private Long categoryId;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CreateClassCategoryRequest {
+        private String name;
+        private String description;
+        private Long classId;
     }
 }

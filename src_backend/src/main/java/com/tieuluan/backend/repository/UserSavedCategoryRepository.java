@@ -53,4 +53,18 @@ public interface UserSavedCategoryRepository extends JpaRepository<UserSavedCate
             "WHERE usc.id.userId = :userId " +
             "ORDER BY usc.savedAt DESC")
     List<UserSavedCategory> findSavedCategoriesWithDetails(@Param("userId") Long userId);
+
+    // ✅ Tìm tất cả categories mà user đã save
+    @Query("SELECT usc FROM UserSavedCategory usc WHERE usc.id.userId = :userId")
+    List<UserSavedCategory> findByUserId(@Param("userId") Long userId);
+
+    // ✅ Kiểm tra user đã save category chưa
+    @Query("SELECT CASE WHEN COUNT(usc) > 0 THEN true ELSE false END " +
+            "FROM UserSavedCategory usc " +
+            "WHERE usc.id.userId = :userId AND usc.id.categoryId = :categoryId")
+    boolean existsByUserIdAndCategoryId(@Param("userId") Long userId, @Param("categoryId") Long categoryId);
+
+    // ✅ Đếm số user đã save category
+    @Query("SELECT COUNT(usc) FROM UserSavedCategory usc WHERE usc.id.categoryId = :categoryId")
+    long countByCategoryId(@Param("categoryId") Long categoryId);
 }

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,20 +16,24 @@ public class ClassMemberDTO {
     private Long userId;
     private String userEmail;
     private String userFullName;
-    private String userRole;      // User's system role (TEACHER, NORMAL_USER, etc.)
-    private String memberRole;    // ✅ FIXED: String instead of enum
-    private LocalDateTime joinedAt; // ✅ FIXED: LocalDateTime instead of ZonedDateTime
+    private String userRole;
+    private String memberRole;
 
-    // ✅ FIXED: Constructor từ ClassMember entity
+    // ✅ THÊM STATUS
+    private String status; // PENDING, APPROVED, REJECTED
+
+    private LocalDateTime joinedAt;
+
     public ClassMemberDTO(ClassMember member) {
-        // Access embedded ID fields
-        this.classId = member.getId().getClassId();      // ✅ Through getId()
-        this.userId = member.getId().getUserId();        // ✅ Through getId()
+        this.classId = member.getId().getClassId();
+        this.userId = member.getId().getUserId();
+        this.memberRole = member.getRole();
 
-        this.memberRole = member.getRole();              // ✅ Already String
-        this.joinedAt = member.getJoinedAt();            // ✅ Already LocalDateTime
+        // ✅ THÊM STATUS
+        this.status = member.getStatus();
 
-        // Safe null check for User
+        this.joinedAt = member.getJoinedAt();
+
         if (member.getUser() != null) {
             this.userEmail = member.getUser().getEmail();
             this.userFullName = member.getUser().getFullName();

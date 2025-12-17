@@ -64,7 +64,9 @@ public class StudyPack {
 
     // ✅ NEW: TargetRole enum
     public enum TargetRole {
-        NORMAL_USER,   // Gói cho user thường → upgrade to PREMIUM_USER
-        TEACHER        // Gói cho giáo viên → upgrade to TEACHER
+        NORMAL_USER,
+        TEACHER,
+        PREMIUM_USER,
+        ADMIN
     }
 }

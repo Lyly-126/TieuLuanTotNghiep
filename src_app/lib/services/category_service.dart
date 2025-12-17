@@ -1,14 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/app_constants.dart'; // ✅ FIXED: Import AppConstants
+import '../config/app_constants.dart';
 import '../models/category_model.dart';
 
 class CategoryService {
-  // ✅ FIXED: Sử dụng AppConstants thay vì hardcode localhost
   static const String baseUrl = '${AppConstants.baseUrl}/api/categories';
-
-  // ==================== LOGGING & HELPERS ====================
 
   static void _log(String message) {
     print('[CategoryService] $message');
@@ -34,13 +31,14 @@ class CategoryService {
 
   // ==================== CATEGORY CRUD ====================
 
-  /// ✅ Lấy categories available cho user (system + owned)
-  static Future<List<CategoryModel>> getMyCategories() async {
+  /// ✅ Lấy tất cả categories của user hiện tại (Của tôi)
+  /// Bao gồm: system categories + owned categories
+  static Future<List<CategoryModel>> getUserCategories() async {
     try {
       final headers = await _getHeaders();
       final uri = Uri.parse('$baseUrl/my');
 
-      _log('GET My Categories URL: $uri');
+      _log('GET User Categories URL: $uri');
 
       final response = await http.get(uri, headers: headers);
 
@@ -50,11 +48,158 @@ class CategoryService {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
         return data.map((json) => CategoryModel.fromJson(json)).toList();
       } else {
-        throw Exception('Không thể tải categories');
+        throw Exception('Không thể tải danh sách chủ đề');
       }
     } catch (e) {
-      _log('❌ Error in getMyCategories: $e');
-      throw Exception('Lỗi: $e');
+      _log('❌ Error in getUserCategories: $e');
+      rethrow;
+    }
+  }
+
+  /// ✅ Alias method để tương thích
+  static Future<List<CategoryModel>> getMyCategories() async {
+    return getUserCategories();
+  }
+
+  /// ✅ Lấy danh sách categories đã lưu
+  static Future<List<CategoryModel>> getSavedCategories() async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/saved');
+
+      _log('GET Saved Categories URL: $uri');
+
+      final response = await http.get(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        return data.map((json) => CategoryModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Không thể tải danh sách chủ đề đã lưu');
+      }
+    } catch (e) {
+      _log('❌ Error in getSavedCategories: $e');
+      rethrow;
+    }
+  }
+
+  /// ✅ Lưu một category
+  static Future<void> saveCategory(int categoryId) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/$categoryId/save');
+
+      _log('POST Save Category URL: $uri');
+
+      final response = await http.post(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        _log('✅ Category saved successfully');
+        return;
+      } else {
+        final error = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(error['message'] ?? 'Không thể lưu chủ đề');
+      }
+    } catch (e) {
+      _log('❌ Error in saveCategory: $e');
+      rethrow;
+    }
+  }
+
+  /// ✅ Bỏ lưu một category
+  static Future<void> unsaveCategory(int categoryId) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/$categoryId/save');
+
+      _log('DELETE Unsave Category URL: $uri');
+
+      final response = await http.delete(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        _log('✅ Category unsaved successfully');
+        return;
+      } else {
+        final error = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(error['message'] ?? 'Không thể bỏ lưu chủ đề');
+      }
+    } catch (e) {
+      _log('❌ Error in unsaveCategory: $e');
+      rethrow;
+    }
+  }
+
+  /// ✅ Kiểm tra xem category đã được lưu chưa
+  static Future<bool> isCategorySaved(int categoryId) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/$categoryId/is-saved');
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return data['isSaved'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      _log('❌ Error in isCategorySaved: $e');
+      return false;
+    }
+  }
+
+  /// ✅ Lấy categories theo class ID
+  static Future<List<CategoryModel>> getCategoriesByClassId(int classId) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/class/$classId');
+
+      _log('GET Categories for Class URL: $uri');
+
+      final response = await http.get(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        _log('Found ${data.length} categories');
+        return data.map((json) => CategoryModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Không thể tải danh sách học phần');
+      }
+    } catch (e) {
+      _log('❌ Error in getCategoriesByClassId: $e');
+      rethrow;
+    }
+  }
+
+  /// ✅ Alias method để tương thích
+  static Future<List<CategoryModel>> getCategoriesForClass(int classId) async {
+    return getCategoriesByClassId(classId);
+  }
+
+  /// ✅ Lấy thông tin chi tiết category
+  static Future<CategoryModel> getCategoryById(int categoryId) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/$categoryId');
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        return CategoryModel.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+      } else {
+        throw Exception('Không thể tải thông tin chủ đề');
+      }
+    } catch (e) {
+      _log('❌ Error in getCategoryById: $e');
+      rethrow;
     }
   }
 
@@ -78,11 +223,11 @@ class CategoryService {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
         return data.map((json) => CategoryModel.fromJson(json)).toList();
       } else {
-        throw Exception('Không thể tải system categories');
+        throw Exception('Không thể tải danh sách chủ đề hệ thống');
       }
     } catch (e) {
       _log('❌ Error in getSystemCategories: $e');
-      throw Exception('Lỗi: $e');
+      rethrow;
     }
   }
 
@@ -90,7 +235,7 @@ class CategoryService {
   static Future<CategoryModel> createUserCategory(String name) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/create');
+      final uri = Uri.parse('$baseUrl/user');
 
       _log('POST Create User Category URL: $uri');
 
@@ -102,75 +247,63 @@ class CategoryService {
 
       _log('Response Status: ${response.statusCode}');
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         return CategoryModel.fromJson(data);
       } else {
         final error = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(error['message'] ?? 'Không thể tạo category');
+        throw Exception(error['message'] ?? 'Không thể tạo chủ đề');
       }
     } catch (e) {
       _log('❌ Error in createUserCategory: $e');
-      throw Exception('Lỗi: $e');
+      rethrow;
     }
   }
 
-  /// ✅ TEACHER: Tạo category cho lớp học
-  static Future<CategoryModel> createClassCategory({
+  /// ✅ Tạo category mới (generic - hỗ trợ cả class category)
+  static Future<CategoryModel> createCategory({
     required String name,
-    required int classId,
+    String? description,
+    int? classId,
+    String visibility = 'PRIVATE',
   }) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/class');
 
-      _log('POST Create Class Category URL: $uri');
+      // Nếu có classId, sử dụng endpoint /class
+      // Nếu không, sử dụng endpoint /user
+      final uri = classId != null
+          ? Uri.parse('$baseUrl/class')
+          : Uri.parse('$baseUrl/user');
+
+      _log('POST Create Category URL: $uri');
+      _log('Body: name=$name, classId=$classId, description=$description');
+
+      final body = <String, dynamic>{'name': name};
+
+      if (description != null) body['description'] = description;
+      if (classId != null) body['classId'] = classId;
+      if (visibility != 'PRIVATE') body['visibility'] = visibility;
 
       final response = await http.post(
         uri,
         headers: headers,
-        body: jsonEncode({
-          'name': name,
-          'classId': classId,
-        }),
+        body: jsonEncode(body),
       );
 
       _log('Response Status: ${response.statusCode}');
+      _log('Response Body: ${response.body}');
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         return CategoryModel.fromJson(data);
       } else {
         final error = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(error['message'] ?? 'Không thể tạo category');
+        throw Exception(error['message'] ?? 'Không thể tạo chủ đề mới');
       }
     } catch (e) {
-      _log('❌ Error in createClassCategory: $e');
-      throw Exception('Lỗi: $e');
-    }
-  }
-
-  /// ✅ Lấy categories của lớp học
-  static Future<List<CategoryModel>> getCategoriesForClass(int classId) async {
-    try {
-      final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/class/$classId');
-
-      _log('GET Categories for Class URL: $uri');
-
-      final response = await http.get(uri, headers: headers);
-
-      _log('Response Status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
-        return data.map((json) => CategoryModel.fromJson(json)).toList();
-      } else {
-        throw Exception('Không thể tải categories của lớp');
-      }
-    } catch (e) {
-      _log('❌ Error in getCategoriesForClass: $e');
-      throw Exception('Lỗi: $e');
+      _log('❌ Error in createCategory: $e');
+      rethrow;
     }
   }
 
@@ -194,7 +327,45 @@ class CategoryService {
       }
     } catch (e) {
       _log('❌ Error in getTeacherCategories: $e');
-      throw Exception('Lỗi: $e');
+      rethrow;
+    }
+  }
+
+  /// ✅ UPDATE category
+  static Future<CategoryModel> updateCategory({
+    required int categoryId,
+    required String name,
+    String? description,
+    String? visibility,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/$categoryId');
+
+      _log('PUT Update Category URL: $uri');
+
+      final body = <String, dynamic>{'name': name};
+      if (description != null) body['description'] = description;
+      if (visibility != null) body['visibility'] = visibility;
+
+      final response = await http.put(
+        uri,
+        headers: headers,
+        body: jsonEncode(body),
+      );
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return CategoryModel.fromJson(data);
+      } else {
+        final error = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(error['message'] ?? 'Không thể cập nhật chủ đề');
+      }
+    } catch (e) {
+      _log('❌ Error in updateCategory: $e');
+      rethrow;
     }
   }
 
@@ -210,83 +381,73 @@ class CategoryService {
 
       _log('Response Status: ${response.statusCode}');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 204) {
         return;
       } else {
         final error = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(error['message'] ?? 'Không thể xóa category');
+        throw Exception(error['message'] ?? 'Không thể xóa chủ đề');
       }
     } catch (e) {
       _log('❌ Error in deleteCategory: $e');
-      throw Exception('Lỗi: $e');
+      rethrow;
     }
   }
 
-  /// ✅ GET categories by class ID
-  static Future<List<CategoryModel>> getCategoriesByClassId(int classId) async {
-    final headers = await _getHeaders();
-    final url = Uri.parse('$baseUrl/class/$classId');
+  // ==================== SEARCH & PUBLIC ====================
 
-    final response = await http.get(url, headers: headers);
+  /// ✅ Tìm kiếm categories công khai
+  static Future<List<CategoryModel>> searchPublicCategories(String query) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/search?keyword=${Uri.encodeComponent(query)}');
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-      return data.map((json) => CategoryModel.fromJson(json)).toList();
-    } else {
-      throw Exception('Không thể tải danh sách chủ đề');
+      _log('🔍 Searching categories: $query');
+      _log('GET URL: $uri');
+
+      final response = await http.get(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        _log('✅ Found ${data.length} categories');
+        return data.map((json) => CategoryModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Không thể tìm kiếm chủ đề');
+      }
+    } catch (e) {
+      _log('❌ Error in searchPublicCategories: $e');
+      rethrow;
     }
   }
 
-  /// ✅ CREATE category
-  static Future<CategoryModel> createCategory({
-    required String name,
-    required int classId,
-    String? description,
-  }) async {
-    final headers = await _getHeaders();
-    final url = Uri.parse('$baseUrl/create');
-
-    final response = await http.post(
-      url,
-      headers: headers,
-      body: json.encode({
-        'name': name,
-        'class_id': classId,
-        'description': description,
-      }),
-    );
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = json.decode(utf8.decode(response.bodyBytes));
-      return CategoryModel.fromJson(data);
-    } else {
-      throw Exception('Không thể tạo chủ đề');
-    }
+  /// ✅ Alias method - Search categories theo keyword
+  static Future<List<CategoryModel>> searchCategories(String keyword) async {
+    return searchPublicCategories(keyword);
   }
 
-  /// ✅ UPDATE category
-  static Future<CategoryModel> updateCategory({
-    required int categoryId,
-    required String name,
-    String? description,
-  }) async {
-    final headers = await _getHeaders();
-    final url = Uri.parse('$baseUrl/$categoryId');
+  /// ✅ Get all public categories (không cần keyword)
+  static Future<List<CategoryModel>> getPublicCategories() async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('$baseUrl/public');
 
-    final response = await http.put(
-      url,
-      headers: headers,
-      body: json.encode({
-        'name': name,
-        'description': description,
-      }),
-    );
+      _log('GET Public Categories URL: $uri');
 
-    if (response.statusCode == 200) {
-      final data = json.decode(utf8.decode(response.bodyBytes));
-      return CategoryModel.fromJson(data);
-    } else {
-      throw Exception('Không thể cập nhật chủ đề');
+      final response = await http.get(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        _log('✅ Found ${data.length} public categories');
+        return data.map((json) => CategoryModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Không thể tải public categories');
+      }
+    } catch (e) {
+      _log('❌ Error in getPublicCategories: $e');
+      rethrow;
     }
   }
 }

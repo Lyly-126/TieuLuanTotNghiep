@@ -3,6 +3,7 @@ package com.tieuluan.backend.controller;
 import com.tieuluan.backend.dto.StudyPackDTO;
 import com.tieuluan.backend.service.StudyPackService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/study-packs")
 @RequiredArgsConstructor
@@ -27,9 +29,12 @@ public class StudyPackController {
     @GetMapping
     public ResponseEntity<List<StudyPackDTO>> getAllPacks() {
         try {
+            log.info("📋 Fetching all study packs");  // ← THÊM
             List<StudyPackDTO> packs = studyPackService.getAllPacks();
+            log.info("✅ Found {} packs", packs.size());  // ← THÊM
             return ResponseEntity.ok(packs);
         } catch (Exception e) {
+            log.error("❌ Error: ", e);  // ← THÊM - QUAN TRỌNG!
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

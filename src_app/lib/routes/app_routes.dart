@@ -18,6 +18,7 @@ import '../screens/card/flashcard_creation_screen.dart';
 import '../screens/category/class_category_flashcards_screen.dart';
 import '../screens/class/add_members_screen.dart';
 import '../screens/class/class_categories_screen.dart';
+import '../screens/home/search_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/setting/settings_screen.dart';
 import '../screens/setting/change_password_screen.dart';
@@ -29,8 +30,6 @@ import '../screens/auth/terms_privacy_screen.dart';
 
 import '../screens/class/teacher_class_management_screen.dart';
 import '../screens/class/class_detail_screen.dart';
-import '../screens/class/join_class_screen.dart';
-import '../screens/class/class_management_screen.dart';
 
 class AppRoutes {
   static const String welcome = '/welcome';
@@ -41,6 +40,7 @@ class AppRoutes {
   static const String forgot_otp = '/forgot_otp';
   static const String reset_password = '/reset_password';
   static const String home = '/home';
+  static const String search = '/search';
   static const String profile = '/profile';
   static const String setting = '/setting';
   static const String change_password = '/change_password';
@@ -78,6 +78,7 @@ class AppRoutes {
     forgot_otp: (context) => const ForgotOtpScreen(),
     reset_password: (context) => const ResetPasswordScreen(),
     home: (context) => const HomeScreen(),
+    search: (context) => const SearchScreen(),
     profile: (context) => const ProfileScreen(),
     setting: (context) => const SettingsScreen(),
     change_password: (context) => const ChangePasswordScreen(),
@@ -90,7 +91,7 @@ class AppRoutes {
     flashcard_creation: (context) => const FlashcardCreationScreen(),
 
     teacher_classes: (context) => const TeacherClassManagementScreen(),
-    class_management: (context) => const ClassManagementScreen(),
+    // class_management: (context) => const ClassManagementScreen(),
 
     admin_home: (context) => const AdminHomeScreen(),
     admin_users_management: (context) => const AdminUserManagementScreen(),
@@ -107,11 +108,11 @@ class AppRoutes {
           builder: (_) => ClassDetailScreen(classId: classId),
         );
 
-      case join_class:
-        final prefilledCode = settings.arguments as String?;
-        return MaterialPageRoute(
-          builder: (_) => JoinClassScreen(prefilledCode: prefilledCode),
-        );
+      // case join_class:
+      //   final prefilledCode = settings.arguments as String?;
+      //   return MaterialPageRoute(
+      //     builder: (_) => JoinClassScreen(prefilledCode: prefilledCode),
+      //   );
 
       case classCategories:
         final classModel = settings.arguments as ClassModel;
@@ -128,11 +129,11 @@ class AppRoutes {
           ),
         );
 
-      case addMembers:
-        final classModel = settings.arguments as ClassModel;
-        return MaterialPageRoute(
-          builder: (_) => AddMembersScreen(classModel: classModel),
-        );
+      // case addMembers:
+      //   final classModel = settings.arguments as ClassModel;
+      //   return MaterialPageRoute(
+      //     builder: (_) => AddMembersScreen(classModel: classModel),
+      //   );
 
       default:
         return MaterialPageRoute(

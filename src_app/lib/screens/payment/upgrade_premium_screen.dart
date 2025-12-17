@@ -343,6 +343,8 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
     );
   }
 
+// Chỉ cần thay thế phần _buildPackCard trong file upgrade_premium_screen.dart
+
   Widget _buildPackCard(StudyPackModel pack, bool isSelected, int index) {
     // Xác định gói phổ biến (middle option)
     final isPopular = _packs.length > 2 && index == (_packs.length ~/ 2);
@@ -377,13 +379,15 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // ✅ FIXED: Header với proper layout
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start, // ← THÊM
             children: [
               // Radio button
               Container(
                 width: 24,
                 height: 24,
+                margin: const EdgeInsets.only(top: 2), // ← THÊM để align
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
@@ -405,73 +409,82 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
                     : null,
               ),
               const SizedBox(width: 12),
-              // Name
+
+              // ✅ FIXED: Name + Badge (với Expanded)
               Expanded(
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      pack.name,
-                      style: AppTextStyles.heading3.copyWith(
-                        color: AppColors.primaryDark,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                      ),
+                    // Name + Badge trên cùng 1 row
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      children: [
+                        Text(
+                          pack.name,
+                          style: AppTextStyles.heading3.copyWith(
+                            color: AppColors.primaryDark,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17, // ← Giảm từ 18 xuống 17
+                          ),
+                        ),
+                        if (isPopular)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF9800).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: 14,
+                                  color: Color(0xFFFF9800),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'PHỔ BIẾN',
+                                  style: AppTextStyles.hint.copyWith(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFFFF9800),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
-                    if (isPopular) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+
+                    // ✅ FIXED: Price bên dưới name
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          pack.formattedPrice,
+                          style: AppTextStyles.heading3.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 20, // ← Tăng lên để nổi bật
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF9800).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
+                        const SizedBox(width: 6),
+                        Text(
+                          pack.durationLabel,
+                          style: AppTextStyles.hint.copyWith(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star_rounded,
-                              size: 14,
-                              color: Color(0xFFFF9800),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'PHỔ BIẾN',
-                              style: AppTextStyles.hint.copyWith(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFFFF9800),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ],
                 ),
-              ),
-              // Price
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    pack.formattedPrice,
-                    style: AppTextStyles.heading3.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18,
-                    ),
-                  ),
-                  Text(
-                    pack.durationLabel,
-                    style: AppTextStyles.hint.copyWith(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
               ),
             ],
           ),

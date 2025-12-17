@@ -1,4 +1,5 @@
 // File: lib/services/class_service.dart
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +16,6 @@ class ClassService {
     print('[ClassService] $message');
   }
 
-  /// ✅ Lấy token từ SharedPreferences (khớp với cách LoginScreen lưu)
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -38,71 +38,14 @@ class ClassService {
       throw Exception('Vui lòng đăng nhập lại');
     }
 
-    // ✅ FIX: Đảm bảo Authorization header đúng format
     return {
-      'Authorization': 'Bearer $token', // ⚠️ Phải có "Bearer " ở đầu
+      'Authorization': 'Bearer $token',
       'Content-Type': 'application/json; charset=utf-8',
     };
   }
 
-  // ==================== CLASS CRUD ====================
+  // ==================== CLASS CRUD =================
 
-  /// ✅ Tạo lớp học mới
-  static Future<ClassModel> createClass({
-    required String name,
-    required String description,
-  }) async {
-    try {
-      _log('========== CREATE CLASS ==========');
-      _log('Name: $name');
-      _log('Description: $description');
-
-      final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/create');
-
-      _log('POST URL: $url');
-      _log('Headers: $headers');
-
-      final body = json.encode({
-        'name': name,
-        'description': description,
-      });
-
-      _log('Request Body: $body');
-
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: body,
-      );
-
-      _log('Response Status: ${response.statusCode}');
-      _log('Response Body: ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        _log('✅ Class created successfully');
-        final data = json.decode(utf8.decode(response.bodyBytes));
-        return ClassModel.fromJson(data);
-      } else {
-        _log('❌ Create class failed');
-
-        try {
-          final error = json.decode(utf8.decode(response.bodyBytes));
-          final errorMessage = error['message'] ?? 'Không thể tạo lớp';
-          _log('Error message: $errorMessage');
-          throw Exception(errorMessage);
-        } catch (e) {
-          // Nếu không parse được error
-          throw Exception('Không thể tạo lớp. Status: ${response.statusCode}');
-        }
-      }
-    } catch (e) {
-      _log('❌ Exception in createClass: $e');
-      rethrow;
-    }
-  }
-
-  /// ✅ Lấy danh sách lớp của teacher
   static Future<List<ClassModel>> getMyClasses() async {
     try {
       _log('========== GET MY CLASSES ==========');
@@ -111,12 +54,11 @@ class ClassService {
       final url = Uri.parse('$baseUrl/my-classes');
 
       _log('GET URL: $url');
-      _log('Headers: $headers'); // ✅ LOG HEADERS ĐỂ KIỂM TRA
 
       final response = await http.get(url, headers: headers);
 
       _log('Response Status: ${response.statusCode}');
-      _log('Response Body: ${response.body}'); // ✅ LOG BODY ĐỂ XEM LỖI CHI TIẾT
+      _log('Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         _log('✅ Classes loaded successfully');
@@ -126,7 +68,6 @@ class ClassService {
       } else {
         _log('❌ Failed to load classes');
 
-        // ✅ PARSE ERROR BODY TỪ BACKEND
         try {
           final error = json.decode(utf8.decode(response.bodyBytes));
           throw Exception(error['message'] ?? 'Không thể tải danh sách lớp');
@@ -140,7 +81,6 @@ class ClassService {
     }
   }
 
-  /// ✅ Lấy chi tiết lớp học (với members)
   static Future<ClassDetailModel> getClassDetail(int classId) async {
     try {
       _log('========== GET CLASS DETAIL ==========');
@@ -178,29 +118,336 @@ class ClassService {
     }
   }
 
-  /// ✅ Cập nhật lớp học
+  static Future<ClassModel> getClassById(int classId) async {
+    try {
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId');
+
+      final response = await http.get(url, headers: headers);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(utf8.decode(response.bodyBytes));
+        return ClassModel.fromJson(data);
+      } else {
+        throw Exception('Không thể tải thông tin lớp học');
+      }
+    } catch (e) {
+      _log('❌ Exception in getClassById: $e');
+      rethrow;
+    }
+  }
+
+  static Future<bool> isUserMemberOfClass(int classId) async {
+    try {
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/is-member');
+
+      final response = await http.get(url, headers: headers);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(utf8.decode(response.bodyBytes));
+        return data['isMember'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      _log('❌ Exception in isUserMemberOfClass: $e');
+      return false;
+    }
+  }
+
+  static Future<void> deleteClass(int classId) async {
+    try {
+      _log('========== DELETE CLASS ==========');
+      _log('Class ID: $classId');
+
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/delete');
+
+      _log('DELETE URL: $url');
+
+      final response = await http.delete(url, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        _log('✅ Class deleted successfully');
+        return;
+      } else {
+        _log('❌ Delete class failed');
+
+        try {
+          final error = json.decode(utf8.decode(response.bodyBytes));
+          throw Exception(error['message'] ?? 'Không thể xóa lớp');
+        } catch (e) {
+          throw Exception('Không thể xóa lớp. Status: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      _log('❌ Exception in deleteClass: $e');
+      rethrow;
+    }
+  }
+
+  // ==================== CLASS MEMBERS ====================
+
+  static Future<List<ClassMemberModel>> getClassMembers(int classId) async {
+    try {
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/members');
+
+      final response = await http.get(url, headers: headers);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+        return data.map((json) => ClassMemberModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Không thể tải danh sách thành viên');
+      }
+    } catch (e) {
+      _log('❌ Exception in getClassMembers: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> removeMember(int classId, int userId) async {
+    try {
+      _log('========== REMOVE MEMBER ==========');
+      _log('Class ID: $classId, User ID: $userId');
+
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/members/$userId');
+
+      _log('DELETE URL: $url');
+
+      final response = await http.delete(url, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        _log('✅ Member removed successfully');
+      } else {
+        _log('❌ Remove member failed');
+
+        try {
+          final error = json.decode(utf8.decode(response.bodyBytes));
+          throw Exception(error['message'] ?? 'Không thể xóa thành viên');
+        } catch (e) {
+          throw Exception('Không thể xóa thành viên');
+        }
+      }
+    } catch (e) {
+      _log('❌ Exception in removeMember: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> addMemberToClass({
+    required int classId,
+    required int userId,
+    String role = 'STUDENT',
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/members');
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: json.encode({
+          'userId': userId,
+          'role': role,
+        }),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Không thể thêm thành viên');
+      }
+    } catch (e) {
+      _log('❌ Exception in addMemberToClass: $e');
+      rethrow;
+    }
+  }
+
+  // ==================== PENDING MEMBERS (APPROVAL SYSTEM) ====================
+
+  /// ✅ Lấy danh sách thành viên chờ duyệt
+  static Future<List<ClassMemberModel>> getPendingMembers(int classId) async {
+    try {
+      _log('========== GET PENDING MEMBERS ==========');
+      _log('Class ID: $classId');
+
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/members/pending');
+
+      _log('GET URL: $url');
+
+      final response = await http.get(url, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        _log('✅ Pending members loaded successfully');
+        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+        return data.map((json) => ClassMemberModel.fromJson(json)).toList();
+      } else {
+        _log('❌ Failed to load pending members');
+        throw Exception('Không thể tải danh sách chờ duyệt');
+      }
+    } catch (e) {
+      _log('❌ Exception in getPendingMembers: $e');
+      rethrow;
+    }
+  }
+
+  /// ✅ Duyệt thành viên
+  static Future<void> approveMember(int classId, int userId) async {
+    try {
+      _log('========== APPROVE MEMBER ==========');
+      _log('Class ID: $classId, User ID: $userId');
+
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/members/$userId/approve');
+
+      _log('POST URL: $url');
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: json.encode({}),
+      );
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        _log('✅ Member approved successfully');
+      } else {
+        _log('❌ Approve member failed');
+        throw Exception('Không thể duyệt thành viên');
+      }
+    } catch (e) {
+      _log('❌ Exception in approveMember: $e');
+      rethrow;
+    }
+  }
+
+  /// ✅ Từ chối thành viên
+  static Future<void> rejectMember(int classId, int userId) async {
+    try {
+      _log('========== REJECT MEMBER ==========');
+      _log('Class ID: $classId, User ID: $userId');
+
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/members/$userId/reject');
+
+      _log('POST URL: $url');
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: json.encode({}),
+      );
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        _log('✅ Member rejected successfully');
+      } else {
+        _log('❌ Reject member failed');
+        throw Exception('Không thể từ chối thành viên');
+      }
+    } catch (e) {
+      _log('❌ Exception in rejectMember: $e');
+      rethrow;
+    }
+  }
+
+  // ==================== CREATE/UPDATE CLASS ====================
+
+  static Future<ClassModel> createClass({
+    required String name,
+    required String description,
+    bool isPublic = false,
+  }) async {
+    try {
+      _log('========== CREATE CLASS ==========');
+      _log('Name: $name');
+      _log('Description: $description');
+      _log('IsPublic: $isPublic');
+
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/create');
+
+      _log('POST URL: $url');
+
+      final body = json.encode({
+        'name': name,
+        'description': description,
+        'isPublic': isPublic,
+      });
+
+      _log('Request Body: $body');
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: body,
+      );
+
+      _log('Response Status: ${response.statusCode}');
+      _log('Response Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _log('✅ Class created successfully');
+        final data = json.decode(utf8.decode(response.bodyBytes));
+        return ClassModel.fromJson(data);
+      } else {
+        _log('❌ Create class failed');
+
+        try {
+          final error = json.decode(utf8.decode(response.bodyBytes));
+          final errorMessage = error['message'] ?? 'Không thể tạo lớp';
+          _log('Error message: $errorMessage');
+          throw Exception(errorMessage);
+        } catch (e) {
+          throw Exception('Không thể tạo lớp. Status: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      _log('❌ Exception in createClass: $e');
+      rethrow;
+    }
+  }
+
   static Future<ClassModel> updateClass({
     required int classId,
     required String name,
     required String description,
+    bool? isPublic,
   }) async {
     try {
       _log('========== UPDATE CLASS ==========');
       _log('Class ID: $classId');
       _log('Name: $name');
+      _log('IsPublic: $isPublic');
 
       final headers = await _getHeaders();
       final url = Uri.parse('$baseUrl/$classId/update');
 
       _log('PUT URL: $url');
 
+      final body = <String, dynamic>{
+        'name': name,
+        'description': description,
+      };
+
+      if (isPublic != null) {
+        body['isPublic'] = isPublic;
+      }
+
       final response = await http.put(
         url,
         headers: headers,
-        body: json.encode({
-          'name': name,
-          'description': description,
-        }),
+        body: json.encode(body),
       );
 
       _log('Response Status: ${response.statusCode}');
@@ -225,81 +472,78 @@ class ClassService {
     }
   }
 
-  /// ✅ Xóa lớp học
-  static Future<void> deleteClass(int classId) async {
+  // ==================== REGENERATE INVITE CODE ====================
+
+  static Future<String> regenerateInviteCode(int classId) async {
     try {
-      _log('========== DELETE CLASS ==========');
+      _log('========== REGENERATE INVITE CODE ==========');
       _log('Class ID: $classId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/delete');
+      final url = Uri.parse('$baseUrl/$classId/regenerate-invite-code');
 
-      _log('DELETE URL: $url');
+      _log('POST URL: $url');
 
-      final response = await http.delete(url, headers: headers);
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: json.encode({}),
+      );
 
       _log('Response Status: ${response.statusCode}');
+      _log('Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
-        _log('✅ Class deleted successfully');
-        return;
+        final data = json.decode(utf8.decode(response.bodyBytes));
+        final newCode = data['inviteCode'] as String;
+
+        _log('✅ Invite code regenerated successfully: $newCode');
+        return newCode;
       } else {
-        _log('❌ Delete class failed');
+        _log('❌ Regenerate invite code failed');
 
         try {
           final error = json.decode(utf8.decode(response.bodyBytes));
-          throw Exception(error['message'] ?? 'Không thể xóa lớp');
+          throw Exception(error['message'] ?? 'Không thể tạo mã mời mới');
         } catch (e) {
-          throw Exception('Không thể xóa lớp. Status: ${response.statusCode}');
+          throw Exception('Không thể tạo mã mời mới. Status: ${response.statusCode}');
         }
       }
     } catch (e) {
-      _log('❌ Exception in deleteClass: $e');
-      rethrow;
-    }
-  }
-
-  // ==================== CLASS MEMBERS ====================
-
-  /// ✅ Xóa member khỏi lớp (by teacher)
-  static Future<void> removeMember(int classId, int userId) async {
-    try {
-      _log('========== REMOVE MEMBER ==========');
-      _log('Class ID: $classId, User ID: $userId');
-
-      final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/members/$userId');
-
-      _log('DELETE URL: $url');
-
-      final response = await http.delete(url, headers: headers);
-
-      _log('Response Status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        _log('✅ Member removed successfully');
-      } else {
-        _log('❌ Remove member failed');
-
-        try {
-          final error = json.decode(utf8.decode(response.bodyBytes));
-          throw Exception(error['message'] ?? 'Không thể xóa thành viên');
-        } catch (e) {
-          throw Exception('Không thể xóa thành viên');
-        }
-      }
-    } catch (e) {
-      _log('❌ Exception in removeMember: $e');
+      _log('❌ Exception in regenerateInviteCode: $e');
       rethrow;
     }
   }
 
   // ==================== JOIN/LEAVE CLASS ====================
 
-  /// ✅ Tham gia lớp qua invite code
-  static Future<ClassMemberModel> joinByInviteCode(String inviteCode) async {
+  static Future<void> joinClass(int classId) async {
     try {
       _log('========== JOIN CLASS ==========');
+      _log('Class ID: $classId');
+
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/join');
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: json.encode({}),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final error = json.decode(utf8.decode(response.bodyBytes));
+        throw Exception(error['message'] ?? 'Không thể tham gia lớp học');
+      }
+    } catch (e) {
+      _log('❌ Exception in joinClass: $e');
+      rethrow;
+    }
+  }
+
+  static Future<ClassMemberModel> joinByInviteCode(String inviteCode) async {
+    try {
+      _log('========== JOIN CLASS BY CODE ==========');
       _log('Invite Code: $inviteCode');
 
       final headers = await _getHeaders();
@@ -336,7 +580,39 @@ class ClassService {
     }
   }
 
-  /// ✅ Lấy danh sách lớp đã tham gia (for students)
+  static Future<void> leaveClass(int classId) async {
+    try {
+      _log('========== LEAVE CLASS ==========');
+      _log('Class ID: $classId');
+
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/$classId/leave');
+
+      _log('DELETE URL: $url');
+
+      final response = await http.delete(url, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        _log('✅ Left class successfully');
+        return;
+      } else {
+        _log('❌ Leave class failed');
+
+        try {
+          final error = json.decode(utf8.decode(response.bodyBytes));
+          throw Exception(error['message'] ?? 'Không thể rời lớp');
+        } catch (e) {
+          throw Exception('Không thể rời lớp. Status: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      _log('❌ Exception in leaveClass: $e');
+      rethrow;
+    }
+  }
+
   static Future<List<ClassModel>> getJoinedClasses() async {
     try {
       _log('========== GET JOINED CLASSES ==========');
@@ -367,7 +643,6 @@ class ClassService {
 
   // ==================== SEARCH ====================
 
-  /// ✅ Tìm kiếm lớp học
   static Future<List<ClassModel>> searchClasses(String keyword) async {
     try {
       _log('========== SEARCH CLASSES ==========');
@@ -396,7 +671,28 @@ class ClassService {
       rethrow;
     }
   }
+
+  static Future<List<ClassModel>> getPublicClasses() async {
+    try {
+      final headers = await _getHeaders();
+      final url = Uri.parse('$baseUrl/public');
+
+      final response = await http.get(url, headers: headers);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+        return data.map((json) => ClassModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Không thể tải danh sách lớp học công khai');
+      }
+    } catch (e) {
+      _log('❌ Exception in getPublicClasses: $e');
+      rethrow;
+    }
+  }
 }
+
+// ==================== CLASS DETAIL MODEL ====================
 
 class ClassDetailModel {
   final int id;
@@ -404,9 +700,13 @@ class ClassDetailModel {
   final String? description;
   final String? inviteCode;
   final int ownerId;
+  final bool? isPublic;
+  final String? createdAt;
+  final String? updatedAt;
   final int? memberCount;
   final int? categoryCount;
   final List<ClassMemberModel>? members;
+  final List<dynamic>? categories;
 
   ClassDetailModel({
     required this.id,
@@ -414,9 +714,13 @@ class ClassDetailModel {
     this.description,
     this.inviteCode,
     required this.ownerId,
+    this.isPublic,
+    this.createdAt,
+    this.updatedAt,
     this.memberCount,
     this.categoryCount,
     this.members,
+    this.categories,
   });
 
   factory ClassDetailModel.fromJson(Map<String, dynamic> json) {
@@ -426,6 +730,9 @@ class ClassDetailModel {
       description: json['description'] as String?,
       inviteCode: json['inviteCode'] as String?,
       ownerId: json['ownerId'] as int,
+      isPublic: json['isPublic'] as bool?,
+      createdAt: json['createdAt'] as String?,
+      updatedAt: json['updatedAt'] as String?,
       memberCount: json['memberCount'] as int?,
       categoryCount: json['categoryCount'] as int?,
       members: json['members'] != null
@@ -433,6 +740,7 @@ class ClassDetailModel {
           .map((m) => ClassMemberModel.fromJson(m))
           .toList()
           : null,
+      categories: json['categories'] as List<dynamic>?,
     );
   }
 }

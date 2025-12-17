@@ -12,6 +12,7 @@ import java.util.Optional;
 /**
  * CategoryRepository - ONE-TO-MANY Architecture
  * ✅ Category has classId (nullable)
+ * ✅ FIXED: Removed createdAt from ORDER BY (field doesn't exist in DB)
  */
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long> {
@@ -57,8 +58,9 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     /**
      * Find PUBLIC categories (for sharing)
+     * ✅ FIXED: Order by id instead of createdAt (which doesn't exist in DB)
      */
-    @Query("SELECT c FROM Category c WHERE c.visibility = 'PUBLIC' ORDER BY c.createdAt DESC")
+    @Query("SELECT c FROM Category c WHERE c.visibility = 'PUBLIC' ORDER BY c.id DESC")
     List<Category> findPublicCategories();
 
     // ============ Available Queries ============
@@ -90,4 +92,15 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     long countByVisibility(String visibility);
 
     long countByIsSystemTrue();
+
+    // ✅ THÊM: Tìm kiếm public categories
+    @Query("SELECT c FROM Category c WHERE " +
+            "(c.isSystem = true OR c.visibility = 'PUBLIC') AND " +
+            "(LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(c.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    List<Category> searchPublicCategories(@Param("keyword") String keyword);
+
+    // ✅ THÊM: Lấy public categories
+    @Query("SELECT c FROM Category c WHERE c.isSystem = true OR c.visibility = 'PUBLIC'")
+    List<Category> findAllPublicCategories();
 }
