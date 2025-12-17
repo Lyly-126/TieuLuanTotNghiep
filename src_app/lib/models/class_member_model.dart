@@ -1,65 +1,42 @@
 class ClassMemberModel {
   final int classId;
   final int userId;
-  final String? userEmail;
-  final String? userFullName;
-  final String? userRole; // TEACHER, NORMAL_USER, PREMIUM_USER, ADMIN
-  final String memberRole; // STUDENT, TEACHER, CO_TEACHER
+  final String userEmail;
+  final String userFullName;
+  final String userRole;
+  final String memberRole;
+
+  // ✅ THÊM STATUS
+  final String status; // PENDING, APPROVED, REJECTED
+
   final String joinedAt;
 
   ClassMemberModel({
     required this.classId,
     required this.userId,
-    this.userEmail,
-    this.userFullName,
-    this.userRole,
+    required this.userEmail,
+    required this.userFullName,
+    required this.userRole,
     required this.memberRole,
+    required this.status, // ✅
     required this.joinedAt,
   });
 
   factory ClassMemberModel.fromJson(Map<String, dynamic> json) {
     return ClassMemberModel(
-      classId: json['classId'],
-      userId: json['userId'],
-      userEmail: json['userEmail'],
-      userFullName: json['userFullName'],
-      userRole: json['userRole'],
+      classId: json['classId'] ?? 0,
+      userId: json['userId'] ?? 0,
+      userEmail: json['userEmail'] ?? '',
+      userFullName: json['userFullName'] ?? '',
+      userRole: json['userRole'] ?? 'NORMAL_USER',
       memberRole: json['memberRole'] ?? 'STUDENT',
+      status: json['status'] ?? 'APPROVED', // ✅
       joinedAt: json['joinedAt'] ?? '',
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'classId': classId,
-      'userId': userId,
-      'userEmail': userEmail,
-      'userFullName': userFullName,
-      'userRole': userRole,
-      'memberRole': memberRole,
-      'joinedAt': joinedAt,
-    };
-  }
-
-  // Helper getters
-  bool get isStudent => memberRole == 'STUDENT';
-  bool get isTeacher => memberRole == 'TEACHER';
-  bool get isCoTeacher => memberRole == 'CO_TEACHER';
-
-  String get roleDisplayName {
-    switch (memberRole) {
-      case 'TEACHER':
-        return 'Giáo viên';
-      case 'CO_TEACHER':
-        return 'Giáo viên phụ';
-      case 'STUDENT':
-      default:
-        return 'Học sinh';
-    }
-  }
-
-  @override
-  String toString() {
-    return 'ClassMember(userId: $userId, name: $userFullName, role: $roleDisplayName)';
-  }
+  // ✅ Helper methods
+  bool get isPending => status == 'PENDING';
+  bool get isApproved => status == 'APPROVED';
+  bool get isRejected => status == 'REJECTED';
 }
