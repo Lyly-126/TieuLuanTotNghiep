@@ -5,11 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.ZonedDateTime;
-
 /**
  * UserSavedCategory - User favorites
  * ✅ Normal user có thể lưu chủ đề yêu thích
+ * ✅ Đã bỏ cột savedAt để khớp với DB schema
  */
 @Entity
 @Table(name = "userSavedCategories")
@@ -20,9 +19,6 @@ public class UserSavedCategory {
 
     @EmbeddedId
     private UserSavedCategoryId id;
-
-    @Column(nullable = false)
-    private ZonedDateTime savedAt = ZonedDateTime.now();
 
     // ============ Relations ============
 
@@ -38,15 +34,5 @@ public class UserSavedCategory {
 
     public UserSavedCategory(Long userId, Long categoryId) {
         this.id = new UserSavedCategoryId(userId, categoryId);
-        this.savedAt = ZonedDateTime.now();
-    }
-
-    // ============ Lifecycle Callbacks ============
-
-    @PrePersist
-    protected void onCreate() {
-        if (savedAt == null) {
-            savedAt = ZonedDateTime.now();
-        }
     }
 }

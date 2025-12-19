@@ -4,33 +4,28 @@ import com.tieuluan.backend.dto.ClassDTO;
 import com.tieuluan.backend.dto.ClassDetailDTO;
 import com.tieuluan.backend.dto.ClassMemberDTO;
 import com.tieuluan.backend.model.Class;
-import com.tieuluan.backend.model.ClassMember;
-import com.tieuluan.backend.model.ClassMemberId;
 import com.tieuluan.backend.model.User;
-import com.tieuluan.backend.repository.ClassMemberRepository;
-import com.tieuluan.backend.repository.ClassRepository;
 import com.tieuluan.backend.repository.UserRepository;
-import com.tieuluan.backend.service.ClassService;
 import com.tieuluan.backend.service.ClassMemberService;
-import com.tieuluan.backend.service.UserService;
+import com.tieuluan.backend.service.ClassService;
 import com.tieuluan.backend.util.JwtUtil;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // ✅ THÊM IMPORT
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * ✅ CLEAN VERSION - No duplicate methods
+ * ✅ CLASS CONTROLLER - Quản lý các endpoint liên quan đến Class
  */
-@Slf4j // ✅ THÊM ANNOTATION
+@Slf4j
 @RestController
 @RequestMapping("/api/classes")
 @RequiredArgsConstructor
@@ -39,441 +34,532 @@ public class ClassController {
 
     private final ClassService classService;
     private final ClassMemberService classMemberService;
-    private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
-    private final UserService userService;
-    private final ClassRepository classRepository;
-    private final ClassMemberRepository classMemberRepository;
+    private final JwtUtil jwtUtil;
 
-    // ==================== HELPER METHODS - CHỈ MỘT PHẦN DUY NHẤT ====================
+    // ==================== HELPER METHODS ====================
 
-    private Long getCurrentUserId() {
-        try {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String email = auth.getName();
-
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            return user.getId();
-        } catch (Exception e) {
-            throw new RuntimeException("Không thể lấy userId từ token: " + e.getMessage());
+    private Long getUserIdFromAuth(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new RuntimeException("Vui lòng đăng nhập");
         }
+
+        String email = authentication.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        return user.getId();
     }
 
-    private boolean isCurrentUserAdmin() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth.getAuthorities().stream()
+    private boolean isAdmin(Authentication authentication) {
+        if (authentication == null) return false;
+        return authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     }
 
-    // ==================== ENDPOINTS ====================
+    // ==================== CLASS CRUD ====================
 
-    @PostMapping("/create")
-    @PreAuthorize("hasAnyRole('TEACHER')")
-    public ResponseEntity<?> createClass(@RequestBody ClassDTO.CreateRequest request) {
-        try {
-            Long teacherId = getCurrentUserId();
-
-            if (request.getName() == null || request.getName().trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Tên lớp không được để trống"));
-            }
-
-            Class clazz = classService.createClass(
-                    request.getName(),
-                    request.getDescription(),
-                    teacherId,
-                    request.getIsPublic()
-            );
-
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ClassDTO.fromEntitySimple(clazz));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
-    }
-
+    /**
+     * ✅ GET MY CLASSES - Lấy danh sách lớp mà user là owner
+     */
     @GetMapping("/my-classes")
-    @PreAuthorize("hasAnyRole('TEACHER')")
-    public ResponseEntity<?> getMyClasses() {
+    public ResponseEntity<?> getMyClasses(Authentication authentication) {
         try {
-            Long teacherId = getCurrentUserId();
-            List<Class> classes = classService.getClassesByTeacher(teacherId);
+            Long userId = getUserIdFromAuth(authentication);
+
+            List<Class> classes = classService.getClassesByTeacher(userId);
 
             List<ClassDTO> dtos = classes.stream()
-                    .map(clazz -> {
-                        ClassDTO dto = ClassDTO.fromEntitySimple(clazz);
-                        dto.setCategoryCount(classService.getCategoryCountInClass(clazz.getId()));
-                        dto.setStudentCount(classMemberService.countMembers(clazz.getId()));
-                        return dto;
-                    })
+                    .map(this::convertToDTO)
                     .collect(Collectors.toList());
 
+            log.info("✅ Retrieved {} classes for user {}", dtos.size(), userId);
             return ResponseEntity.ok(dtos);
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
+            log.error("❌ Error getting my classes: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'NORMAL_USER')")
-    public ResponseEntity<?> getClassDetail(@PathVariable Long id) {
+    /**
+     * ✅ GET JOINED CLASSES - Lấy danh sách lớp mà user đã tham gia (APPROVED)
+     * Endpoint này đang bị thiếu trong backend!
+     */
+    @GetMapping("/joined")
+    public ResponseEntity<?> getJoinedClasses(Authentication authentication) {
         try {
-            Long userId = getCurrentUserId();
-            boolean isAdmin = isCurrentUserAdmin();
+            Long userId = getUserIdFromAuth(authentication);
 
-            Class clazz = classService.getClassById(id, userId, isAdmin);
+            // Lấy danh sách lớp đã tham gia với thông tin đầy đủ
+            List<Class> joinedClasses = classService.getJoinedClassesByUser(userId);
 
-            ClassDetailDTO detailDTO = new ClassDetailDTO(clazz);
+            // Convert sang DTO
+            List<ClassDTO> classes = joinedClasses.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
 
-            List<ClassMemberDTO> members = classMemberService.getClassMembers(id, userId);
-            detailDTO.setMembers(members);
+            log.info("✅ Retrieved {} joined classes for user {}", classes.size(), userId);
+            return ResponseEntity.ok(classes);
+        } catch (Exception e) {
+            log.error("❌ Error getting joined classes: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
 
-            detailDTO.setMemberCount((int) classMemberService.countMembers(id));
-            detailDTO.setCategoryCount((int) classService.getCategoryCountInClass(id));
+    /**
+     * ✅ GET CLASS DETAIL
+     */
+    @GetMapping("/{classId}")
+    public ResponseEntity<?> getClassDetail(
+            @PathVariable Long classId,
+            Authentication authentication) {
+        try {
+            Long userId = getUserIdFromAuth(authentication);
+            boolean isAdmin = isAdmin(authentication);
 
-            return ResponseEntity.ok(detailDTO);
-        } catch (RuntimeException e) {
+            Class clazz = classService.getClassById(classId, userId, isAdmin);
+
+            // Convert to DetailDTO with member count
+            ClassDetailDTO dto = convertToDetailDTO(clazz, userId);
+
+            return ResponseEntity.ok(dto);
+        } catch (Exception e) {
+            log.error("❌ Error getting class detail: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
-    @PutMapping("/{id}/update")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<?> updateClass(
-            @PathVariable Long id,
-            @RequestBody ClassDTO.UpdateRequest request) {
+    /**
+     * ✅ CREATE CLASS
+     */
+    @PostMapping("/create")
+    public ResponseEntity<?> createClass(
+            @RequestBody CreateClassRequest request,
+            Authentication authentication) {
         try {
-            Long teacherId = getCurrentUserId();
-            boolean isAdmin = isCurrentUserAdmin();
+            Long userId = getUserIdFromAuth(authentication);
 
-            Class clazz = classService.updateClass(
-                    id,
+            Class created = classService.createClass(
                     request.getName(),
                     request.getDescription(),
-                    teacherId,
+                    userId,
+                    request.getIsPublic()
+            );
+
+            ClassDTO dto = convertToDTO(created);
+
+            log.info("✅ Created class: {}", created.getName());
+            return ResponseEntity.ok(dto);
+        } catch (Exception e) {
+            log.error("❌ Error creating class: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ UPDATE CLASS
+     */
+    @PutMapping("/{classId}")
+    public ResponseEntity<?> updateClass(
+            @PathVariable Long classId,
+            @RequestBody UpdateClassRequest request,
+            Authentication authentication) {
+        try {
+            Long userId = getUserIdFromAuth(authentication);
+            boolean isAdmin = isAdmin(authentication);
+
+            Class updated = classService.updateClass(
+                    classId,
+                    request.getName(),
+                    request.getDescription(),
+                    userId,
                     isAdmin,
                     request.getIsPublic()
             );
 
-            return ResponseEntity.ok(ClassDTO.fromEntitySimple(clazz));
-        } catch (RuntimeException e) {
+            ClassDTO dto = convertToDTO(updated);
+
+            return ResponseEntity.ok(dto);
+        } catch (Exception e) {
+            log.error("❌ Error updating class: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
-    @DeleteMapping("/{id}/delete")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<?> deleteClass(@PathVariable Long id) {
+    /**
+     * ✅ DELETE CLASS
+     */
+    @DeleteMapping("/{classId}/delete")
+    public ResponseEntity<?> deleteClass(
+            @PathVariable Long classId,
+            Authentication authentication) {
         try {
-            Long userId = getCurrentUserId();
-            boolean isAdmin = isCurrentUserAdmin();
+            Long userId = getUserIdFromAuth(authentication);
+            boolean isAdmin = isAdmin(authentication);
 
-            classService.deleteClass(id, userId, isAdmin);
-            return ResponseEntity.ok(Map.of("message", "Đã xóa lớp học"));
-        } catch (RuntimeException e) {
+            classService.deleteClass(classId, userId, isAdmin);
+
+            return ResponseEntity.ok(Map.of("message", "Đã xóa lớp học thành công"));
+        } catch (Exception e) {
+            log.error("❌ Error deleting class: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
-    @PostMapping("/join")
-    @PreAuthorize("hasAnyRole('NORMAL_USER', 'PREMIUM_USER', 'TEACHER', 'ADMIN')")
-    public ResponseEntity<?> joinClass(@RequestBody Map<String, String> request) {
+    // ==================== JOIN/LEAVE CLASS ====================
+
+    /**
+     * ✅ JOIN CLASS BY ID
+     */
+    @PostMapping("/{classId}/join")
+    public ResponseEntity<?> joinClass(
+            @PathVariable Long classId,
+            Authentication authentication) {
         try {
-            Long userId = getCurrentUserId();
-            String inviteCode = request.get("inviteCode");
+            Long userId = getUserIdFromAuth(authentication);
 
-            if (inviteCode == null || inviteCode.trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Mã lớp không được để trống"));
-            }
+            // Get class info
+            Class clazz = classService.getClassById(classId, userId, false);
 
+            // Join via ClassMemberService (handles PENDING/APPROVED logic)
             ClassMemberDTO member = classMemberService.joinByInviteCode(
-                    inviteCode.trim().toUpperCase(),
+                    clazz.getInviteCode(),
                     userId
             );
 
             return ResponseEntity.ok(member);
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
+            log.error("❌ Error joining class: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
-    @PostMapping("/{classId}/join")
-    @PreAuthorize("hasAnyRole('NORMAL_USER', 'PREMIUM_USER', 'TEACHER', 'ADMIN')")
-    public ResponseEntity<?> joinClassById(@PathVariable Long classId) {
+    /**
+     * ✅ JOIN CLASS BY INVITE CODE
+     */
+    @PostMapping("/join")
+    public ResponseEntity<?> joinByInviteCode(
+            @RequestBody JoinByCodeRequest request,
+            Authentication authentication) {
         try {
-            Long userId = getCurrentUserId();
+            Long userId = getUserIdFromAuth(authentication);
 
-            Class clazz = classRepository.findById(classId)
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
+            ClassMemberDTO member = classMemberService.joinByInviteCode(
+                    request.getInviteCode(),
+                    userId
+            );
 
-            if (clazz.getIsPublic() == null || !clazz.getIsPublic()) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Lớp học này không công khai. Vui lòng sử dụng mã mời."));
-            }
-
-            boolean isMember = classMemberService.isMember(classId, userId);
-            if (isMember) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Bạn đã là thành viên của lớp này"));
-            }
-
-            if (clazz.getOwnerId().equals(userId)) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Bạn là chủ lớp này"));
-            }
-
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-
-            ClassMemberId memberId = new ClassMemberId(classId, userId);
-            ClassMember member = new ClassMember();
-            member.setId(memberId);
-            member.setClassEntity(clazz);
-            member.setUser(user);
-            member.setRole("STUDENT");
-            member.setJoinedAt(java.time.LocalDateTime.now());
-
-            classMemberRepository.save(member);
-
-            ClassMemberDTO memberDTO = new ClassMemberDTO(member);
-
-            return ResponseEntity.ok(Map.of(
-                    "message", "Đã tham gia lớp học thành công",
-                    "classId", classId,
-                    "member", memberDTO
-            ));
-        } catch (RuntimeException e) {
+            return ResponseEntity.ok(member);
+        } catch (Exception e) {
+            log.error("❌ Error joining by invite code: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
-    @DeleteMapping("/{id}/leave")
-    @PreAuthorize("hasAnyRole('NORMAL_USER', 'PREMIUM_USER', 'TEACHER')")
-    public ResponseEntity<?> leaveClass(@PathVariable Long id) {
+    /**
+     * ✅ LEAVE CLASS
+     */
+    @DeleteMapping("/{classId}/leave")
+    public ResponseEntity<?> leaveClass(
+            @PathVariable Long classId,
+            Authentication authentication) {
         try {
-            Long userId = getCurrentUserId();
-            classService.leaveClass(id, userId);
+            Long userId = getUserIdFromAuth(authentication);
 
-            return ResponseEntity.ok(Map.of(
-                    "message", "Đã rời khỏi lớp học",
-                    "classId", id
-            ));
-        } catch (RuntimeException e) {
+            classService.leaveClass(classId, userId);
+
+            return ResponseEntity.ok(Map.of("message", "Đã rời khỏi lớp học"));
+        } catch (Exception e) {
+            log.error("❌ Error leaving class: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
+    /**
+     * ✅ CHECK IF USER IS MEMBER
+     */
+    @GetMapping("/{classId}/is-member")
+    public ResponseEntity<?> isMember(
+            @PathVariable Long classId,
+            Authentication authentication) {
+        try {
+            Long userId = getUserIdFromAuth(authentication);
+
+            boolean isOwner = classService.isOwner(classId, userId);
+            boolean isMember = classService.isMember(classId, userId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("isMember", isOwner || isMember);
+            response.put("isOwner", isOwner);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("isMember", false, "isOwner", false));
+        }
+    }
+
+    // ==================== MEMBERS MANAGEMENT ====================
+
+    /**
+     * ✅ GET CLASS MEMBERS
+     */
+    @GetMapping("/{classId}/members")
+    public ResponseEntity<?> getClassMembers(
+            @PathVariable Long classId,
+            Authentication authentication) {
+        try {
+            Long userId = getUserIdFromAuth(authentication);
+
+            List<ClassMemberDTO> members = classMemberService.getClassMembers(classId, userId);
+
+            return ResponseEntity.ok(members);
+        } catch (Exception e) {
+            log.error("❌ Error getting class members: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ GET PENDING MEMBERS
+     */
+    @GetMapping("/{classId}/members/pending")
+    public ResponseEntity<?> getPendingMembers(
+            @PathVariable Long classId,
+            Authentication authentication) {
+        try {
+            Long userId = getUserIdFromAuth(authentication);
+
+            List<ClassMemberDTO> pendingMembers = classMemberService.getPendingMembers(classId, userId);
+
+            return ResponseEntity.ok(pendingMembers);
+        } catch (Exception e) {
+            log.error("❌ Error getting pending members: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ APPROVE MEMBER
+     */
+    @PostMapping("/{classId}/members/{userId}/approve")
+    public ResponseEntity<?> approveMember(
+            @PathVariable Long classId,
+            @PathVariable Long userId,
+            Authentication authentication) {
+        try {
+            Long teacherId = getUserIdFromAuth(authentication);
+
+            ClassMemberDTO approved = classMemberService.approveMember(classId, userId, teacherId);
+
+            return ResponseEntity.ok(approved);
+        } catch (Exception e) {
+            log.error("❌ Error approving member: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ REJECT MEMBER
+     */
+    @DeleteMapping("/{classId}/members/{userId}/reject")
+    public ResponseEntity<?> rejectMember(
+            @PathVariable Long classId,
+            @PathVariable Long userId,
+            Authentication authentication) {
+        try {
+            Long teacherId = getUserIdFromAuth(authentication);
+
+            classMemberService.rejectMember(classId, userId, teacherId);
+
+            return ResponseEntity.ok(Map.of("message", "Đã từ chối thành viên"));
+        } catch (Exception e) {
+            log.error("❌ Error rejecting member: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ REMOVE MEMBER
+     */
     @DeleteMapping("/{classId}/members/{userId}")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     public ResponseEntity<?> removeMember(
             @PathVariable Long classId,
-            @PathVariable Long userId) {
+            @PathVariable Long userId,
+            Authentication authentication) {
         try {
-            Long requesterId = getCurrentUserId();
+            Long requesterId = getUserIdFromAuth(authentication);
+
             classMemberService.removeMember(classId, userId, requesterId);
+
             return ResponseEntity.ok(Map.of("message", "Đã xóa thành viên"));
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
+            log.error("❌ Error removing member: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
-    @GetMapping("/joined")
-    @PreAuthorize("hasAnyRole('NORMAL_USER', 'PREMIUM_USER', 'TEACHER', 'ADMIN')")
-    public ResponseEntity<?> getJoinedClasses() {
-        try {
-            Long userId = getCurrentUserId();
-            List<Long> classIds = classMemberService.getClassIdsByUser(userId);
+    // ==================== SEARCH ====================
 
-            List<ClassDTO> classes = classIds.stream()
-                    .map(classId -> {
-                        try {
-                            Class clazz = classService.getClassById(classId, userId, false);
-                            ClassDTO dto = ClassDTO.fromEntitySimple(clazz);
-                            dto.setCategoryCount(classService.getCategoryCountInClass(classId));
-                            dto.setStudentCount(classMemberService.countMembers(classId));
-                            return dto;
-                        } catch (Exception e) {
-                            return null;
-                        }
-                    })
-                    .filter(dto -> dto != null)
-                    .collect(Collectors.toList());
-
-            return ResponseEntity.ok(classes);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
-    }
-
+    /**
+     * ✅ SEARCH PUBLIC CLASSES
+     */
     @GetMapping("/search")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<ClassDTO>> searchPublicClasses(
-            @RequestParam(required = false) String keyword) {
+    public ResponseEntity<?> searchClasses(@RequestParam String keyword) {
         try {
             List<Class> classes = classService.searchPublicClasses(keyword);
 
             List<ClassDTO> dtos = classes.stream()
-                    .map(ClassDTO::fromEntitySimple)
+                    .map(this::convertToDTO)
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(dtos);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    @PostMapping("/{classId}/members/add")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<?> addMemberByEmail(
-            @PathVariable Long classId,
-            @RequestBody Map<String, String> request) {
-        try {
-            Long requesterId = getCurrentUserId();
-
-            String email = request.get("email");
-            if (email == null || email.trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Email không được để trống"));
-            }
-
-            if (!email.matches("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$")) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Email không hợp lệ"));
-            }
-
-            User currentUser = userRepository.findById(requesterId)
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy user hiện tại"));
-
-            classService.addMemberByEmail(classId, email.trim(), currentUser.getEmail());
-
-            return ResponseEntity.ok()
-                    .body(Map.of("message", "Đã thêm thành viên thành công"));
-        } catch (RuntimeException e) {
+            log.error("❌ Error searching classes: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("message", e.getMessage()));
         }
     }
 
-    @GetMapping("/admin/all")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<ClassDTO>> getAllClasses() {
+    /**
+     * ✅ GET PUBLIC CLASSES
+     */
+    @GetMapping("/public")
+    public ResponseEntity<?> getPublicClasses() {
         try {
-            List<Class> classes = classService.getAllClasses();
+            List<Class> classes = classService.searchPublicClasses("");
 
             List<ClassDTO> dtos = classes.stream()
-                    .map(ClassDTO::fromEntitySimple)
+                    .map(this::convertToDTO)
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(dtos);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error getting public classes: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
         }
     }
 
-    @GetMapping("/{id}/membership-status")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> checkMembershipStatus(@PathVariable Long id) {
+    /**
+     * ✅ REGENERATE INVITE CODE
+     */
+    @PostMapping("/{classId}/regenerate-code")
+    public ResponseEntity<?> regenerateInviteCode(
+            @PathVariable Long classId,
+            Authentication authentication) {
         try {
-            Long userId = getCurrentUserId();
+            Long userId = getUserIdFromAuth(authentication);
+            boolean isAdmin = isAdmin(authentication);
 
-            boolean isOwner = classService.isOwner(id, userId);
-            boolean isMember = classService.isMember(id, userId);
+            Class updated = classService.regenerateInviteCode(classId, userId, isAdmin);
 
-            return ResponseEntity.ok(Map.of(
-                    "isOwner", isOwner,
-                    "isMember", isMember
-            ));
+            ClassDTO dto = convertToDTO(updated);
+
+            return ResponseEntity.ok(dto);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(
-                    Map.of("message", e.getMessage())
-            );
-        }
-    }
-
-    // ==================== APPROVAL SYSTEM ====================
-
-    @GetMapping("/{classId}/members/pending")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<?> getPendingMembers(@PathVariable Long classId) {
-        try {
-            Long teacherId = getCurrentUserId();
-            List<ClassMemberDTO> pendingMembers = classMemberService
-                    .getPendingMembers(classId, teacherId);
-
-            return ResponseEntity.ok(pendingMembers);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    @PostMapping("/{classId}/members/{userId}/approve")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<?> approveMember(
-            @PathVariable Long classId,
-            @PathVariable Long userId) {
-        try {
-            Long teacherId = getCurrentUserId();
-            ClassMemberDTO member = classMemberService
-                    .approveMember(classId, userId, teacherId);
-
-            return ResponseEntity.ok(Map.of(
-                    "message", "Đã duyệt thành viên",
-                    "member", member
-            ));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    @PostMapping("/{classId}/members/{userId}/reject")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<?> rejectMember(
-            @PathVariable Long classId,
-            @PathVariable Long userId) {
-        try {
-            Long teacherId = getCurrentUserId();
-            classMemberService.rejectMember(classId, userId, teacherId);
-
-            return ResponseEntity.ok(Map.of("message", "Đã từ chối yêu cầu"));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    @PostMapping("/{id}/regenerate-invite-code")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
-    public ResponseEntity<?> regenerateInviteCode(@PathVariable Long id) {
-        try {
-            Long userId = getCurrentUserId();
-            boolean isAdmin = isCurrentUserAdmin();
-
-            Class updatedClass = classService.regenerateInviteCode(id, userId, isAdmin);
-
-            return ResponseEntity.ok(Map.of(
-                    "message", "Đã tạo mã mời mới thành công",
-                    "inviteCode", updatedClass.getInviteCode(),
-                    "classId", updatedClass.getId(),
-                    "className", updatedClass.getName()
-            ));
-        } catch (RuntimeException e) {
             log.error("❌ Error regenerating invite code: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("message", e.getMessage()));
         }
+    }
+
+    // ==================== CONVERTERS ====================
+
+    private ClassDTO convertToDTO(Class clazz) {
+        ClassDTO dto = new ClassDTO();
+        dto.setId(clazz.getId());
+        dto.setName(clazz.getName());
+        dto.setDescription(clazz.getDescription());
+        dto.setOwnerId(clazz.getOwnerId());
+        dto.setInviteCode(clazz.getInviteCode());
+        dto.setIsPublic(clazz.getIsPublic());
+        dto.setCreatedAt(clazz.getCreatedAt());
+        dto.setUpdatedAt(clazz.getUpdatedAt());
+
+        // Get owner info
+        if (clazz.getOwnerId() != null) {
+            userRepository.findById(clazz.getOwnerId()).ifPresent(owner -> {
+                dto.setOwnerName(owner.getFullName());
+                dto.setOwnerEmail(owner.getEmail());
+            });
+        }
+
+        // Get member count (approved only) - ClassDTO uses studentCount (Long)
+        long memberCount = classMemberService.countApprovedMembers(clazz.getId());
+        dto.setStudentCount(memberCount);
+
+        // Get category count
+        long categoryCount = classService.getCategoryCountInClass(clazz.getId());
+        dto.setCategoryCount(categoryCount);
+
+        return dto;
+    }
+
+    private ClassDetailDTO convertToDetailDTO(Class clazz, Long requesterId) {
+        ClassDetailDTO dto = new ClassDetailDTO();
+        dto.setId(clazz.getId());
+        dto.setName(clazz.getName());
+        dto.setDescription(clazz.getDescription());
+        dto.setOwnerId(clazz.getOwnerId());
+        dto.setInviteCode(clazz.getInviteCode());
+        dto.setIsPublic(clazz.getIsPublic());
+        dto.setCreatedAt(clazz.getCreatedAt());
+        dto.setUpdatedAt(clazz.getUpdatedAt());
+
+        // Owner info
+        if (clazz.getOwnerId() != null) {
+            userRepository.findById(clazz.getOwnerId()).ifPresent(owner -> {
+                dto.setOwnerName(owner.getFullName());
+                dto.setOwnerEmail(owner.getEmail());
+            });
+        }
+
+        // Member count (approved only)
+        long memberCount = classMemberService.countApprovedMembers(clazz.getId());
+        dto.setMemberCount((int) memberCount);
+
+        // Category count
+        long categoryCount = classService.getCategoryCountInClass(clazz.getId());
+        dto.setCategoryCount((int) categoryCount);
+
+        // Note: ClassDetailDTO doesn't have isOwner/isMember fields
+        // These checks should be done in frontend or added to DTO if needed
+
+        return dto;
+    }
+
+    // ==================== REQUEST DTOs ====================
+
+    @Data
+    public static class CreateClassRequest {
+        private String name;
+        private String description;
+        private Boolean isPublic;
+    }
+
+    @Data
+    public static class UpdateClassRequest {
+        private String name;
+        private String description;
+        private Boolean isPublic;
+    }
+
+    @Data
+    public static class JoinByCodeRequest {
+        private String inviteCode;
     }
 }

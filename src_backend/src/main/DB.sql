@@ -261,41 +261,40 @@ INSERT INTO classes (name, description, ownerId, inviteCode, "isPublic") VALUES
 ('IELTS 6.5+ Online', 'Khóa IELTS trực tuyến', 1, 'IELTS65', false),
 ('Giao tiếp Tiếng Anh 101', 'Lớp giao tiếp cơ bản', 1, 'SPEAK101', true),
 ('Business English', 'Tiếng Anh thương mại', 1, 'BIZENG01', false),
-('TOEFL iBT 90+', 'Khóa luyện thi TOEFL', 8, '
-', false),
+('TOEFL iBT 90+', 'Khóa luyện thi TOEFL', 8, 'TOEFL90', false),
 ('English for Kids', 'Lớp cho trẻ em', 8, 'KIDS2024', true);
 
 -- ===========================
 -- CLASS MEMBERS DATA
 -- ===========================
--- Lớp 1: Toán 12A1 (owner: teacher1, APPROVED members)
+-- Lớp 1
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (1, 2, 'STUDENT', 'APPROVED', NOW() - INTERVAL '25 days'),
 (1, 6, 'STUDENT', 'APPROVED', NOW() - INTERVAL '20 days');
 
--- Lớp 2: Văn 11B2 (owner: teacher1, APPROVED members)
+-- Lớp 2
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (2, 2, 'STUDENT', 'APPROVED', NOW() - INTERVAL '25 days'),
 (2, 7, 'STUDENT', 'APPROVED', NOW() - INTERVAL '22 days');
 
--- Lớp 3: Anh 10C3 (owner: teacher1, APPROVED members)
+-- Lớp 3
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (3, 6, 'STUDENT', 'APPROVED', NOW() - INTERVAL '20 days'),
 (3, 7, 'STUDENT', 'APPROVED', NOW() - INTERVAL '18 days');
 
--- Lớp 4: Hóa 12D4 (owner: teacher1, APPROVED + PENDING)
+-- Lớp 4 (có PENDING)
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (4, 5, 'STUDENT', 'APPROVED', NOW() - INTERVAL '14 days'),
-(4, 6, 'STUDENT', 'PENDING', NOW() - INTERVAL '2 days'),  -- ✅ PENDING
-(4, 7, 'STUDENT', 'PENDING', NOW() - INTERVAL '1 day');   -- ✅ PENDING
+(4, 6, 'STUDENT', 'PENDING', NOW() - INTERVAL '2 days'),
+(4, 7, 'STUDENT', 'PENDING', NOW() - INTERVAL '1 day');
 
--- Lớp 5: Lý 11E5 (owner: teacher2, APPROVED + PENDING)
+-- Lớp 5 (có PENDING)
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (5, 2, 'STUDENT', 'APPROVED', NOW() - INTERVAL '15 days'),
-(5, 5, 'STUDENT', 'PENDING', NOW() - INTERVAL '3 days'),  -- ✅ PENDING
-(5, 6, 'STUDENT', 'PENDING', NOW() - INTERVAL '2 days');  -- ✅ PENDING
+(5, 5, 'STUDENT', 'PENDING', NOW() - INTERVAL '3 days'),
+(5, 6, 'STUDENT', 'PENDING', NOW() - INTERVAL '2 days');
 
--- Lớp 6: Sử 10F6 (owner: teacher2, APPROVED members)
+-- Lớp 6
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (6, 6, 'STUDENT', 'APPROVED', NOW() - INTERVAL '8 days'),
 (6, 7, 'STUDENT', 'APPROVED', NOW() - INTERVAL '8 days');
@@ -365,7 +364,4 @@ INSERT INTO flashcards (term, partOfSpeech, meaning, categoryId, imageUrl) VALUE
 ('dog', 'noun', 'con chó', 10, 'https://images.unsplash.com/photo-1543466835-00a7907e9de1'),
 ('bird', 'noun', 'con chim', 10, 'https://images.unsplash.com/photo-1444464666168-49d633b86797');
 
-
-SELECT id, name, visibility, ownerUserId, "classId"
-FROM categories 
-WHERE visibility = 'PUBLIC';
+SELECT * FROM "classMembers" WHERE "userId" = 2;

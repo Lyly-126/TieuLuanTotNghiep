@@ -416,4 +416,19 @@ public class CategoryController {
         return auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     }
+    /**
+     * ✅ GET SAVED CATEGORIES
+     */
+    @GetMapping("/saved")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CategoryDTO>> getSavedCategories() {
+        try {
+            Long userId = getCurrentUserId();
+            List<CategoryDTO> categories = categoryService.getSavedCategories(userId);
+            return ResponseEntity.ok(categories);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ArrayList<>());
+        }
+    }
 }

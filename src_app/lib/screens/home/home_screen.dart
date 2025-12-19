@@ -49,7 +49,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == 1) {
       _showCreateBottomSheet();
     } else {
-      setState(() => _selectedIndex = index);
+      // Check if this is Library tab
+      final isTeacher = _currentUser?.canCreateClass ?? false;
+      final libraryIndex = isTeacher ? 4 : 3;
+
+      if (index == libraryIndex) {
+        // Navigate to Library Screen
+        Navigator.pushNamed(context, '/library');
+      } else {
+        setState(() => _selectedIndex = index);
+      }
     }
   }
 

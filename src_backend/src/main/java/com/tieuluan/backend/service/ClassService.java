@@ -332,4 +332,36 @@ public class ClassService {
 
         return saved;
     }
+
+    /**
+     * ✅ GET CLASS BY ID FOR MEMBER
+     * Cho phép member/owner/admin xem thông tin lớp
+     * Method này KHÔNG check quyền - dùng khi đã xác nhận user là member
+     */
+    public Class getClassByIdForMember(Long classId) {
+        return classRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
+    }
+
+    /**
+     * ✅ GET JOINED CLASSES WITH FULL INFO
+     * Lấy danh sách lớp mà user đã tham gia (APPROVED) với thông tin đầy đủ
+     *
+     * @param userId ID của user
+     * @return List<Class> danh sách các lớp đã tham gia
+     */
+    public List<Class> getJoinedClassesByUser(Long userId) {
+        // Lấy danh sách classId từ ClassMemberService
+        List<Long> classIds = classMemberRepository.findByIdUserId(userId)
+                .stream()
+                .filter(member -> "APPROVED".equals(member.getStatus()))
+                .map(member -> member.getId().getClassId())
+                .collect(Collectors.toList());
+
+        // Load thông tin đầy đủ của các lớp
+        return classIds.stream()
+                .map(classId -> classRepository.findById(classId).orElse(null))
+                .filter(clazz -> clazz != null)
+                .collect(Collectors.toList());
+    }
 }

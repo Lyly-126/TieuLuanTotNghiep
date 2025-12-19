@@ -3,6 +3,7 @@ import 'package:src_app/screens/admin/policies/admin_policy_screen.dart';
 import 'package:src_app/screens/admin/study_packs/admin_study_packs_screen.dart';
 import 'package:src_app/screens/card/flashcard_screen.dart';
 import 'package:src_app/screens/home/home_screen.dart';
+import 'package:src_app/screens/library/library_screen.dart';
 import 'package:src_app/screens/payment/upgrade_premium_screen.dart';
 import '../models/class_model.dart';
 import '../screens/admin/users/admin_user_management_screen.dart';
@@ -54,6 +55,7 @@ class AppRoutes {
   static const String terms_privacy = '/terms_privacy';
   static const String flashcard = '/flashcard';
   static const String flashcard_creation = '/flashcard_creation';
+  static const String library = '/library';
 
   static const String teacher_classes = '/teacher_classes';
   static const String class_detail = '/class_detail';
@@ -89,6 +91,7 @@ class AppRoutes {
     terms_privacy: (context) => const TermsPrivacyScreen(),
     flashcard: (context) => FlashcardScreen(),
     flashcard_creation: (context) => const FlashcardCreationScreen(),
+    library: (context) => const LibraryScreen(),
 
     teacher_classes: (context) => const TeacherClassManagementScreen(),
     // class_management: (context) => const ClassManagementScreen(),

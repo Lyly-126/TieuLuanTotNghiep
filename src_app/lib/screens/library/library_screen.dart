@@ -40,130 +40,79 @@ class _LibraryScreenState extends State<LibraryScreen>
     _tabController = TabController(length: 3, vsync: this);
     _loadUserAndData();
 
-    // ✅ Lắng nghe sự kiện chuyển tab
-    _tabController.addListener(_handleTabChange);
+    // ✅ BỎ listener tự động chuyển hướng
+    // _tabController.addListener(_handleTabChange);
   }
 
-  void _handleTabChange() {
-    if (!_tabController.indexIsChanging) return;
+  // ✅ BỎ method _handleTabChange - không tự động redirect nữa
 
-    // Nếu chuyển sang tab Lớp học và user là NORMAL_USER
-    if (_tabController.index == 1 && _currentUser?.role == 'NORMAL_USER') {
-      _navigateToUpgradePremium();
-    }
-  }
-
-  /// ✅ Load thông tin user và tất cả data
   Future<void> _loadUserAndData() async {
     setState(() => _isLoading = true);
-
     try {
-      // Load thông tin user trước
       final user = await UserService.getCurrentUser();
-
       if (!mounted) return;
-
       setState(() => _currentUser = user);
-
-      // Load dữ liệu song song cho tất cả tabs
       await Future.wait([
         _loadMyCategories(),
-        _loadMyClasses(),
+        _loadJoinedClasses(),
         _loadSavedCategories(),
       ]);
     } catch (e) {
-      if (mounted) {
-        _showErrorSnackBar('Không thể tải dữ liệu: $e');
-      }
+      if (mounted) _showErrorSnackBar('Không thể tải dữ liệu: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  /// ✅ Load categories của user
   Future<void> _loadMyCategories() async {
     try {
       final categories = await CategoryService.getUserCategories();
-      if (mounted) {
-        setState(() => _myCategories = categories);
-      }
+      if (mounted) setState(() => _myCategories = categories);
     } catch (e) {
       debugPrint('Error loading my categories: $e');
     }
   }
 
-  /// ✅ Load lớp học của user
-  Future<void> _loadMyClasses() async {
+  Future<void> _loadJoinedClasses() async {
     try {
-      final classes = await ClassService.getMyClasses();
-      if (mounted) {
-        setState(() => _myClasses = classes);
-      }
+      final classes = await ClassService.getJoinedClasses();
+      if (mounted) setState(() => _myClasses = classes);
     } catch (e) {
-      debugPrint('Error loading my classes: $e');
+      debugPrint('Error loading joined classes: $e');
     }
   }
 
-  /// ✅ Load categories đã lưu
   Future<void> _loadSavedCategories() async {
     try {
       final categories = await CategoryService.getSavedCategories();
-      if (mounted) {
-        setState(() => _savedCategories = categories);
-      }
+      if (mounted) setState(() => _savedCategories = categories);
     } catch (e) {
       debugPrint('Error loading saved categories: $e');
     }
   }
 
-  /// ✅ Refresh data cho tab hiện tại
   Future<void> _refreshCurrentTab() async {
     if (_isRefreshing) return;
-
     setState(() => _isRefreshing = true);
-
     try {
       switch (_tabController.index) {
         case 0:
           await _loadMyCategories();
           break;
         case 1:
-          await _loadMyClasses();
+          await _loadJoinedClasses();
           break;
         case 2:
           await _loadSavedCategories();
           break;
       }
     } finally {
-      if (mounted) {
-        setState(() => _isRefreshing = false);
-      }
+      if (mounted) setState(() => _isRefreshing = false);
     }
-  }
-
-  /// ✅ Chuyển hướng đến màn hình nâng cấp Premium
-  void _navigateToUpgradePremium() {
-    // Chặn chuyển tab - quay về tab trước đó
-    final previousIndex = _tabController.previousIndex;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _tabController.index = previousIndex;
-      }
-    });
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const UpgradePremiumScreen(),
-      ),
-    );
   }
 
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -176,7 +125,8 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   @override
   void dispose() {
-    _tabController.removeListener(_handleTabChange);
+    // ✅ Không cần remove listener nữa
+    // _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
   }
@@ -184,23 +134,30 @@ class _LibraryScreenState extends State<LibraryScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: AppColors.primary, size: 22),
+          onPressed: () => Navigator.pop(context),
+        ),
+        centerTitle: true,
         title: Text(
           'Thư viện',
-          style: AppTextStyles.heading2.copyWith(color: Colors.white),
+          style: AppTextStyles.heading2.copyWith(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        backgroundColor: AppColors.primary,
-        elevation: 0,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
+          indicatorColor: AppColors.primary,
           indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          labelStyle: AppTextStyles.body.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textSecondary,
+          labelStyle: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
           tabs: const [
             Tab(text: 'Của tôi'),
             Tab(text: 'Lớp học'),
@@ -209,20 +166,19 @@ class _LibraryScreenState extends State<LibraryScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+          child: CircularProgressIndicator(color: AppColors.primary))
           : TabBarView(
         controller: _tabController,
-        children: [
-          _buildMyTab(),
-          _buildClassesTab(),
-          _buildSavedTab(),
-        ],
+        children: [_buildMyTab(), _buildClassesTab(), _buildSavedTab()],
       ),
     );
   }
 
-  // ==================== TAB CỦA TÔI ====================
   Widget _buildMyTab() {
+    // ✅ CHỈ hiển thị upgrade prompt - KHÔNG tự động chuyển hướng
+    if (_currentUser?.role == 'NORMAL_USER') return _buildUpgradePrompt();
+
     if (_myCategories.isEmpty) {
       return _buildEmptyState(
         icon: Icons.collections_bookmark,
@@ -230,27 +186,19 @@ class _LibraryScreenState extends State<LibraryScreen>
         subtitle: 'Tạo chủ đề mới để bắt đầu học!',
       );
     }
-
     return RefreshIndicator(
       onRefresh: _refreshCurrentTab,
+      color: AppColors.primary,
       child: ListView.builder(
         padding: const EdgeInsets.all(AppConstants.padding),
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _myCategories.length,
-        itemBuilder: (context, index) {
-          return _buildCategoryCard(_myCategories[index]);
-        },
+        itemBuilder: (context, index) => _buildCategoryCard(_myCategories[index]),
       ),
     );
   }
 
-  // ==================== TAB LỚP HỌC ====================
   Widget _buildClassesTab() {
-    // ✅ Kiểm tra role - NORMAL_USER không được truy cập
-    if (_currentUser?.role == 'NORMAL_USER') {
-      return _buildUpgradePrompt();
-    }
-
     if (_myClasses.isEmpty) {
       return _buildEmptyState(
         icon: Icons.school,
@@ -258,47 +206,40 @@ class _LibraryScreenState extends State<LibraryScreen>
         subtitle: 'Tham gia hoặc tạo lớp học để học cùng nhau!',
       );
     }
-
     return RefreshIndicator(
       onRefresh: _refreshCurrentTab,
+      color: AppColors.primary,
       child: ListView.builder(
         padding: const EdgeInsets.all(AppConstants.padding),
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _myClasses.length,
-        itemBuilder: (context, index) {
-          return _buildClassCard(_myClasses[index]);
-        },
+        itemBuilder: (context, index) => _buildClassCard(_myClasses[index]),
       ),
     );
   }
 
-  // ==================== TAB ĐÃ LƯU ====================
   Widget _buildSavedTab() {
     if (_savedCategories.isEmpty) {
       return _buildEmptyState(
         icon: Icons.bookmark_border,
-        title: 'Chưa có chủ đề đã lưu',
-        subtitle: 'Lưu các chủ đề yêu thích để học sau!',
+        title: 'Chưa có chủ đề nào được lưu',
+        subtitle: 'Lưu các chủ đề yêu thích để học lại!',
       );
     }
-
     return RefreshIndicator(
       onRefresh: _refreshCurrentTab,
+      color: AppColors.primary,
       child: ListView.builder(
         padding: const EdgeInsets.all(AppConstants.padding),
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _savedCategories.length,
-        itemBuilder: (context, index) {
-          return _buildCategoryCard(_savedCategories[index], isSaved: true);
-        },
+        itemBuilder: (context, index) =>
+            _buildCategoryCard(_savedCategories[index]),
       ),
     );
   }
 
-  // ==================== WIDGETS ====================
-
-  /// ✅ Card hiển thị category
-  Widget _buildCategoryCard(CategoryModel category, {bool isSaved = false}) {
+  Widget _buildCategoryCard(CategoryModel category) {
     return Card(
       margin: const EdgeInsets.only(bottom: AppConstants.padding),
       elevation: 2,
@@ -310,12 +251,8 @@ class _LibraryScreenState extends State<LibraryScreen>
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => FlashcardScreen(categoryId: category.id),
-            ),
-          ).then((_) {
-            // Refresh khi quay lại
-            _refreshCurrentTab();
-          });
+                builder: (context) => FlashcardScreen(categoryId: category.id)),
+          ).then((_) => _refreshCurrentTab());
         },
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
         child: Padding(
@@ -325,22 +262,25 @@ class _LibraryScreenState extends State<LibraryScreen>
             children: [
               Row(
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.style,
+                        color: AppColors.primary, size: 28),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       category.name,
-                      style: AppTextStyles.heading2.copyWith(
-                        color: AppColors.primaryDark,
-                      ),
+                      style: AppTextStyles.heading2
+                          .copyWith(color: AppColors.primaryDark),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (isSaved)
-                    const Icon(
-                      Icons.bookmark,
-                      color: AppColors.primary,
-                      size: 24,
-                    ),
                 ],
               ),
               if (category.description != null &&
@@ -348,9 +288,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                 const SizedBox(height: 8),
                 Text(
                   category.description!,
-                  style: AppTextStyles.body.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                  style: AppTextStyles.body
+                      .copyWith(color: AppColors.textSecondary),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -379,7 +318,6 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 
-  /// ✅ Card hiển thị lớp học
   Widget _buildClassCard(ClassModel classModel) {
     return Card(
       margin: const EdgeInsets.only(bottom: AppConstants.padding),
@@ -392,12 +330,10 @@ class _LibraryScreenState extends State<LibraryScreen>
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ClassDetailScreen(classId: classModel.id),
+              builder: (context) =>
+                  ClassDetailScreen(classId: classModel.id, isOwner: false),
             ),
-          ).then((_) {
-            // Refresh khi quay lại
-            _refreshCurrentTab();
-          });
+          ).then((_) => _refreshCurrentTab());
         },
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
         child: Padding(
@@ -413,11 +349,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.school,
-                      color: AppColors.primary,
-                      size: 28,
-                    ),
+                    child: const Icon(Icons.school,
+                        color: AppColors.primary, size: 28),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -426,9 +359,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                       children: [
                         Text(
                           classModel.name,
-                          style: AppTextStyles.heading2.copyWith(
-                            color: AppColors.primaryDark,
-                          ),
+                          style: AppTextStyles.heading2
+                              .copyWith(color: AppColors.primaryDark),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -437,9 +369,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                           const SizedBox(height: 4),
                           Text(
                             classModel.description!,
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.textSecondary),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -473,7 +404,6 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 
-  /// ✅ Info chip với icon và label
   Widget _buildInfoChip({
     required IconData icon,
     required String label,
@@ -490,19 +420,14 @@ class _LibraryScreenState extends State<LibraryScreen>
         children: [
           Icon(icon, size: 16, color: color),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: AppTextStyles.caption.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text(label,
+              style: AppTextStyles.caption
+                  .copyWith(color: color, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
-  /// ✅ Empty state khi không có dữ liệu
   Widget _buildEmptyState({
     required IconData icon,
     required String title,
@@ -514,25 +439,20 @@ class _LibraryScreenState extends State<LibraryScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 80,
-              color: AppColors.textSecondary.withOpacity(0.5),
-            ),
+            Icon(icon,
+                size: 80, color: AppColors.textSecondary.withOpacity(0.5)),
             const SizedBox(height: 16),
             Text(
               title,
-              style: AppTextStyles.heading2.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style:
+              AppTextStyles.heading2.copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               subtitle,
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textSecondary.withOpacity(0.7),
-              ),
+              style: AppTextStyles.body
+                  .copyWith(color: AppColors.textSecondary.withOpacity(0.7)),
               textAlign: TextAlign.center,
             ),
           ],
@@ -541,7 +461,6 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 
-  /// ✅ Màn hình yêu cầu nâng cấp Premium
   Widget _buildUpgradePrompt() {
     return Center(
       child: Padding(
@@ -555,26 +474,21 @@ class _LibraryScreenState extends State<LibraryScreen>
                 color: AppColors.warning.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.workspace_premium,
-                size: 60,
-                color: AppColors.warning,
-              ),
+              child: const Icon(Icons.workspace_premium,
+                  size: 60, color: AppColors.warning),
             ),
             const SizedBox(height: 24),
             Text(
               'Nâng cấp Premium',
-              style: AppTextStyles.heading1.copyWith(
-                color: AppColors.primaryDark,
-              ),
+              style:
+              AppTextStyles.heading1.copyWith(color: AppColors.primaryDark),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              'Chức năng lớp học chỉ dành cho người dùng Premium',
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              'Chức năng này chỉ dành cho người dùng Premium',
+              style:
+              AppTextStyles.body.copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -583,8 +497,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const UpgradePremiumScreen(),
-                  ),
+                      builder: (context) => const UpgradePremiumScreen()),
                 );
               },
               icon: const Icon(Icons.arrow_forward),
@@ -592,12 +505,11 @@ class _LibraryScreenState extends State<LibraryScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.warning,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  borderRadius:
+                  BorderRadius.circular(AppConstants.borderRadius),
                 ),
               ),
             ),

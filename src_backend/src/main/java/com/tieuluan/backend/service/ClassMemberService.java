@@ -97,7 +97,7 @@ public class ClassMemberService {
     }
 
     /**
-     * ✅ FIXED: Sử dụng findByClassId thay vì findByIdClassId
+     * ✅ FIXED: Dùng findByIdClassId để query theo classId
      */
     public List<ClassMemberDTO> getClassMembers(Long classId, Long requesterId) {
         Class clazz = classRepository.findById(classId)
@@ -108,18 +108,21 @@ public class ClassMemberService {
             throw new RuntimeException("Bạn không có quyền xem danh sách thành viên");
         }
 
-        // ✅ FIXED: findByClassId
-        List<ClassMember> members = classMemberRepository.findByIdUserId(classId);
+        // ✅ FIXED: Dùng findByIdClassId thay vì findByIdUserId
+        List<ClassMember> members = classMemberRepository.findByIdClassId(classId);
+
+        log.info("✅ Found {} members for class {}", members.size(), classId);
+
         return members.stream()
                 .map(ClassMemberDTO::new)
                 .collect(Collectors.toList());
     }
 
     /**
-     * ✅ FIXED: Sử dụng findByUserId thay vì findByIdUserId
+     * ✅ FIXED: Dùng findByIdUserId để query theo userId
      */
     public List<Long> getClassIdsByUser(Long userId) {
-        // ✅ FIXED: findByUserId
+        // ✅ Dùng findByIdUserId cho userId
         List<ClassMember> members = classMemberRepository.findByIdUserId(userId);
         return members.stream()
                 .map(member -> member.getId().getClassId())
@@ -132,10 +135,9 @@ public class ClassMemberService {
     }
 
     /**
-     * ✅ FIXED: Sử dụng countByClassId thay vì countByIdClassId
+     * ✅ Count approved members
      */
     public long countMembers(Long classId) {
-        // ✅ FIXED: countByClassId
         return classMemberRepository.countByIdClassIdAndStatusApproved(classId);
     }
 
@@ -284,6 +286,4 @@ public class ClassMemberService {
     public long countApprovedMembers(Long classId) {
         return classMemberRepository.countByIdClassIdAndStatusApproved(classId);
     }
-
-
 }

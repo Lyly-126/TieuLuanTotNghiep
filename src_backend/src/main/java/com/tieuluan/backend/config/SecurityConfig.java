@@ -82,35 +82,42 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/{id}/profile").authenticated()
                         .requestMatchers("/api/users/delete").authenticated()
 
-                        // ========== ✅ TEACHER + ADMIN - CLASS MANAGEMENT ==========
+                        // ========== ✅ CLASSES - SPECIFIC PATTERNS FIRST ==========
+                        // CLASS MEMBERS - SPECIFIC ENDPOINTS (MUST BE BEFORE GENERAL PATTERNS)
+                        .requestMatchers("/api/classes/{classId}/members/pending").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{classId}/members/{userId}/approve").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{classId}/members/{userId}/reject").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{classId}/members/add").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{classId}/members/{userId}").hasAnyRole("TEACHER", "ADMIN")
+
+                        // THEN GENERAL MEMBER ENDPOINT (for viewing - all authenticated users)
+                        .requestMatchers("/api/classes/*/members").authenticated()
+
+                        // CLASS MANAGEMENT - TEACHER/ADMIN ONLY
                         .requestMatchers("/api/classes/create").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/my-classes").hasAnyRole("TEACHER", "ADMIN")
-                        .requestMatchers("/api/classes/{id}").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
                         .requestMatchers("/api/classes/{id}/update").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/{id}/delete").hasAnyRole("TEACHER", "ADMIN")
+                        .requestMatchers("/api/classes/{id}/regenerate-invite-code").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/{id}/category-count").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/admin/**").hasRole("ADMIN")
 
-                        // ========== ✅ ALL USERS - CLASS PUBLIC ACCESS ==========
-                        .requestMatchers("/api/classes/search").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
-                        .requestMatchers("/api/classes/{id}/membership-status").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
-                        .requestMatchers("/api/classes/{id}/join").hasAnyRole("NORMAL_USER", "PREMIUM_USER", "TEACHER", "ADMIN")
+                        // ✅ CLASS PUBLIC ACCESS - ALL AUTHENTICATED USERS
+                        .requestMatchers("/api/classes/search").authenticated()
+                        .requestMatchers("/api/classes/{id}/membership-status").authenticated()
+                        .requestMatchers("/api/classes/join").authenticated()
+                        .requestMatchers("/api/classes/{id}/join").authenticated()
+                        .requestMatchers("/api/classes/{id}/leave").authenticated()
+                        .requestMatchers("/api/classes/joined").authenticated()
 
-                        // ========== ✅ CLASS MEMBERS - TEACHER + ADMIN ==========
-                        .requestMatchers("/api/classes/{id}/members").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
-                        .requestMatchers("/api/classes/{classId}/members/add").hasAnyRole("TEACHER", "ADMIN")
-                        .requestMatchers("/api/classes/{classId}/members/{userId}").hasAnyRole("TEACHER", "ADMIN")
-                        .requestMatchers("/api/classes/{id}/regenerate-invite-code").hasAnyRole("TEACHER", "ADMIN")
-
-                        // ========== ✅ STUDENT - CLASS ACTIONS ==========
-                        .requestMatchers("/api/classes/join").hasAnyRole("NORMAL_USER", "PREMIUM_USER", "TEACHER", "ADMIN")
-                        .requestMatchers("/api/classes/{id}/leave").hasAnyRole("NORMAL_USER", "PREMIUM_USER", "TEACHER")
-                        .requestMatchers("/api/classes/joined").hasAnyRole("NORMAL_USER", "PREMIUM_USER", "TEACHER", "ADMIN")
+                        // CLASS DETAIL (MUST BE LAST AMONG CLASS ENDPOINTS)
+                        .requestMatchers("/api/classes/{id}").authenticated()
 
                         // ========== ✅ CATEGORIES - ALL AUTHENTICATED ==========
-                        .requestMatchers("/api/categories/search").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
-                        .requestMatchers("/api/categories/public").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
-                        .requestMatchers("/api/categories/{id}/save").hasAnyRole("TEACHER", "ADMIN", "NORMAL_USER", "PREMIUM_USER")
+                        .requestMatchers("/api/categories/search").authenticated()
+                        .requestMatchers("/api/categories/saved").authenticated()  // ✅ THÊM DÒNG NÀY
+                        .requestMatchers("/api/categories/public").authenticated()
+                        .requestMatchers("/api/categories/{id}/save").authenticated()
 
                         // Static resources
                         .requestMatchers("/audio/**").permitAll()

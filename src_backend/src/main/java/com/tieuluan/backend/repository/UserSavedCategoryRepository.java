@@ -50,8 +50,7 @@ public interface UserSavedCategoryRepository extends JpaRepository<UserSavedCate
      */
     @Query("SELECT usc FROM UserSavedCategory usc " +
             "JOIN FETCH usc.category c " +
-            "WHERE usc.id.userId = :userId " +
-            "ORDER BY usc.savedAt DESC")
+            "WHERE usc.id.userId = :userId ")
     List<UserSavedCategory> findSavedCategoriesWithDetails(@Param("userId") Long userId);
 
     // ✅ Tìm tất cả categories mà user đã save
