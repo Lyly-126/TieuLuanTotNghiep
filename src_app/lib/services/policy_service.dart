@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
+
 class PolicyService {
   // ✅ Đổi URL phù hợp với môi trường
-  static const String baseUrl = 'http://localhost:8080/api/policies';
+  // static const String baseUrl = 'http://localhost:8080/api/policies';
 
   // Nếu dùng Android Emulator: 'http://10.0.2.2:8080/api/policies'
   // Nếu dùng thiết bị thật: 'http://YOUR_IP:8080/api/policies'
@@ -15,7 +17,7 @@ class PolicyService {
   /// Lấy tất cả policies ACTIVE (không cần token)
   static Future<List<Map<String, dynamic>>> getActivePolicies() async {
     try {
-      final uri = Uri.parse(baseUrl);
+      final uri = Uri.parse(ApiConfig.policyBase);
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
@@ -32,7 +34,7 @@ class PolicyService {
   /// Lấy một policy theo ID (không cần token)
   static Future<Map<String, dynamic>> getActivePolicyById(int id) async {
     try {
-      final uri = Uri.parse('$baseUrl/$id');
+      final uri = Uri.parse('${ApiConfig.policyBase}/$id');
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
@@ -59,7 +61,7 @@ class PolicyService {
         throw Exception('Vui lòng đăng nhập lại');
       }
 
-      final uri = Uri.parse('$baseUrl/admin/all');
+      final uri = Uri.parse('${ApiConfig.policyBase}/admin/all');
       final response = await http.get(
         uri,
         headers: {
@@ -90,7 +92,7 @@ class PolicyService {
         throw Exception('Vui lòng đăng nhập lại');
       }
 
-      final uri = Uri.parse('$baseUrl/admin/$id');
+      final uri = Uri.parse('${ApiConfig.policyBase}/admin/$id');
       final response = await http.get(
         uri,
         headers: {
@@ -124,7 +126,7 @@ class PolicyService {
         throw Exception('Vui lòng đăng nhập lại');
       }
 
-      final uri = Uri.parse('$baseUrl/admin');
+      final uri = Uri.parse('${ApiConfig.policyBase}/admin');
       final response = await http.post(
         uri,
         headers: {
@@ -164,7 +166,7 @@ class PolicyService {
         throw Exception('Vui lòng đăng nhập lại');
       }
 
-      final uri = Uri.parse('$baseUrl/admin/$id');
+      final uri = Uri.parse('${ApiConfig.policyBase}/admin/$id');
 
       // Chỉ gửi các field không null
       final Map<String, dynamic> requestBody = {};
@@ -202,7 +204,7 @@ class PolicyService {
         throw Exception('Vui lòng đăng nhập lại');
       }
 
-      final uri = Uri.parse('$baseUrl/admin/$id');
+      final uri = Uri.parse('${ApiConfig.policyBase}/admin/$id');
       final response = await http.delete(
         uri,
         headers: {
@@ -232,7 +234,7 @@ class PolicyService {
         throw Exception('Vui lòng đăng nhập lại');
       }
 
-      final uri = Uri.parse('$baseUrl/admin/$id/status?status=$status');
+      final uri = Uri.parse('${ApiConfig.policyBase}/admin/$id/status?status=$status');
       final response = await http.patch(
         uri,
         headers: {

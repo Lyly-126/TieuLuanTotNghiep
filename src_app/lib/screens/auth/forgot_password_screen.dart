@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http; // Cần import http
 import 'dart:convert'; // Cần import json
+import '../../config/api_config.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
@@ -8,7 +9,7 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/custom_textfield.dart';
 
 // URL API của Spring Boot Backend
-const String _baseUrl = 'http://localhost:8080/api/auth';
+// const String _baseUrl = 'http://localhost:8080/api/auth';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -49,7 +50,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _errorMessage = null;
     });
 
-    final url = Uri.parse('http://localhost:8080/api/auth/forgot-password/send-otp');
+    final url = Uri.parse('${ApiConfig.authForgotPassword}/send-otp');
     final headers = {'Content-Type': 'application/json'};
     final body = jsonEncode({
       'email': _emailController.text.trim(),

@@ -2,11 +2,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 import '../models/study_pack_model.dart';
 
 class StudyPackService {
   // ⚠️ Android Emulator dùng 10.0.2.2
-  static const String baseUrl = 'http://localhost:8080/api/study-packs';
+  // static const String baseUrl = 'http://localhost:8080/api/study-packs';
   // iOS Simulator: http://localhost:8080/api/study-packs
   // Prod: https://yourdomain.com/api/study-packs
 
@@ -19,7 +20,7 @@ class StudyPackService {
 
   static Future<List<StudyPackModel>> getAllPacks() async {
     try {
-      final uri = Uri.parse(baseUrl);
+      final uri = Uri.parse(ApiConfig.studyPackBase);
       final response = await http.get(uri, headers: {'Content-Type': 'application/json'});
 
       if (response.statusCode == 200) {
@@ -35,7 +36,7 @@ class StudyPackService {
 
   static Future<StudyPackModel> getPackById(int id) async {
     try {
-      final uri = Uri.parse('$baseUrl/$id');
+      final uri = Uri.parse(ApiConfig.studyPackDetail(id));
       final response = await http.get(uri, headers: {'Content-Type': 'application/json'});
 
       if (response.statusCode == 200) {
@@ -62,7 +63,7 @@ class StudyPackService {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse('$baseUrl/admin');
+      final uri = Uri.parse('${ApiConfig.studyPackBase}/admin');
       final response = await http.post(
         uri,
         headers: {
@@ -99,7 +100,7 @@ class StudyPackService {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse('$baseUrl/admin/$id');
+      final uri = Uri.parse('${ApiConfig.studyPackBase}/admin/$id');
       final response = await http.put(
         uri,
         headers: {
@@ -130,7 +131,7 @@ class StudyPackService {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse('$baseUrl/admin/$id');
+      final uri = Uri.parse('${ApiConfig.studyPackBase}/admin/$id');
       final response = await http.delete(
         uri,
         headers: {
@@ -152,7 +153,7 @@ class StudyPackService {
   static Future<List<StudyPackModel>> getAllPacksAdmin() async {
     try {
       final token = await _getToken();
-      final uri = Uri.parse('$baseUrl/admin/all');
+      final uri = Uri.parse('${ApiConfig.studyPackBase}/admin/all');
 
       final response = await http.get(
         uri,

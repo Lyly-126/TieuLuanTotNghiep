@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
+import '../config/api_config.dart';  // ← THÊM DÒNG NÀY
 
 class UserService {
-  static const String baseUrl = 'http://localhost:8080/api/users';
+  // static const String baseUrl = 'http://localhost:8080/api/users';  // ← ĐÃ COMMENT
 
   /// ✅ Lấy thông tin user hiện tại từ SharedPreferences
   /// Đọc từ các field riêng lẻ: user_id, user_email, user_role...
@@ -83,7 +84,7 @@ class UserService {
     try {
       final token = await _getToken();
 
-      final uri = Uri.parse('$baseUrl/admin/all');
+      final uri = Uri.parse('${ApiConfig.userBase}/admin/all');
 
       final response = await http.get(
         uri,

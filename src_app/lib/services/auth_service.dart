@@ -2,15 +2,16 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
+import '../config/api_config.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://localhost:8080/api/users';
+  // static const String baseUrl = 'http://localhost:8080/api/users';
 
   /// ✅ Login và lưu token + user info
   static Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/login'),
+        Uri.parse(ApiConfig.authLogin),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
@@ -73,7 +74,7 @@ class AuthService {
       }
 
       final response = await http.post(
-        Uri.parse('$baseUrl/register'),
+        Uri.parse(ApiConfig.authRegister),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );

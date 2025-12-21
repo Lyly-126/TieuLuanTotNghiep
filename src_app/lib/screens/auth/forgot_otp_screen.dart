@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../config/api_config.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
@@ -8,7 +9,6 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/custom_textfield.dart';
 
 // URL API Backend
-const String _baseUrl = 'http://localhost:8080/api/auth';
 
 class ForgotOtpScreen extends StatefulWidget {
   const ForgotOtpScreen({super.key});
@@ -69,7 +69,7 @@ class _ForgotOtpScreenState extends State<ForgotOtpScreen> {
     });
 
     final response = await http.post(
-      Uri.parse('http://localhost:8080/api/auth/forgot-password/check-otp'),
+      Uri.parse('${ApiConfig.authForgotPassword}/check-otp'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': _email,
@@ -110,7 +110,7 @@ class _ForgotOtpScreenState extends State<ForgotOtpScreen> {
     });
 
     final response = await http.post(
-      Uri.parse('http://localhost:8080/api/auth/forgot-password/send-otp'),
+      Uri.parse('${ApiConfig.authForgotPassword}/send-otp'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': _email}),
     );

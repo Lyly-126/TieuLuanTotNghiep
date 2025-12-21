@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../config/api_config.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
@@ -25,13 +26,13 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
   String? _errorMessage;
 
   /// Chọn base URL theo môi trường chạy
-  String get _apiBase {
-    // Android emulator truy cập host là 10.0.2.2
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8080';
-    }
-    return 'http://localhost:8080';
-  }
+  // String get _apiBase {
+  //   // Android emulator truy cập host là 10.0.2.2
+  //   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+  //     return 'http://10.0.2.2:8080';
+  //   }
+  //   return 'http://localhost:8080';
+  // }
 
   @override
   void initState() {
@@ -706,7 +707,7 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
       // 2. Tạo order
       print('🔵 Step 1: Creating order for pack $packId');
       final createOrderRes = await http.post(
-        Uri.parse('$_apiBase/api/payment/create-order'),
+        Uri.parse('${ApiConfig.baseUrl}/api/payment/create-order'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -738,7 +739,7 @@ class _UpgradePremiumScreenState extends State<UpgradePremiumScreen> {
 
       // 3. Tạo URL VNPay
       print('🔵 Step 2: Creating VNPay payment URL');
-      final uri = Uri.parse('$_apiBase/api/payment/vnpay/create')
+      final uri = Uri.parse('${ApiConfig.baseUrl}/api/payment/vnpay/create')
           .replace(queryParameters: {
         'orderId': orderId.toString(),
       });

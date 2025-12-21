@@ -9,23 +9,31 @@ import '../card/flashcard_creation_screen.dart';
 import '../class/teacher_class_management_screen.dart';
 import '../../services/user_service.dart';
 import '../../models/user_model.dart';
+import '../../models/category_model.dart';      // ✅ THÊM
+import '../card/flashcard_screen.dart';
+import '../../services/category_service.dart';  // ✅ THÊM
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
+
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   UserModel? _currentUser;
   bool _isLoadingUser = true;
+  List<CategoryModel> _defaultCategories = [];
+  bool _isLoadingCategories = true;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUser();
+    _loadDefaultCategories();
   }
 
   Future<void> _loadCurrentUser() async {
@@ -668,29 +676,229 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCoursesTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    // Show loading indicator
+    if (_isLoadingCategories) {
+      return Column(
         children: [
-          Icon(
-            Icons.school_outlined,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Các khóa học',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          _buildCoursesHeader(),
+          const Expanded(
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Danh sách khóa học của bạn',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
+        ],
+      );
+    }
+
+    // Show empty state if no categories
+    if (_defaultCategories.isEmpty) {
+      return Column(
+        children: [
+          _buildCoursesHeader(),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.school_outlined,
+                    size: 80,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Chưa có khóa học nào',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Các khóa học sẽ được hiển thị ở đây',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Display categories list with header
+    return Column(
+      children: [
+        _buildCoursesHeader(),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadDefaultCategories,
+            color: AppColors.primary,
+            child: ListView.builder(
+              padding: const EdgeInsets.all(AppConstants.padding),
+              itemCount: _defaultCategories.length,
+              itemBuilder: (context, index) {
+                final category = _defaultCategories[index];
+                return _buildCategoryCard(category);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ Build category card widget
+  Widget _buildCategoryCard(CategoryModel category) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppConstants.padding),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FlashcardScreen(categoryId: category.id),
+            ),
+          ).then((_) => _loadDefaultCategories());
+        },
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        child: Padding(
+          padding: const EdgeInsets.all(AppConstants.padding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // Icon
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.school,
+                      color: AppColors.primary,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Title
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          category.name,
+                          style: AppTextStyles.heading2.copyWith(
+                            color: AppColors.primaryDark,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.info.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '🌐 Khóa học mặc định',
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 11,
+                              color: AppColors.info,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              // Description
+              if (category.description != null &&
+                  category.description!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  category.description!,
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              // Flashcard count
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.style,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${category.flashcardCount ?? 0} thẻ',
+                    style: AppTextStyles.body.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ Header cho tab Khóa học - Tiêu đề ở giữa
+  Widget _buildCoursesHeader() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Tiêu đề ở giữa
+          Center(
+            child: Text(
+              'Khóa học',
+              style: AppTextStyles.heading2.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          // Nút back ở bên trái
+          Positioned(
+            left: 0,
+            child: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: AppColors.primary,
+                size: 22,
+              ),
+              onPressed: () {
+                // Quay về tab Home
+                setState(() => _selectedIndex = 0);
+              },
             ),
           ),
         ],
@@ -808,5 +1016,29 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+  // ✅ THÊM METHOD MỚI
+  Future<void> _loadDefaultCategories() async {
+    setState(() => _isLoadingCategories = true);
+    try {
+      // Lấy tất cả public categories
+      final categories = await CategoryService.getPublicCategories();
+
+      // Lọc chỉ lấy SYSTEM categories (default)
+      final systemCategories = categories.where((cat) => cat.isSystem).toList();
+
+      if (mounted) {
+        setState(() {
+          _defaultCategories = systemCategories;
+          _isLoadingCategories = false;
+        });
+      }
+      print('✅ Loaded ${systemCategories.length} default categories');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingCategories = false);
+      }
+      debugPrint('❌ Error loading default categories: $e');
+    }
   }
 }

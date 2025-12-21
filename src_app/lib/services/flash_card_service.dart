@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 import '../models/flashcard_model.dart';
 
 class FlashcardService {
   // Cấu hình base URL
-  static const String baseUrl = 'http://localhost:8080/api/flashcards';
+  // static const String baseUrl = 'http://localhost:8080/api/flashcards';
   // Android Emulator: 'http://10.0.2.2:8080/api/flashcards'
   // iOS Simulator: 'http://localhost:8080/api/flashcards'
 
@@ -18,7 +19,7 @@ class FlashcardService {
   /// Lấy tất cả flashcards
   static Future<List<FlashcardModel>> getAllFlashcards() async {
     try {
-      final uri = Uri.parse(baseUrl);
+      final uri = Uri.parse(ApiConfig.flashcardBase);
 
       final response = await http.get(
         uri,
@@ -41,7 +42,7 @@ class FlashcardService {
   /// Lấy flashcards theo category
   static Future<List<FlashcardModel>> getFlashcardsByCategory(int categoryId) async {
     try {
-      final uri = Uri.parse('$baseUrl/category/$categoryId');
+      final uri = Uri.parse(ApiConfig.flashcardByCategory(categoryId));
 
       final response = await http.get(
         uri,
@@ -64,7 +65,7 @@ class FlashcardService {
   /// Lấy một flashcard theo ID
   static Future<FlashcardModel> getFlashcardById(int id) async {
     try {
-      final uri = Uri.parse('$baseUrl/$id');
+      final uri = Uri.parse(ApiConfig.flashcardDetail(id));
 
       final response = await http.get(
         uri,
@@ -89,7 +90,7 @@ class FlashcardService {
   /// Lấy flashcards ngẫu nhiên (dùng cho ôn tập)
   static Future<List<FlashcardModel>> getRandomFlashcards({int limit = 20}) async {
     try {
-      final uri = Uri.parse('$baseUrl/random?limit=$limit');
+      final uri = Uri.parse('${ApiConfig.flashcardRandom}?limit=$limit');
 
       final response = await http.get(
         uri,
@@ -112,7 +113,7 @@ class FlashcardService {
   /// Search flashcards theo từ khóa
   static Future<List<FlashcardModel>> searchFlashcards(String keyword) async {
     try {
-      final uri = Uri.parse('$baseUrl/search?q=${Uri.encodeComponent(keyword)}');
+      final uri = Uri.parse('${ApiConfig.flashcardSearch}?q=${Uri.encodeComponent(keyword)}');
 
       final response = await http.get(
         uri,
@@ -148,7 +149,7 @@ class FlashcardService {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse('$baseUrl/admin');
+      final uri = Uri.parse('${ApiConfig.flashcardBase}/admin');
 
       final response = await http.post(
         uri,
@@ -192,7 +193,7 @@ class FlashcardService {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse('$baseUrl/admin/$id');
+      final uri = Uri.parse('${ApiConfig.flashcardBase}/admin/$id');
 
       final response = await http.put(
         uri,
@@ -228,7 +229,7 @@ class FlashcardService {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse('$baseUrl/admin/$id');
+      final uri = Uri.parse('${ApiConfig.flashcardBase}/admin/$id');
 
       final response = await http.delete(
         uri,

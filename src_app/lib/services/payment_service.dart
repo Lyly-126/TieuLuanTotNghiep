@@ -2,10 +2,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 import '../models/order_model.dart';
 
 class PaymentService {
-  static const String baseUrl = 'http://localhost:8080/api/payment';
+  // static const String baseUrl = 'http://localhost:8080/api/payment';
   // Android Emulator: 'http://10.0.2.2:8080/api/payment'
   // Production: 'https://yourdomain.com/api/payment'
 
@@ -66,7 +67,7 @@ class PaymentService {
   static Future<Map<String, dynamic>> createOrder(int packId) async {
     try {
       final token = await _getToken();
-      final uri = Uri.parse('$baseUrl/create-order');
+      final uri = Uri.parse('${ApiConfig.paymentBase}/create-order');
 
       print('📡 Creating order for pack $packId');
 
@@ -98,7 +99,7 @@ class PaymentService {
   static Future<Map<String, dynamic>> createVNPayPayment(int orderId) async {
     try {
       final token = await _getToken();
-      final uri = Uri.parse('$baseUrl/vnpay/create?orderId=$orderId');
+      final uri = Uri.parse('${ApiConfig.paymentVnpay}/create?orderId=$orderId');
 
       print('📡 Creating VNPay payment for order $orderId');
 
@@ -130,7 +131,7 @@ class PaymentService {
   static Future<List<OrderModel>> getMyOrders() async {
     try {
       final token = await _getToken();
-      final uri = Uri.parse('$baseUrl/my-orders');
+      final uri = Uri.parse('${ApiConfig.paymentBase}/my-orders');
 
       print('📡 Fetching my orders');
 

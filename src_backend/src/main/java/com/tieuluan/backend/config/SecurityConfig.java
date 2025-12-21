@@ -3,6 +3,7 @@ package com.tieuluan.backend.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -48,15 +49,23 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // ✅ CRITICAL: CORS must be first
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // ✅ Disable CSRF completely
                 .csrf(csrf -> csrf.disable())
+
+                // ✅ Stateless session
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
+                        // ========== ✅ CRITICAL: OPTIONS requests for CORS ==========
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         // ========== PUBLIC ENDPOINTS ==========
                         .requestMatchers("/api/users/register", "/api/users/login").permitAll()
-                        .requestMatchers("/api/otp/**", "/api/auth/forgot-password/**").permitAll()
+                        .requestMatchers("/api/otp/**", "/api/auth/**").permitAll()
                         .requestMatchers("/api/payment/vnpay/return", "/api/payment/vnpay/callback").permitAll()
                         .requestMatchers("/api/policies", "/api/policies/{id}").permitAll()
                         .requestMatchers("/api/study-packs", "/api/study-packs/{id}").permitAll()
@@ -82,18 +91,15 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/{id}/profile").authenticated()
                         .requestMatchers("/api/users/delete").authenticated()
 
-                        // ========== ✅ CLASSES - SPECIFIC PATTERNS FIRST ==========
-                        // CLASS MEMBERS - SPECIFIC ENDPOINTS (MUST BE BEFORE GENERAL PATTERNS)
+                        // ========== CLASSES - SPECIFIC PATTERNS FIRST ==========
                         .requestMatchers("/api/classes/{classId}/members/pending").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/{classId}/members/{userId}/approve").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/{classId}/members/{userId}/reject").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/{classId}/members/add").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/{classId}/members/{userId}").hasAnyRole("TEACHER", "ADMIN")
-
-                        // THEN GENERAL MEMBER ENDPOINT (for viewing - all authenticated users)
                         .requestMatchers("/api/classes/*/members").authenticated()
 
-                        // CLASS MANAGEMENT - TEACHER/ADMIN ONLY
+                        // CLASS MANAGEMENT
                         .requestMatchers("/api/classes/create").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/my-classes").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/{id}/update").hasAnyRole("TEACHER", "ADMIN")
@@ -102,22 +108,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/classes/{id}/category-count").hasAnyRole("TEACHER", "ADMIN")
                         .requestMatchers("/api/classes/admin/**").hasRole("ADMIN")
 
-                        // ✅ CLASS PUBLIC ACCESS - ALL AUTHENTICATED USERS
+                        // CLASS PUBLIC ACCESS
                         .requestMatchers("/api/classes/search").authenticated()
                         .requestMatchers("/api/classes/{id}/membership-status").authenticated()
                         .requestMatchers("/api/classes/join").authenticated()
                         .requestMatchers("/api/classes/{id}/join").authenticated()
                         .requestMatchers("/api/classes/{id}/leave").authenticated()
                         .requestMatchers("/api/classes/joined").authenticated()
-
-                        // CLASS DETAIL (MUST BE LAST AMONG CLASS ENDPOINTS)
                         .requestMatchers("/api/classes/{id}").authenticated()
 
-                        // ========== ✅ CATEGORIES - ALL AUTHENTICATED ==========
-                        .requestMatchers("/api/categories/search").authenticated()
-                        .requestMatchers("/api/categories/saved").authenticated()  // ✅ THÊM DÒNG NÀY
-                        .requestMatchers("/api/categories/public").authenticated()
-                        .requestMatchers("/api/categories/{id}/save").authenticated()
+                        // ========== CATEGORIES - ALL AUTHENTICATED ==========
+                        .requestMatchers("/api/categories/**").authenticated()
 
                         // Static resources
                         .requestMatchers("/audio/**").permitAll()

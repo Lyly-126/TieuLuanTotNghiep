@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
+import '../config/api_config.dart';
+
 
 class TTSService {
   static final TTSService _instance = TTSService._internal();
@@ -13,7 +15,7 @@ class TTSService {
   // ✅ BACKEND URL - Thay đổi theo môi trường
   // Web: http://localhost:8080/api/tts
   // Mobile: http://10.0.2.2:8080/api/tts (Android Emulator)
-  static const String _baseUrl = 'http://localhost:8080/api/tts';
+  // static const String _baseUrl = 'http://localhost:8080/api/tts';
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
@@ -52,7 +54,7 @@ class TTSService {
       }
 
       // Gọi backend endpoint
-      final uri = Uri.parse('$_baseUrl/generate-audio').replace(
+      final uri = Uri.parse('${ApiConfig.ttsSynthesize}/generate-audio').replace(
         queryParameters: {
           'text': text,
           'languageCode': languageCode,

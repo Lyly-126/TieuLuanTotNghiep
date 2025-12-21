@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../config/api_config.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
@@ -8,7 +9,7 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/custom_textfield.dart';
 
 // API Base URL
-const String _baseUrl = 'http://localhost:8080/api/auth';
+// const String _baseUrl = 'http://localhost:8080/api/auth';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -80,7 +81,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     });
 
     final response = await http.post(
-      Uri.parse('$_baseUrl/forgot-password/reset'),
+      Uri.parse('${ApiConfig.authForgotPassword}/reset'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': _email,

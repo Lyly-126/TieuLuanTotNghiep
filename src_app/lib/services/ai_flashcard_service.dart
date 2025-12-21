@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../models/flashcard_model.dart';
 
 class AIFlashcardService {
-  static const String baseUrl = 'http://localhost:8080/api/flashcards/ai';
+  // static const String baseUrl = 'http://localhost:8080/api/flashcards/ai';  // ← ĐÃ COMMENT
 
   /// Generate flashcard từ một từ vựng
   static Future<GenerationResponse> generateFlashcard({
@@ -16,7 +17,7 @@ class AIFlashcardService {
       print('🚀 Starting flashcard generation for: $term');
 
       // Build URL
-      final uri = Uri.parse('http://localhost:8080/api/flashcards/ai/generate');
+      final uri = Uri.parse(ApiConfig.aiFlashcardGenerate);
       print('🌐 Calling: POST $uri');
 
       // Build request body
@@ -63,7 +64,7 @@ class AIFlashcardService {
   /// Check service status (public endpoint)
   static Future<Map<String, dynamic>> checkStatus() async {
     try {
-      final uri = Uri.parse('$baseUrl/status');
+      final uri = Uri.parse('${ApiConfig.aiFlashcardBase}/status');  // ← ĐÃ SỬA
       print('🔍 Checking status: GET $uri');
 
       final response = await http.get(uri);

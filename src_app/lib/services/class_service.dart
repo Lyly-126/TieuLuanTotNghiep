@@ -3,12 +3,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 import '../config/app_constants.dart';
 import '../models/class_model.dart';
 import '../models/class_member_model.dart';
 
 class ClassService {
-  static const String baseUrl = '${AppConstants.baseUrl}/api/classes';
+  // static const String baseUrl = '${AppConstants.baseUrl}/api/classes';
 
   // ==================== LOGGING & HELPERS ====================
 
@@ -51,7 +52,7 @@ class ClassService {
       _log('========== GET MY CLASSES ==========');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/my-classes');
+      final url = Uri.parse(ApiConfig.classMyClasses);
 
       _log('GET URL: $url');
 
@@ -87,7 +88,7 @@ class ClassService {
       _log('Class ID: $classId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId');
+      final url = Uri.parse(ApiConfig.classDetail(classId));
 
       _log('GET URL: $url');
 
@@ -121,7 +122,7 @@ class ClassService {
   static Future<ClassModel> getClassById(int classId) async {
     try {
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId');
+      final url = Uri.parse(ApiConfig.classDetail(classId));
 
       final response = await http.get(url, headers: headers);
 
@@ -140,7 +141,7 @@ class ClassService {
   static Future<bool> isUserMemberOfClass(int classId) async {
     try {
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/is-member');
+      final url = Uri.parse(ApiConfig.classIsMember(classId));
 
       final response = await http.get(url, headers: headers);
 
@@ -161,7 +162,7 @@ class ClassService {
       _log('Class ID: $classId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/delete');
+      final url = Uri.parse(ApiConfig.classDelete(classId));
 
       _log('DELETE URL: $url');
 
@@ -193,7 +194,7 @@ class ClassService {
   static Future<List<ClassMemberModel>> getClassMembers(int classId) async {
     try {
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/members');
+      final url = Uri.parse(ApiConfig.classMembers(classId));
 
       final response = await http.get(url, headers: headers);
 
@@ -215,7 +216,7 @@ class ClassService {
       _log('Class ID: $classId, User ID: $userId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/members/$userId');
+      final url = Uri.parse(ApiConfig.classRemoveMember(classId, userId));
 
       _log('DELETE URL: $url');
 
@@ -248,7 +249,7 @@ class ClassService {
   }) async {
     try {
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/members');
+      final url = Uri.parse(ApiConfig.classMembers(classId));
 
       final response = await http.post(
         url,
@@ -277,7 +278,7 @@ class ClassService {
       _log('Class ID: $classId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/members/pending');
+      final url = Uri.parse(ApiConfig.classPendingMembers(classId));
 
       _log('GET URL: $url');
 
@@ -306,7 +307,7 @@ class ClassService {
       _log('Class ID: $classId, User ID: $userId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/members/$userId/approve');
+      final url = Uri.parse(ApiConfig.classApproveMember(classId, userId));
 
       _log('POST URL: $url');
 
@@ -337,7 +338,7 @@ class ClassService {
       _log('Class ID: $classId, User ID: $userId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/members/$userId/reject');
+      final url = Uri.parse(ApiConfig.classRejectMember(classId, userId));
 
       _log('POST URL: $url');
 
@@ -375,7 +376,7 @@ class ClassService {
       _log('IsPublic: $isPublic');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/create');
+      final url = Uri.parse(ApiConfig.classCreate);
 
       _log('POST URL: $url');
 
@@ -431,7 +432,7 @@ class ClassService {
       _log('IsPublic: $isPublic');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/update');
+      final url = Uri.parse(ApiConfig.classUpdate(classId));
 
       _log('PUT URL: $url');
 
@@ -480,7 +481,7 @@ class ClassService {
       _log('Class ID: $classId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/regenerate-invite-code');
+      final url = Uri.parse(ApiConfig.classRegenerateCode(classId));
 
       _log('POST URL: $url');
 
@@ -523,7 +524,7 @@ class ClassService {
       _log('Class ID: $classId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/join');
+      final url = Uri.parse(ApiConfig.classJoin);
 
       final response = await http.post(
         url,
@@ -547,7 +548,7 @@ class ClassService {
       _log('Invite Code: $inviteCode');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/join');
+      final url = Uri.parse(ApiConfig.classJoin);
 
       _log('POST URL: $url');
 
@@ -586,7 +587,7 @@ class ClassService {
       _log('Class ID: $classId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/$classId/leave');
+      final url = Uri.parse(ApiConfig.classLeave(classId));
 
       _log('DELETE URL: $url');
 
@@ -618,7 +619,7 @@ class ClassService {
       _log('========== GET JOINED CLASSES ==========');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/joined');
+      final url = Uri.parse(ApiConfig.classJoined);
 
       _log('GET URL: $url');
 
@@ -649,7 +650,7 @@ class ClassService {
       _log('Keyword: $keyword');
 
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/search?keyword=$keyword');
+      final url = Uri.parse('${ApiConfig.classSearch}?keyword=$keyword');
 
       _log('GET URL: $url');
 
@@ -675,7 +676,7 @@ class ClassService {
   static Future<List<ClassModel>> getPublicClasses() async {
     try {
       final headers = await _getHeaders();
-      final url = Uri.parse('$baseUrl/public');
+      final url = Uri.parse(ApiConfig.classPublic);
 
       final response = await http.get(url, headers: headers);
 

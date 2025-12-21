@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_constants.dart';
+import '../config/api_config.dart';  // ← THÊM DÒNG NÀY
 import '../models/category_model.dart';
 
 class CategoryService {
-  static const String baseUrl = '${AppConstants.baseUrl}/api/categories';
+  // static const String baseUrl = '${AppConstants.baseUrl}/api/categories';  // ← ĐÃ COMMENT
 
   static void _log(String message) {
     print('[CategoryService] $message');
@@ -36,7 +37,7 @@ class CategoryService {
   static Future<List<CategoryModel>> getUserCategories() async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/my');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/my');  // ← THAY ĐỔI
 
       _log('GET User Categories URL: $uri');
 
@@ -65,7 +66,7 @@ class CategoryService {
   static Future<List<CategoryModel>> getSavedCategories() async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/saved');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/saved');  // ← THAY ĐỔI
 
       _log('GET Saved Categories URL: $uri');
 
@@ -89,7 +90,7 @@ class CategoryService {
   static Future<void> saveCategory(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/$categoryId/save');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId/save');  // ← THAY ĐỔI
 
       _log('POST Save Category URL: $uri');
 
@@ -114,7 +115,7 @@ class CategoryService {
   static Future<void> unsaveCategory(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/$categoryId/save');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId/save');  // ← THAY ĐỔI
 
       _log('DELETE Unsave Category URL: $uri');
 
@@ -139,7 +140,7 @@ class CategoryService {
   static Future<bool> isCategorySaved(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/$categoryId/is-saved');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId/is-saved');  // ← THAY ĐỔI
 
       final response = await http.get(uri, headers: headers);
 
@@ -158,7 +159,7 @@ class CategoryService {
   static Future<List<CategoryModel>> getCategoriesByClassId(int classId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/class/$classId');
+      final uri = Uri.parse(ApiConfig.classCategories(classId));  // ← THAY ĐỔI - DÙNG HELPER
 
       _log('GET Categories for Class URL: $uri');
 
@@ -188,7 +189,7 @@ class CategoryService {
   static Future<CategoryModel> getCategoryById(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/$categoryId');
+      final uri = Uri.parse(ApiConfig.categoryDetail(categoryId));  // ← THAY ĐỔI - DÙNG HELPER
 
       final response = await http.get(uri, headers: headers);
 
@@ -206,7 +207,7 @@ class CategoryService {
   /// ✅ Lấy system categories (public)
   static Future<List<CategoryModel>> getSystemCategories() async {
     try {
-      final uri = Uri.parse('$baseUrl/system');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/system');  // ← THAY ĐỔI
 
       _log('GET System Categories URL: $uri');
 
@@ -235,7 +236,7 @@ class CategoryService {
   static Future<CategoryModel> createUserCategory(String name) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/user');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/user');  // ← THAY ĐỔI
 
       _log('POST Create User Category URL: $uri');
 
@@ -273,8 +274,8 @@ class CategoryService {
       // Nếu có classId, sử dụng endpoint /class
       // Nếu không, sử dụng endpoint /user
       final uri = classId != null
-          ? Uri.parse('$baseUrl/class')
-          : Uri.parse('$baseUrl/user');
+          ? Uri.parse('${ApiConfig.categoryBase}/class')  // ← THAY ĐỔI
+          : Uri.parse('${ApiConfig.categoryBase}/user');  // ← THAY ĐỔI
 
       _log('POST Create Category URL: $uri');
       _log('Body: name=$name, classId=$classId, description=$description');
@@ -311,7 +312,7 @@ class CategoryService {
   static Future<List<CategoryModel>> getTeacherCategories() async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/teacher');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/teacher');  // ← THAY ĐỔI
 
       _log('GET Teacher Categories URL: $uri');
 
@@ -340,7 +341,7 @@ class CategoryService {
   }) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/$categoryId');
+      final uri = Uri.parse(ApiConfig.categoryUpdate(categoryId));  // ← THAY ĐỔI - DÙNG HELPER
 
       _log('PUT Update Category URL: $uri');
 
@@ -373,7 +374,7 @@ class CategoryService {
   static Future<void> deleteCategory(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/$categoryId');
+      final uri = Uri.parse(ApiConfig.categoryDelete(categoryId));  // ← THAY ĐỔI - DÙNG HELPER
 
       _log('DELETE Category URL: $uri');
 
@@ -399,7 +400,7 @@ class CategoryService {
   static Future<List<CategoryModel>> searchPublicCategories(String query) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/search?keyword=${Uri.encodeComponent(query)}');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/search?keyword=${Uri.encodeComponent(query)}');  // ← THAY ĐỔI
 
       _log('🔍 Searching categories: $query');
       _log('GET URL: $uri');
@@ -430,7 +431,7 @@ class CategoryService {
   static Future<List<CategoryModel>> getPublicCategories() async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('$baseUrl/public');
+      final uri = Uri.parse('${ApiConfig.categoryBase}/public');  // ← THAY ĐỔI
 
       _log('GET Public Categories URL: $uri');
 

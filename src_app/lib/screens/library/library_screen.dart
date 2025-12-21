@@ -12,6 +12,7 @@ import '../../services/user_service.dart';
 import '../card/flashcard_screen.dart';
 import '../class/class_detail_screen.dart';
 import '../payment/upgrade_premium_screen.dart';
+import '../card/flashcard_creation_screen.dart';
 
 /// ✅ Màn hình thư viện với 3 tabs: Của tôi, Lớp học, Đã lưu
 class LibraryScreen extends StatefulWidget {
@@ -39,12 +40,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadUserAndData();
-
-    // ✅ BỎ listener tự động chuyển hướng
-    // _tabController.addListener(_handleTabChange);
   }
-
-  // ✅ BỎ method _handleTabChange - không tự động redirect nữa
 
   Future<void> _loadUserAndData() async {
     setState(() => _isLoading = true);
@@ -67,7 +63,12 @@ class _LibraryScreenState extends State<LibraryScreen>
   Future<void> _loadMyCategories() async {
     try {
       final categories = await CategoryService.getUserCategories();
-      if (mounted) setState(() => _myCategories = categories);
+      // ✅ CHỈ HIỂN THỊ CATEGORIES DO USER TỰ TẠO (không bao gồm system/default)
+      final userCreatedOnly = categories.where((cat) =>
+      !cat.isSystem
+          // && cat.isUserCategory
+      ).toList();
+      if (mounted) setState(() => _myCategories = userCreatedOnly);
     } catch (e) {
       debugPrint('Error loading my categories: $e');
     }
@@ -125,8 +126,6 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   @override
   void dispose() {
-    // ✅ Không cần remove listener nữa
-    // _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
   }
@@ -172,6 +171,8 @@ class _LibraryScreenState extends State<LibraryScreen>
         controller: _tabController,
         children: [_buildMyTab(), _buildClassesTab(), _buildSavedTab()],
       ),
+      // ✅ BỎ FloatingActionButton - chỉ giữ bottom nav
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -511,6 +512,465 @@ class _LibraryScreenState extends State<LibraryScreen>
                   borderRadius:
                   BorderRadius.circular(AppConstants.borderRadius),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ FloatingActionButton
+  Widget? _buildFloatingActionButton() {
+    final canCreate = _currentUser?.hasPremiumAccess ?? false;
+
+    if (!canCreate) {
+      return null;
+    }
+
+    return FloatingActionButton(
+      onPressed: _showCreateBottomSheet,
+      backgroundColor: AppColors.primary,
+      child: const Icon(Icons.add, color: Colors.white),
+    );
+  }
+
+  // ✅ Bottom Sheet tạo thẻ/chủ đề
+  void _showCreateBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Tạo mới',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Chọn loại nội dung bạn muốn tạo',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildCreateOption(
+              icon: Icons.style_outlined,
+              iconColor: AppColors.primary,
+              iconBgColor: AppColors.primary.withOpacity(0.1),
+              title: 'Tạo thẻ',
+              subtitle: 'Tạo flashcard học tập mới',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const FlashcardCreationScreen(),
+                  ),
+                ).then((_) => _refreshCurrentTab());
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildCreateOption(
+              icon: Icons.folder_outlined,
+              iconColor: const Color(0xFF10B981),
+              iconBgColor: const Color(0xFF10B981).withOpacity(0.1),
+              title: 'Tạo chủ đề',
+              subtitle: 'Tạo chủ đề để quản lý thẻ',
+              onTap: () {
+                Navigator.pop(context);
+                _showCreateCategoryDialog();
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCreateOption({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[200]!),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: iconBgColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCreateCategoryDialog() {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tạo chủ đề mới'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Tên chủ đề',
+                hintText: 'Nhập tên chủ đề',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Mô tả (tùy chọn)',
+                hintText: 'Nhập mô tả',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Vui lòng nhập tên chủ đề')),
+                );
+                return;
+              }
+
+              try {
+                await CategoryService.createCategory(
+                  name: name,
+                  description: descriptionController.text.trim(),
+                );
+
+                if (!mounted) return;
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('✅ Tạo chủ đề thành công')),
+                );
+
+                _refreshCurrentTab();
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('❌ Lỗi: $e')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            child: const Text('Tạo'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ THÊM - Handle bottom nav tap
+  void _onBottomNavTapped(int index) {
+    // Index 0: Home - Pop về Home
+    if (index == 0) {
+      Navigator.pop(context);
+      return;
+    }
+
+    // Index 1: Tạo - Show create bottom sheet
+    if (index == 1) {
+      final canCreate = _currentUser?.hasPremiumAccess ?? false;
+      if (!canCreate) {
+        _showUpgradeDialog();
+      } else {
+        _showCreateBottomSheet();
+      }
+      return;
+    }
+
+    // Index 2: Khóa học - Pop về Home
+    if (index == 2) {
+      Navigator.pop(context);
+      return;
+    }
+
+    // Index 3: Lớp học (chỉ cho teacher) - Pop về Home
+    final isTeacher = _currentUser?.canCreateClass ?? false;
+    if (isTeacher && index == 3) {
+      Navigator.pop(context);
+      return;
+    }
+
+    // Index 4 (teacher) hoặc 3 (normal): Thư viện - Đang ở đây rồi
+  }
+
+  // ✅ THÊM - Upgrade dialog
+  void _showUpgradeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.warning,
+                      AppColors.warning.withOpacity(0.7),
+                    ],
+                  ),
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  size: 40,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Nâng cấp tài khoản',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Bạn cần nâng cấp lên Premium để sử dụng tính năng tạo thẻ và tạo chủ đề',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const UpgradePremiumScreen(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.warning,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                ),
+                child: const Text('Nâng cấp ngay'),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Để sau',
+                  style: TextStyle(
+                    color: AppColors.textGray,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ THÊM - Bottom navigation bar
+  Widget _buildBottomNav() {
+    final isTeacher = _currentUser?.canCreateClass ?? false;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildBottomNavItem(
+                index: 0,
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home_rounded,
+                label: 'Trang chủ',
+              ),
+              _buildBottomNavItem(
+                index: 1,
+                icon: Icons.add_outlined,
+                activeIcon: Icons.add_rounded,
+                label: 'Tạo',
+                isCreateButton: false,
+              ),
+              _buildBottomNavItem(
+                index: 2,
+                icon: Icons.school_outlined,
+                activeIcon: Icons.school_rounded,
+                label: 'Khóa học',
+              ),
+              if (isTeacher)
+                _buildBottomNavItem(
+                  index: 3,
+                  icon: Icons.class_outlined,
+                  activeIcon: Icons.class_rounded,
+                  label: 'Lớp học',
+                ),
+              _buildBottomNavItem(
+                index: isTeacher ? 4 : 3,
+                icon: Icons.folder_open_outlined,
+                activeIcon: Icons.folder_open_rounded,
+                label: 'Thư viện',
+                isSelected: true, // Đang ở Thư viện
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ THÊM - Bottom nav item
+  Widget _buildBottomNavItem({
+    required int index,
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    bool isCreateButton = false,
+    bool isSelected = false,
+  }) {
+    return InkWell(
+      onTap: () => _onBottomNavTapped(index),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              size: isCreateButton ? 28 : 24,
+              color: isSelected
+                  ? AppColors.primary
+                  : isCreateButton
+                  ? AppColors.primary
+                  : AppColors.textGray,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected
+                    ? AppColors.primary
+                    : isCreateButton
+                    ? AppColors.primary
+                    : AppColors.textGray,
               ),
             ),
           ],

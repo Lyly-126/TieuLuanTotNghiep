@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
+
 class AdminUserService {
-  static const String baseUrl = 'http://localhost:8080/api/users';
+  // static const String baseUrl = 'http://localhost:8080/api/users';
 
   /// Lấy token từ SharedPreferences
   static Future<String> _getToken() async {
@@ -22,7 +24,7 @@ class AdminUserService {
   static Future<List<Map<String, dynamic>>> getAllUsers() async {
     try {
       final token = await _getToken();
-      final uri = Uri.parse('$baseUrl/admin/all');
+      final uri = Uri.parse('${ApiConfig.adminUsers}/all');
 
       final response = await http.get(
         uri,
@@ -51,7 +53,7 @@ class AdminUserService {
   static Future<Map<String, dynamic>> blockUser(int userId) async {
     try {
       final token = await _getToken();
-      final uri = Uri.parse('$baseUrl/admin/$userId/block');
+      final uri = Uri.parse('${ApiConfig.adminUsers}/$userId/block');
 
       final response = await http.put(
         uri,
@@ -75,7 +77,7 @@ class AdminUserService {
   static Future<Map<String, dynamic>> unblockUser(int userId) async {
     try {
       final token = await _getToken();
-      final uri = Uri.parse('$baseUrl/admin/$userId/unblock');
+      final uri = Uri.parse('${ApiConfig.adminUsers}/$userId/unblock');
 
       final response = await http.put(
         uri,
@@ -101,7 +103,7 @@ class AdminUserService {
   static Future<Map<String, dynamic>> grantPremium(int userId) async {
     try {
       final token = await _getToken();
-      final uri = Uri.parse('$baseUrl/admin/$userId/grant-premium');
+      final uri = Uri.parse('${ApiConfig.adminUsers}/$userId/grant-premium');
 
       final response = await http.put(
         uri,
@@ -125,8 +127,7 @@ class AdminUserService {
   static Future<Map<String, dynamic>> revokePremium(int userId) async {
     try {
       final token = await _getToken();
-      final uri = Uri.parse('$baseUrl/admin/$userId/revoke-premium');
-
+      final uri = Uri.parse('${ApiConfig.adminUsers}/$userId/revoke-premium');
       final response = await http.put(
         uri,
         headers: {
