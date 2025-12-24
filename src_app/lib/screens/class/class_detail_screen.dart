@@ -9,7 +9,7 @@ import '../../models/class_member_model.dart';
 import '../../models/category_model.dart';
 import '../../services/class_service.dart';
 import '../../services/category_service.dart';
-import '../../widgets/custom_button.dart';
+import '../../services/share_link_service.dart';
 import '../../screens/class/add_members_screen.dart';
 
 class ClassDetailScreen extends StatefulWidget {
@@ -342,16 +342,34 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        onPressed: () {
-                          Share.share(
-                            'Tham gia lớp "${_classDetail!.name}" với mã: ${_classDetail!.inviteCode}',
-                          );
+                        onPressed: () async {
+                          try {
+                            print('🔗 Sharing class: ${_classDetail!.name}');
+                            print('🔗 Invite code: ${_classDetail!.inviteCode}');
+
+                            await ShareLinkService.shareClass(
+                              className: _classDetail!.name,
+                              inviteCode: _classDetail!.inviteCode!,
+                              description: _classDetail!.description,
+                            );
+
+                            print('✅ Share completed');
+                          } catch (e) {
+                            print('❌ Share error: $e');
+
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Lỗi khi chia sẻ: ${e.toString()}'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
                         },
                         icon: const Icon(Icons.share_rounded),
                         color: AppColors.secondary,
                         style: IconButton.styleFrom(
-                          backgroundColor:
-                          AppColors.secondary.withOpacity(0.1),
+                          backgroundColor: AppColors.secondary.withOpacity(0.1),
                         ),
                       ),
                     ],

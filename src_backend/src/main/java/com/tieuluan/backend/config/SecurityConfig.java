@@ -34,6 +34,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:8080",
+                "https://*.ngrok-free.app" ,
+                "http://10.0.2.2:8080",
+                "https://*.ngrok-free.dev"
+        ));
         configuration.setAllowedOriginPatterns(Arrays.asList("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
@@ -109,13 +115,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/classes/admin/**").hasRole("ADMIN")
 
                         // CLASS PUBLIC ACCESS
+                        .requestMatchers("/api/classes/by-invite-code/**").permitAll()
+                        .requestMatchers("/api/classes/{id}").authenticated()
                         .requestMatchers("/api/classes/search").authenticated()
                         .requestMatchers("/api/classes/{id}/membership-status").authenticated()
                         .requestMatchers("/api/classes/join").authenticated()
                         .requestMatchers("/api/classes/{id}/join").authenticated()
                         .requestMatchers("/api/classes/{id}/leave").authenticated()
                         .requestMatchers("/api/classes/joined").authenticated()
-                        .requestMatchers("/api/classes/{id}").authenticated()
 
                         // ========== CATEGORIES - ALL AUTHENTICATED ==========
                         .requestMatchers("/api/categories/**").authenticated()

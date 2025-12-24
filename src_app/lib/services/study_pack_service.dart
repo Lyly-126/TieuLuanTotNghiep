@@ -37,7 +37,9 @@ class StudyPackService {
   static Future<StudyPackModel> getPackById(int id) async {
     try {
       final uri = Uri.parse(ApiConfig.studyPackDetail(id));
-      final response = await http.get(uri, headers: {'Content-Type': 'application/json'});
+      final response = await http.get(uri, headers: {'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+      });
 
       if (response.statusCode == 200) {
         return StudyPackModel.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));

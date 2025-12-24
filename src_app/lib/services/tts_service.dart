@@ -63,7 +63,9 @@ class TTSService {
 
       final response = await http.post(
         uri,
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+        },
       );
 
       if (response.statusCode == 200) {

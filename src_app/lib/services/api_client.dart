@@ -38,6 +38,8 @@ class ApiClient {
     final headers = {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json; charset=utf-8',
+      'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+
       ...?additionalHeaders,
     };
 

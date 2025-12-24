@@ -562,4 +562,42 @@ public class ClassController {
     public static class JoinByCodeRequest {
         private String inviteCode;
     }
+
+    /**
+     * ✅ THÊM METHOD NÀY
+     * Lấy thông tin lớp theo invite code (public endpoint)
+     * URL: GET /api/classes/by-invite-code/{inviteCode}
+     */
+    @GetMapping("/by-invite-code/{inviteCode}")
+    public ResponseEntity<?> getClassByInviteCode(@PathVariable String inviteCode) {
+        try {
+            System.out.println("🔍 Getting class by invite code: " + inviteCode);
+
+            // ✅ SỬ DỤNG convertToDTO() có sẵn - TRÁNH DUPLICATE CODE
+            Class classEntity = classService.getClassByInviteCode(inviteCode);
+            ClassDTO classDTO = convertToDTO(classEntity);
+
+            System.out.println("✅ Class found: " + classEntity.getName());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", classDTO,
+                    "message", "Lấy thông tin lớp thành công"
+            ));
+
+        } catch (IllegalArgumentException e) {
+            System.out.println("❌ Invalid invite code: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            System.out.println("❌ Error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "success", false,
+                    "message", "Lỗi server: " + e.getMessage()
+            ));
+        }
+    }
 }

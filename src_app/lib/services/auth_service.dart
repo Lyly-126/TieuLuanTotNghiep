@@ -8,11 +8,13 @@ class AuthService {
   // static const String baseUrl = 'http://localhost:8080/api/users';
 
   /// ✅ Login và lưu token + user info
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  static Future<Map<String, dynamic>> login( String email, String password) async {
     try {
       final response = await http.post(
         Uri.parse(ApiConfig.authLogin),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+        },
         body: jsonEncode({
           'email': email,
           'password': password,

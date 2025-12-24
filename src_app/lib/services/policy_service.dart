@@ -66,6 +66,7 @@ class PolicyService {
         uri,
         headers: {
           'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
         },
       );
 

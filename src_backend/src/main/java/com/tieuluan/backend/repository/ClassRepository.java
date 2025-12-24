@@ -28,7 +28,6 @@ public interface ClassRepository extends JpaRepository<Class, Long> {
     // Kiểm tra invite code đã tồn tại chưa
     boolean existsByInviteCode(String inviteCode);
 
-
     // Find all public classes
     List<Class> findByIsPublicTrue();
 }

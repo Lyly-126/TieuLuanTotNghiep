@@ -364,4 +364,12 @@ public class ClassService {
                 .filter(clazz -> clazz != null)
                 .collect(Collectors.toList());
     }
+    /**
+     * ✅ THÊM METHOD NÀY
+     * Lấy lớp theo invite code (public - không cần auth)
+     */
+    public Class getClassByInviteCode(String inviteCode) {
+        return classRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new IllegalArgumentException("Mã lớp không hợp lệ hoặc đã hết hạn"));
+    }
 }

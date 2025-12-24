@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- ✅ THÊM PERMISSIONS NẾU CẦN -->
+    <!-- ✅ PERMISSIONS -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
@@ -16,30 +16,39 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
+            <!-- Splash screen theme -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme"
                 />
 
-            <!-- ✅ THÊM INTENT FILTER NÀY - BẮT BUỘC ĐỂ LAUNCH APP -->
+            <!-- ✅ 1. Main launcher intent filter -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Deep link intent filter (giữ nguyên cái cũ của bạn) -->
+            <!-- ✅ 2. Deep link scheme: flai://join/{code} -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="flai"
-                    android:host="join" />
+
+                <data android:scheme="flai" />
+                <data android:host="join" />
             </intent-filter>
+
+            <!-- ✅ 3. Ngrok HTTPS links: https://isochoric-subrostral-audie.ngrok-free.dev/join/{code} -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="isochoric-subrostral-audie.ngrok-free.dev" />
+                <data android:pathPrefix="/join/" />
+            </intent-filter>
+
         </activity>
 
         <!-- Don't delete the meta-data below.
@@ -49,15 +58,22 @@
             android:value="2" />
     </application>
 
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
-
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <!-- ✅ Queries declaration -->
     <queries>
+        <!-- For text processing -->
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+
+        <!-- For opening web links -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
         </intent>
     </queries>
 </manifest>

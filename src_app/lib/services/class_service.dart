@@ -42,6 +42,7 @@ class ClassService {
     return {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json; charset=utf-8',
+      'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
     };
   }
 
@@ -688,6 +689,49 @@ class ClassService {
       }
     } catch (e) {
       _log('❌ Exception in getPublicClasses: $e');
+      rethrow;
+    }
+  }
+
+  /// ✅ THÊM METHOD NÀY
+  /// Lấy thông tin lớp theo invite code (để preview trước khi join)
+  static Future<ClassModel> getClassByInviteCode(String inviteCode) async {
+    try {
+      _log('========== GET CLASS BY INVITE CODE ==========');
+      _log('Invite Code: $inviteCode');
+
+      final headers = await _getHeaders();
+      final url = Uri.parse('${ApiConfig.classBase}/by-invite-code/$inviteCode');
+
+      _log('GET URL: $url');
+
+      final response = await http.get(url, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+      _log('Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        _log('✅ Class info loaded successfully');
+        final data = json.decode(utf8.decode(response.bodyBytes));
+
+        // API trả về { "success": true, "data": {...} }
+        if (data is Map && data.containsKey('data')) {
+          return ClassModel.fromJson(data['data']);
+        } else {
+          return ClassModel.fromJson(data);
+        }
+      } else {
+        _log('❌ Failed to load class by invite code');
+
+        try {
+          final error = json.decode(utf8.decode(response.bodyBytes));
+          throw Exception(error['message'] ?? 'Mã lớp không hợp lệ hoặc đã hết hạn');
+        } catch (e) {
+          throw Exception('Mã lớp không hợp lệ hoặc đã hết hạn');
+        }
+      }
+    } catch (e) {
+      _log('❌ Exception in getClassByInviteCode: $e');
       rethrow;
     }
   }

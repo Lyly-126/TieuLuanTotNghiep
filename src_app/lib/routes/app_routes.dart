@@ -19,6 +19,7 @@ import '../screens/card/flashcard_creation_screen.dart';
 import '../screens/category/class_category_flashcards_screen.dart';
 import '../screens/class/add_members_screen.dart';
 import '../screens/class/class_categories_screen.dart';
+import '../screens/class/join_class_via_link_screen.dart';
 import '../screens/home/search_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/setting/settings_screen.dart';
@@ -61,6 +62,7 @@ class AppRoutes {
   static const String class_detail = '/class_detail';
   static const String join_class = '/join_class';
   static const String class_management = '/class_management';
+  static const String joinClass = '/join-class';
 
   static const String classCategories = '/class-categories';
   static const String classCategoryFlashcards = '/class-category-flashcards';
@@ -101,6 +103,23 @@ class AppRoutes {
     admin_study_packs: (context) => const AdminStudyPacksScreen(),
     admin_policy: (context) => const AdminPolicyScreen(),
     admin_policy_create: (context) => const AdminPolicyCreateScreen(),
+
+    joinClass: (context) {
+      final inviteCode = ModalRoute.of(context)?.settings.arguments as String?;
+      print('🎯 AppRoutes: Building joinClass screen with code: $inviteCode');
+
+      if (inviteCode == null || inviteCode.isEmpty) {
+        print('❌ AppRoutes: Invalid invite code');
+        return Scaffold(
+          appBar: AppBar(title: const Text('Lỗi')),
+          body: const Center(
+            child: Text('Mã lớp không hợp lệ'),
+          ),
+        );
+      }
+
+      return JoinClassViaLinkScreen(inviteCode: inviteCode);
+    },
   };
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
@@ -110,12 +129,6 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) => ClassDetailScreen(classId: classId),
         );
-
-      // case join_class:
-      //   final prefilledCode = settings.arguments as String?;
-      //   return MaterialPageRoute(
-      //     builder: (_) => JoinClassScreen(prefilledCode: prefilledCode),
-      //   );
 
       case classCategories:
         final classModel = settings.arguments as ClassModel;
@@ -132,11 +145,26 @@ class AppRoutes {
           ),
         );
 
-      // case addMembers:
-      //   final classModel = settings.arguments as ClassModel;
-      //   return MaterialPageRoute(
-      //     builder: (_) => AddMembersScreen(classModel: classModel),
-      //   );
+      case joinClass:
+        final inviteCode = settings.arguments as String?;
+        print('🎯 Generating route for joinClass with code: $inviteCode');
+
+        if (inviteCode != null && inviteCode.isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (context) => JoinClassViaLinkScreen(inviteCode: inviteCode),
+            settings: settings,
+          );
+        } else {
+          return MaterialPageRoute(
+            builder: (context) => Scaffold(
+              appBar: AppBar(title: const Text('Lỗi')),
+              body: const Center(
+                child: Text('Mã lớp không hợp lệ'),
+              ),
+            ),
+            settings: settings,
+          );
+        }
 
       default:
         return MaterialPageRoute(
@@ -146,6 +174,4 @@ class AppRoutes {
         );
     }
   }
-
-
 }
