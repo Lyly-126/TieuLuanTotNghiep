@@ -26,6 +26,7 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
   void dispose() {
     _emailController.dispose();
     super.dispose();
+    print('📱 [SCREEN] $runtimeType');
   }
 
   /// Thêm member qua email

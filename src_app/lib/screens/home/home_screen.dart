@@ -10,9 +10,9 @@ import '../class/teacher_class_management_screen.dart';
 import '../../services/user_service.dart';
 import '../../models/user_model.dart';
 import '../../models/category_model.dart';      // ✅ THÊM
-import '../card/flashcard_screen.dart';
 import '../../services/category_service.dart';  // ✅ THÊM
-
+import '../../routes/app_routes.dart';
+import '../category/category_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -153,12 +153,13 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: 'Tạo chủ đề để quản lý thẻ',
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Navigate to Create Category Screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Tính năng đang phát triển'),
-                    backgroundColor: AppColors.info,
-                  ),
+                Navigator.pushNamed(
+                  context,
+                  AppRoutes.categoryCreate,
+                  arguments: {
+                    'classId': null,
+                    'className': null,
+                  },
                 );
               },
             ),
@@ -766,7 +767,10 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => FlashcardScreen(categoryId: category.id),
+              builder: (context) => CategoryDetailScreen(
+                category: category,
+                isOwner: category.ownerUserId == _currentUser?.userId,
+              ),
             ),
           ).then((_) => _loadDefaultCategories());
         },

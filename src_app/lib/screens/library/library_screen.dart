@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
+import '../../routes/app_routes.dart';  // ✅ THÊM
 import '../../models/category_model.dart';
 import '../../models/class_model.dart';
 import '../../models/user_model.dart';
 import '../../services/category_service.dart';
 import '../../services/class_service.dart';
 import '../../services/user_service.dart';
-import '../card/flashcard_screen.dart';
+import '../category/category_detail_screen.dart';
 import '../class/class_detail_screen.dart';
 import '../payment/upgrade_premium_screen.dart';
 import '../card/flashcard_creation_screen.dart';
@@ -66,7 +67,7 @@ class _LibraryScreenState extends State<LibraryScreen>
       // ✅ CHỈ HIỂN THỊ CATEGORIES DO USER TỰ TẠO (không bao gồm system/default)
       final userCreatedOnly = categories.where((cat) =>
       !cat.isSystem
-          // && cat.isUserCategory
+        // && cat.isUserCategory
       ).toList();
       if (mounted) setState(() => _myCategories = userCreatedOnly);
     } catch (e) {
@@ -171,7 +172,6 @@ class _LibraryScreenState extends State<LibraryScreen>
         controller: _tabController,
         children: [_buildMyTab(), _buildClassesTab(), _buildSavedTab()],
       ),
-      // ✅ BỎ FloatingActionButton - chỉ giữ bottom nav
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -252,7 +252,11 @@ class _LibraryScreenState extends State<LibraryScreen>
           Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) => FlashcardScreen(categoryId: category.id)),
+              builder: (context) => CategoryDetailScreen(
+                category: category,
+                isOwner: category.ownerUserId == _currentUser?.userId,
+              ),
+            ),
           ).then((_) => _refreshCurrentTab());
         },
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
@@ -603,7 +607,14 @@ class _LibraryScreenState extends State<LibraryScreen>
               subtitle: 'Tạo chủ đề để quản lý thẻ',
               onTap: () {
                 Navigator.pop(context);
-                _showCreateCategoryDialog();
+                Navigator.pushNamed(
+                  context,
+                  AppRoutes.categoryCreate,
+                  arguments: {
+                    'classId': null,
+                    'className': null,
+                  },
+                ).then((_) => _refreshCurrentTab());
               },
             ),
             const SizedBox(height: 24),

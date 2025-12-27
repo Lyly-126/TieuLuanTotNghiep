@@ -16,17 +16,30 @@ class FlashcardService {
     return prefs.getString('auth_token');
   }
 
+  /// ✅ FIX: Headers chung cho tất cả requests
+  static Future<Map<String, String>> _getHeaders({bool requireAuth = false}) async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+    };
+
+    if (requireAuth) {
+      final token = await _getToken();
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+    }
+
+    return headers;
+  }
+
   /// Lấy tất cả flashcards
   static Future<List<FlashcardModel>> getAllFlashcards() async {
     try {
       final uri = Uri.parse(ApiConfig.flashcardBase);
+      final headers = await _getHeaders(); // ✅ FIX
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await http.get(uri, headers: headers);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -43,13 +56,9 @@ class FlashcardService {
   static Future<List<FlashcardModel>> getFlashcardsByCategory(int categoryId) async {
     try {
       final uri = Uri.parse(ApiConfig.flashcardByCategory(categoryId));
+      final headers = await _getHeaders(); // ✅ FIX
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await http.get(uri, headers: headers);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -66,13 +75,9 @@ class FlashcardService {
   static Future<FlashcardModel> getFlashcardById(int id) async {
     try {
       final uri = Uri.parse(ApiConfig.flashcardDetail(id));
+      final headers = await _getHeaders(); // ✅ FIX
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await http.get(uri, headers: headers);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -91,13 +96,9 @@ class FlashcardService {
   static Future<List<FlashcardModel>> getRandomFlashcards({int limit = 20}) async {
     try {
       final uri = Uri.parse('${ApiConfig.flashcardRandom}?limit=$limit');
+      final headers = await _getHeaders(); // ✅ FIX
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await http.get(uri, headers: headers);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -114,13 +115,9 @@ class FlashcardService {
   static Future<List<FlashcardModel>> searchFlashcards(String keyword) async {
     try {
       final uri = Uri.parse('${ApiConfig.flashcardSearch}?q=${Uri.encodeComponent(keyword)}');
+      final headers = await _getHeaders(); // ✅ FIX
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await http.get(uri, headers: headers);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -149,13 +146,14 @@ class FlashcardService {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse('${ApiConfig.flashcardBase}/admin');
+      final uri = Uri.parse(ApiConfig.flashcardBase);
 
       final response = await http.post(
         uri,
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // ✅ FIX
         },
         body: jsonEncode({
           'term': term,
@@ -193,13 +191,14 @@ class FlashcardService {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse('${ApiConfig.flashcardBase}/admin/$id');
+      final uri = Uri.parse(ApiConfig.flashcardBase);
 
       final response = await http.put(
         uri,
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true', // ✅ FIX
         },
         body: jsonEncode({
           if (term != null) 'term': term,

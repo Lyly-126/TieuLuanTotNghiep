@@ -28,6 +28,7 @@ class _JoinClassViaLinkScreenState extends State<JoinClassViaLinkScreen> {
   @override
   void initState() {
     super.initState();
+    print('📱 [SCREEN] $runtimeType');
     print('🎓 JoinClassViaLinkScreen: Invite code = ${widget.inviteCode}');
     _loadClassInfo();
   }

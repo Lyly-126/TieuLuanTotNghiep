@@ -11,6 +11,7 @@ import '../../services/class_service.dart';
 import '../../services/category_service.dart';
 import '../../services/share_link_service.dart';
 import '../../screens/class/add_members_screen.dart';
+import '../category/category_detail_screen.dart';
 
 class ClassDetailScreen extends StatefulWidget {
   final int classId;
@@ -38,6 +39,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
   @override
   void initState() {
     super.initState();
+    print('📱 [SCREEN] $runtimeType');
     _tabController = TabController(length: widget.isOwner ? 3 : 2, vsync: this);
     _loadClassDetail();
     print('📱 [SCREEN] ${runtimeType.toString()}');
@@ -977,6 +979,21 @@ class _CategoriesTabState extends State<_CategoriesTab> {
     }
   }
 
+  // ✅ THÊM METHOD NAVIGATION
+  void _navigateToCategory(CategoryModel category) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CategoryDetailScreen(
+          category: category,
+          isOwner: widget.isOwner, // ✅ Truyền isOwner từ parent
+        ),
+      ),
+    ).then((_) {
+      _loadCategories(); // Refresh sau khi quay lại
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -1026,17 +1043,8 @@ class _CategoriesTabState extends State<_CategoriesTab> {
               ),
               trailing: const Icon(Icons.arrow_forward_ios_rounded,
                   color: AppColors.textSecondary, size: 16),
-              onTap: () {
-                Navigator.pushNamed(
-                  context,
-                  '/class-category-flashcards',
-                  arguments: {
-                    'classId': widget.classId,
-                    'categoryId': category.id,
-                    'categoryName': category.name,
-                  },
-                );
-              },
+              // ✅ SỬA: Navigate đến CategoryDetailScreen thay vì route string
+              onTap: () => _navigateToCategory(category),
             ),
           );
         },

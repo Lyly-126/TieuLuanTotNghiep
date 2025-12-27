@@ -525,7 +525,7 @@ class ClassService {
       _log('Class ID: $classId');
 
       final headers = await _getHeaders();
-      final url = Uri.parse(ApiConfig.classJoin);
+      final url = Uri.parse('${ApiConfig.classBase}/$classId/join');
 
       final response = await http.post(
         url,

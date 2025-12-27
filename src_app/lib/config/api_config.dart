@@ -208,12 +208,8 @@ class ApiConfig {
 
   /// Build URL cho category detail
   static String categoryDetail(int categoryId) => '$categoryBase/$categoryId';
-
-  /// Build URL cho category update
-  static String categoryUpdate(int categoryId) => '$categoryBase/$categoryId/update';
-
-  /// Build URL cho category delete
-  static String categoryDelete(int categoryId) => '$categoryBase/$categoryId/delete';
+  static String categoryUpdate(int categoryId) => '$categoryBase/$categoryId';
+  static String categoryDelete(int categoryId) => '$categoryBase/$categoryId';
 
   /// Build URL cho flashcard by category
   static String flashcardByCategory(int categoryId) =>

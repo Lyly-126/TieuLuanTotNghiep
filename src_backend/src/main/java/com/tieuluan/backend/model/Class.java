@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -13,12 +15,14 @@ import java.util.Random;
  * Class entity - ONE-TO-MANY with Categories
  * ✅ 1 class → many categories
  * ✅ Keep inviteCode for student invitations
+ * ✅ FIXED: JsonIgnore for lazy-loaded relations
  */
 @Entity
 @Table(name = "classes")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // ✅ THÊM
 public class Class {
 
     @Id
@@ -46,17 +50,20 @@ public class Class {
     @Column(name = "updatedAt", nullable = false)
     private ZonedDateTime updatedAt = ZonedDateTime.now();
 
-    // ============ Relations ============
+    // ============ Relations - ✅ THÊM @JsonIgnore ============
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ownerId", insertable = false, updatable = false)
+    @JsonIgnore // ✅ THÊM: Tránh lỗi serialize User proxy
     private User owner;
 
     // ✅ ONE-TO-MANY: 1 class → many categories
     @OneToMany(mappedBy = "classEntity", cascade = CascadeType.ALL, orphanRemoval = false)
+    @JsonIgnore // ✅ THÊM: Tránh circular reference
     private List<Category> categories;
 
     @OneToMany(mappedBy = "classEntity", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore // ✅ THÊM: Tránh circular reference
     private List<ClassMember> members;
 
     // ============ Lifecycle Callbacks ============

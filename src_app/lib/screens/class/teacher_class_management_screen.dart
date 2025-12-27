@@ -27,6 +27,7 @@ class _TeacherClassManagementScreenState
   @override
   void initState() {
     super.initState();
+    print('📱 [SCREEN] $runtimeType');
     _loadClasses();
   }
 

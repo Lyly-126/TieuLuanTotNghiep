@@ -94,6 +94,7 @@ public class CategoryDTO {
     public static class UpdateRequest {
         private String name;
         private String description;
+        private String visibility;
     }
 
     @Data

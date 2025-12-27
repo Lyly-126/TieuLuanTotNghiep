@@ -55,7 +55,7 @@ public class CategoryController {
      * Tạo category cá nhân (PRIVATE)
      */
     @PostMapping("/user")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('TEACHER', 'PREMIUM_USER', 'ADMIN')")
     public ResponseEntity<?> createUserCategory(@RequestBody CategoryDTO.CreateUserRequest request) {
         try {
             Long userId = getCurrentUserId();
@@ -141,7 +141,7 @@ public class CategoryController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('TEACHER', 'PREMIUM_USER', 'ADMIN')")
     public ResponseEntity<?> updateCategory(
             @PathVariable Long id,
             @RequestBody CategoryDTO.UpdateRequest request) {
@@ -153,6 +153,7 @@ public class CategoryController {
                     id,
                     request.getName(),
                     request.getDescription(),
+                    request.getVisibility(),  // ✅ THÊM
                     userId,
                     isAdmin
             );
@@ -168,7 +169,7 @@ public class CategoryController {
      * Xóa category
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('TEACHER', 'PREMIUM_USER', 'ADMIN')")
     public ResponseEntity<?> deleteCategory(@PathVariable Long id) {
         try {
             Long userId = getCurrentUserId();

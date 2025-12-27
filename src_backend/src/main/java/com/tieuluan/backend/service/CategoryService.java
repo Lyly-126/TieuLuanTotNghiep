@@ -135,50 +135,66 @@ public class CategoryService {
         return categoryRepository.save(category);
     }
 
+    // ✅ updateCategory - Check ownership
     @Transactional
-    public Category updateCategory(Long categoryId, String name, String description, Long userId, boolean isAdmin) {
+    public Category updateCategory(Long categoryId, String name, String description,
+                                   String visibility, Long userId, boolean isAdmin) {
         validateCategoryName(name);
 
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category không tồn tại"));
 
+        // ✅ Check ownership: Phải là CHỦ NHÂN hoặc ADMIN
         if (!isAdmin && !category.isOwnedBy(userId)) {
-            throw new RuntimeException("Bạn không có quyền cập nhật category này");
+            throw new RuntimeException("Bạn không phải chủ nhân của học phần này");
         }
 
+        // System category chỉ admin sửa được
         if (category.isSystemCategory() && !isAdmin) {
-            throw new RuntimeException("Không thể sửa system category");
+            throw new RuntimeException("Không thể sửa học phần hệ thống");
         }
 
         category.setName(name);
         category.setDescription(description);
 
+        if (visibility != null && !visibility.isEmpty()) {
+            if (!visibility.equals("PUBLIC") && !visibility.equals("PRIVATE")) {
+                throw new RuntimeException("Visibility phải là PUBLIC hoặc PRIVATE");
+            }
+            category.setVisibility(visibility);
+        }
+
         log.info("✅ Updated category: {} by user {}", name, userId);
         return categoryRepository.save(category);
     }
 
+
+    // ✅ deleteCategory - Check ownership + Cascade delete
     @Transactional
     public void deleteCategory(Long categoryId, Long userId, boolean isAdmin) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy category"));
 
+        // System category chỉ admin xóa được
         if (category.isSystemCategory() && !isAdmin) {
-            throw new RuntimeException("Chỉ admin mới có thể xóa category hệ thống");
+            throw new RuntimeException("Chỉ admin mới có thể xóa học phần hệ thống");
         }
 
+        // ✅ Check ownership: Phải là CHỦ NHÂN hoặc ADMIN
         if (!isAdmin && !category.isOwnedBy(userId)) {
-            throw new RuntimeException("Bạn không có quyền xóa category này");
+            throw new RuntimeException("Bạn không phải chủ nhân của học phần này");
         }
 
-        long flashcardCount = categoryRepository.countFlashcardsInCategory(categoryId);
-        if (flashcardCount > 0) {
-            throw new RuntimeException(
-                    "Không thể xóa category có " + flashcardCount + " flashcard");
-        }
+        // ✅ Cascade delete - JPA sẽ tự xóa flashcards
+        String categoryName = category.getName();
+        int flashcardCount = category.getFlashcards() != null ? category.getFlashcards().size() : 0;
 
         categoryRepository.delete(category);
-        log.info("✅ Deleted category: {} by user {}", category.getName(), userId);
+
+        log.info("✅ Deleted category '{}' with {} flashcards by user {}",
+                categoryName, flashcardCount, userId);
     }
+
 
     @Transactional
     public Category addCategoryToClass(Long categoryId, Long classId, Long userId) {

@@ -6,6 +6,8 @@ import 'package:src_app/screens/home/home_screen.dart';
 import 'package:src_app/screens/library/library_screen.dart';
 import 'package:src_app/screens/payment/upgrade_premium_screen.dart';
 import '../models/class_model.dart';
+import '../models/category_model.dart';
+import '../models/flashcard_model.dart';
 import '../screens/admin/users/admin_user_management_screen.dart';
 import '../screens/admin/policies/admin_policy_create_screen.dart';
 import '../screens/auth/register_screen.dart';
@@ -16,9 +18,6 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/forgot_otp_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/card/flashcard_creation_screen.dart';
-import '../screens/category/class_category_flashcards_screen.dart';
-import '../screens/class/add_members_screen.dart';
-import '../screens/class/class_categories_screen.dart';
 import '../screens/class/join_class_via_link_screen.dart';
 import '../screens/home/search_screen.dart';
 import '../screens/profile/profile_screen.dart';
@@ -32,6 +31,11 @@ import '../screens/auth/terms_privacy_screen.dart';
 
 import '../screens/class/teacher_class_management_screen.dart';
 import '../screens/class/class_detail_screen.dart';
+
+// ✅ NEW IMPORTS - Category Screens
+import '../screens/category/category_create_screen.dart';
+import '../screens/category/category_detail_screen.dart';
+import '../screens/card/flashcard_edit_screen.dart';
 
 class AppRoutes {
   static const String welcome = '/welcome';
@@ -66,6 +70,12 @@ class AppRoutes {
 
   static const String classCategories = '/class-categories';
   static const String classCategoryFlashcards = '/class-category-flashcards';
+
+  // ✅ NEW ROUTES - Category Management
+  static const String categoryCreate = '/category_create';
+  static const String categoryDetail = '/category_detail';
+  static const String flashcardEdit = '/flashcard_edit';
+
   static const String addMembers = '/add-members';
   static const String admin_home = '/admin_home';
   static const String admin_users_management = '/admin_users_management';
@@ -130,18 +140,33 @@ class AppRoutes {
           builder: (_) => ClassDetailScreen(classId: classId),
         );
 
-      case classCategories:
-        final classModel = settings.arguments as ClassModel;
+    // ✅ NEW CASE: Category Create
+      case categoryCreate:
+        final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
-          builder: (_) => ClassCategoriesScreen(classModel: classModel),
+          builder: (_) => CategoryCreateScreen(
+            classId: args?['classId'] as int?,
+            className: args?['className'] as String?,
+          ),
         );
 
-      case classCategoryFlashcards:
+    // ✅ NEW CASE: Category Detail
+      case categoryDetail:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
-          builder: (_) => ClassCategoryFlashcardsScreen(
-            category: args['category'],
-            classModel: args['classModel'],
+          builder: (_) => CategoryDetailScreen(
+            category: args['category'] as CategoryModel,
+            isOwner: args['isOwner'] as bool? ?? false,
+          ),
+        );
+
+    // ✅ NEW CASE: Flashcard Edit
+      case flashcardEdit:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => FlashcardEditScreen(
+            flashcard: args['flashcard'] as FlashcardModel,
+            categoryId: args['categoryId'] as int,
           ),
         );
 

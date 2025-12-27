@@ -95,4 +95,10 @@ public class ClassDTO {
         private String description;
         private Boolean isPublic;        // ✅ THÊM dòng này
     }
+
+    @Data
+    public static class AddMemberRequest {
+        private Long userId;
+        private String role;
+    }
 }

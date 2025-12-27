@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.util.List;
 
@@ -14,12 +16,14 @@ import java.util.List;
  * ✅ 1 category → 0 or 1 class
  * ✅ Teacher/Premium can create PUBLIC categories
  * ✅ Has description field
+ * ✅ FIXED: JsonIgnore for lazy-loaded relations to prevent serialization errors
  */
 @Entity
 @Table(name = "categories")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // ✅ THÊM: Ignore Hibernate proxy
 public class Category {
 
     @Id
@@ -47,20 +51,24 @@ public class Category {
     @Column(length = 32, unique = true)
     private String shareToken;
 
-    // ============ Relations ============
+    // ============ Relations - ✅ THÊM @JsonIgnore ============
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "\"classId\"", insertable = false, updatable = false)
+    @JsonIgnore // ✅ THÊM: Không serialize để tránh lỗi
     private Class classEntity;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ownerUserId", insertable = false, updatable = false)
+    @JsonIgnore // ✅ THÊM: Không serialize để tránh lỗi
     private User owner;
 
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore // ✅ THÊM: Không serialize để tránh circular reference
     private List<Flashcard> flashcards;
 
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore // ✅ THÊM: Không serialize
     private List<UserSavedCategory> savedByUsers;
 
     // ============ Helper Methods ============

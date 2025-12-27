@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:src_app/utils/navigation_logger.dart';
 import 'dart:async';
 import 'package:uni_links/uni_links.dart';
 import 'routes/app_routes.dart';
@@ -76,6 +77,20 @@ class _FlaiAppState extends State<FlaiApp> {
       print('   - Path: ${uri.path}');
       print('   - Path segments: ${uri.pathSegments}');
 
+      // ✅ BỎ QUA localhost URLs (Flutter Web auto-generated)
+      if (uri.host == 'localhost' || uri.host == '127.0.0.1') {
+        print('⏭️ Skipping localhost URL');
+        print('═══════════════════════════════════════');
+        return;
+      }
+
+      // ✅ BỎ QUA nếu path rỗng và không phải deep link scheme
+      if (uri.pathSegments.isEmpty && uri.scheme != 'flai') {
+        print('⏭️ Skipping empty path URL');
+        print('═══════════════════════════════════════');
+        return;
+      }
+
       String? inviteCode;
 
       // Case 1: Deep link scheme - flai://join/ABC123
@@ -121,7 +136,7 @@ class _FlaiAppState extends State<FlaiApp> {
           }
         });
       } else {
-        print('❌ Could not extract invite code from: $link');
+        print('⚠️ Could not extract invite code from: $link');
       }
     } catch (e, stackTrace) {
       print('❌ Error parsing deep link: $e');
@@ -143,6 +158,7 @@ class _FlaiAppState extends State<FlaiApp> {
     return MaterialApp(
       title: 'Flai',
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [NavigationLogger()], // ← Thêm dòng này
       theme: AppTheme.light,
       navigatorKey: navigatorKey, // ✅ QUAN TRỌNG!
       initialRoute: AppRoutes.welcome,

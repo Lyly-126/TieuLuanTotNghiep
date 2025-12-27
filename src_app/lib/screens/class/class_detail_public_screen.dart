@@ -7,7 +7,7 @@ import '../../models/category_model.dart';
 import '../../models/class_model.dart';
 import '../../services/category_service.dart';
 import '../../services/class_service.dart';
-import '../category/class_category_flashcards_screen.dart';
+import '../category/category_detail_screen.dart';
 
 class ClassDetailPublicScreen extends StatefulWidget {
   final ClassModel classModel;
@@ -33,6 +33,7 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
   @override
   void initState() {
     super.initState();
+    print('📱 [SCREEN] $runtimeType');
     _loadClassDetails();
   }
 
@@ -709,9 +710,9 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ClassCategoryFlashcardsScreen(
+        builder: (context) => CategoryDetailScreen(
           category: category,
-          classModel: widget.classModel,
+          isOwner: false,
         ),
       ),
     );

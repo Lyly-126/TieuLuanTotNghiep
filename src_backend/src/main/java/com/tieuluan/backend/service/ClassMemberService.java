@@ -269,6 +269,52 @@ public class ClassMemberService {
     }
 
     /**
+     * ✅ Teacher thêm member trực tiếp vào lớp (auto APPROVED)
+     */
+    @Transactional
+    public ClassMemberDTO addMemberByTeacher(Long classId, Long userId, Long teacherId, String role) {
+        // 1. Kiểm tra lớp học
+        Class clazz = classRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
+
+        // 2. Kiểm tra quyền: Chỉ owner mới được thêm member
+        if (!clazz.isOwnedBy(teacherId)) {
+            throw new RuntimeException("Bạn không có quyền thêm thành viên vào lớp này");
+        }
+
+        // 3. Không thể thêm chính mình
+        if (userId.equals(teacherId)) {
+            throw new RuntimeException("Bạn không thể thêm chính mình vào lớp");
+        }
+
+        // 4. Kiểm tra user tồn tại
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // 5. Kiểm tra đã là member chưa
+        ClassMemberId memberId = new ClassMemberId(classId, userId);
+        if (classMemberRepository.existsById(memberId)) {
+            throw new RuntimeException("Người dùng đã là thành viên của lớp này");
+        }
+
+        // 6. Tạo member với status APPROVED
+        ClassMember member = new ClassMember();
+        member.setId(memberId);
+        member.setClassEntity(clazz);
+        member.setUser(user);
+        member.setRole(role != null ? role : "STUDENT");
+        member.setStatus("APPROVED");
+        member.setJoinedAt(LocalDateTime.now());
+
+        ClassMember saved = classMemberRepository.save(member);
+
+        log.info("✅ Teacher {} added user {} to class {} as {}",
+                teacherId, user.getEmail(), clazz.getName(), role);
+
+        return new ClassMemberDTO(saved);
+    }
+
+    /**
      * ✅ GET APPROVED MEMBERS - Chỉ lấy members đã được duyệt
      */
     public List<ClassMemberDTO> getApprovedMembers(Long classId) {

@@ -44,7 +44,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
   @override
   void initState() {
     super.initState();
-
+    print('📱 [SCREEN] $runtimeType');
     _transitionController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,

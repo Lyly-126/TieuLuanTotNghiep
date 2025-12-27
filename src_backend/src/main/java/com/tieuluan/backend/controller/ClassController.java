@@ -5,6 +5,7 @@ import com.tieuluan.backend.dto.ClassDetailDTO;
 import com.tieuluan.backend.dto.ClassMemberDTO;
 import com.tieuluan.backend.model.Class;
 import com.tieuluan.backend.model.User;
+import com.tieuluan.backend.repository.ClassRepository;
 import com.tieuluan.backend.repository.UserRepository;
 import com.tieuluan.backend.service.ClassMemberService;
 import com.tieuluan.backend.service.ClassService;
@@ -35,6 +36,7 @@ public class ClassController {
     private final ClassService classService;
     private final ClassMemberService classMemberService;
     private final UserRepository userRepository;
+    private final ClassRepository classRepository;
     private final JwtUtil jwtUtil;
 
     // ==================== HELPER METHODS ====================
@@ -224,15 +226,16 @@ public class ClassController {
         try {
             Long userId = getUserIdFromAuth(authentication);
 
-            // Get class info
-            Class clazz = classService.getClassById(classId, userId, false);
+            // ✅ FIXED: Không check quyền khi join - dùng repository trực tiếp
+            Class clazz = classRepository.findById(classId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
 
-            // Join via ClassMemberService (handles PENDING/APPROVED logic)
             ClassMemberDTO member = classMemberService.joinByInviteCode(
                     clazz.getInviteCode(),
                     userId
             );
 
+            log.info("✅ User {} joined class {}", userId, clazz.getName());
             return ResponseEntity.ok(member);
         } catch (Exception e) {
             log.error("❌ Error joining class: {}", e.getMessage());
@@ -348,6 +351,54 @@ public class ClassController {
                     .body(Map.of("message", e.getMessage()));
         }
     }
+
+
+    @PostMapping("/{classId}/members/add")
+    public ResponseEntity<?> addMember(
+            @PathVariable Long classId,
+            @RequestBody AddMemberRequest request,
+            Authentication authentication) {
+        try {
+            Long teacherId = getUserIdFromAuth(authentication);
+
+            // ✅ FIX: Hỗ trợ cả email và userId
+            Long targetUserId = request.getUserId();
+
+            // Nếu không có userId, tìm theo email
+            if (targetUserId == null) {
+                if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("message", "Vui lòng nhập email hoặc userId"));
+                }
+
+                // Tìm user theo email
+                User targetUser = userRepository.findByEmail(request.getEmail().trim())
+                        .orElse(null);
+
+                if (targetUser == null) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("message", "Không tìm thấy người dùng với email: " + request.getEmail()));
+                }
+
+                targetUserId = targetUser.getId();
+            }
+
+            ClassMemberDTO member = classMemberService.addMemberByTeacher(
+                    classId,
+                    targetUserId,
+                    teacherId,
+                    request.getRole() != null ? request.getRole() : "STUDENT"
+            );
+
+            log.info("✅ Teacher {} added member {} to class {}", teacherId, targetUserId, classId);
+            return ResponseEntity.ok(member);
+        } catch (Exception e) {
+            log.error("❌ Error adding member: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
 
     /**
      * ✅ APPROVE MEMBER
@@ -599,5 +650,11 @@ public class ClassController {
                     "message", "Lỗi server: " + e.getMessage()
             ));
         }
+    }
+    @Data
+    public static class AddMemberRequest {
+        private Long userId;      // Optional - có thể dùng userId
+        private String email;     // ✅ THÊM - nhận email
+        private String role;
     }
 }

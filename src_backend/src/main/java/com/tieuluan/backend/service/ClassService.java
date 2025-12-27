@@ -65,10 +65,28 @@ public class ClassService {
         Class clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
 
-        if (isAdmin || clazz.isOwnedBy(userId)) {
+        // Admin xem tất cả
+        if (isAdmin) {
             return clazz;
         }
 
+        // Owner xem lớp của mình
+        if (clazz.isOwnedBy(userId)) {
+            return clazz;
+        }
+
+        // ✅ FIX: Member đã APPROVED có thể xem lớp
+        ClassMemberId memberId = new ClassMemberId(classId, userId);
+        boolean isApprovedMember = classMemberRepository.findById(memberId)
+                .map(member -> "APPROVED".equals(member.getStatus()))
+                .orElse(false);
+        if (isApprovedMember) {
+            return clazz;
+        }
+        // Lớp PUBLIC
+        if (Boolean.TRUE.equals(clazz.getIsPublic())) {
+            return clazz;
+        }
         throw new RuntimeException("Bạn không có quyền xem lớp này");
     }
 

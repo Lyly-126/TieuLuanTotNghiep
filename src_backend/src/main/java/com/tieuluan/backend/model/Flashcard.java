@@ -3,6 +3,7 @@ package com.tieuluan.backend.model;
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "flashcards")
@@ -10,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // ✅ THÊM: Ignore Hibernate proxy
 public class Flashcard {
 
     @Id
@@ -31,16 +33,17 @@ public class Flashcard {
     @Column(name = "meaning", nullable = false, columnDefinition = "TEXT")
     private String meaning;
 
-    // Quan hệ với Category
+    // ✅ SỬA: Thêm JsonIgnore để không serialize toàn bộ category object
+    // Thay vào đó chỉ trả về categoryId
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "categoryId", referencedColumnName = "id")
-    @JsonIgnoreProperties({"flashcards"}) // Tránh vòng lặp JSON khi chuyển dữ liệu giữa backend và frontend
+    @JsonIgnore // ✅ QUAN TRỌNG: Không serialize category object
     private Category category;
 
     @Column(name = "ttsUrl")
     private String ttsUrl;
 
-    // Transient field để Flutter dễ parse
+    // ✅ GIỮ NGUYÊN: Transient field để Flutter parse categoryId
     @Transient
     public Long getCategoryId() {
         return category != null ? category.getId() : null;

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 import '../../models/category_model.dart';
+import '../../models/user_model.dart';
 import '../../services/category_service.dart';
+import '../../services/user_service.dart';
+import '../category/category_detail_screen.dart'; // ✅ THÊM IMPORT
 
 class CategoryManagementScreen extends StatefulWidget {
   const CategoryManagementScreen({Key? key}) : super(key: key);
@@ -14,6 +17,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   List<CategoryModel> _categories = [];
   bool _isLoading = false;
   String _errorMessage = '';
+  UserModel? _currentUser; // ✅ THÊM
 
   // Filters
   String _selectedFilter = 'all'; // all, system, user, class
@@ -21,7 +25,19 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   @override
   void initState() {
     super.initState();
+    print('📱 [SCREEN] $runtimeType');
+    _loadCurrentUser(); // ✅ THÊM
     _loadCategories();
+  }
+
+  // ✅ THÊM METHOD
+  Future<void> _loadCurrentUser() async {
+    try {
+      final user = await UserService.getCurrentUser();
+      if (mounted) setState(() => _currentUser = user);
+    } catch (e) {
+      debugPrint('Error loading user: $e');
+    }
   }
 
   /// Load categories
@@ -57,6 +73,25 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
       default:
         return _categories;
     }
+  }
+
+  // ✅ THÊM METHOD NAVIGATION
+  void _navigateToCategory(CategoryModel category) {
+    // isOwner = true nếu user là owner của category và không phải system
+    final isOwner = !category.isSystem &&
+        category.ownerUserId == _currentUser?.userId;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CategoryDetailScreen(
+          category: category,
+          isOwner: isOwner,
+        ),
+      ),
+    ).then((_) {
+      _loadCategories(); // Refresh sau khi quay lại
+    });
   }
 
   /// Hiển thị dialog tạo category cá nhân
@@ -283,6 +318,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
+                      // ✅ THÊM onTap để navigate
+                      onTap: () => _navigateToCategory(category),
                       leading: CircleAvatar(
                         backgroundColor: category.isSystem
                             ? Colors.blue
@@ -315,25 +352,31 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                         ],
                       ),
                       trailing: category.isSystem
-                          ? null
-                          : PopupMenuButton(
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Text('✏️ Sửa'),
+                          ? const Icon(Icons.arrow_forward_ios, size: 16) // ✅ THÊM icon
+                          : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PopupMenuButton(
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Text('✏️ Sửa'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('🗑️ Xóa'),
+                              ),
+                            ],
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                _showEditCategoryDialog(category);
+                              } else if (value == 'delete') {
+                                _deleteCategory(category);
+                              }
+                            },
                           ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Text('🗑️ Xóa'),
-                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 16), // ✅ THÊM icon
                         ],
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            _showEditCategoryDialog(category);
-                          } else if (value == 'delete') {
-                            _deleteCategory(category);
-                          }
-                        },
                       ),
                     ),
                   );

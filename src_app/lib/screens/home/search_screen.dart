@@ -1,4 +1,3 @@
-// File: lib/screens/home/search_screen.dart
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_constants.dart';
@@ -31,7 +30,6 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _hasSearched = false;
   String? _errorMessage;
 
-  // ✅ Thêm biến lưu thông tin user hiện tại
   UserModel? _currentUser;
 
   @override
@@ -46,7 +44,6 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  /// ✅ Load thông tin user hiện tại
   Future<void> _loadCurrentUser() async {
     try {
       final user = await UserService.getCurrentUser();
@@ -75,7 +72,6 @@ class _SearchScreenState extends State<SearchScreen> {
     });
 
     try {
-      // Search categories và classes đồng thời
       final results = await Future.wait([
         CategoryService.searchCategories(keyword),
         ClassService.searchClasses(keyword),
@@ -100,25 +96,20 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  /// ✅ Navigate to Category - Phân quyền theo owner
   void _navigateToCategory(CategoryModel category) {
-    // ✅ FIX: Sử dụng userId thay vì id
-    if (_currentUser != null && category.ownerUserId == _currentUser!.userId) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CategoryDetailScreen(category: category),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CategoryDetailScreen(
+          category: category,
+          isOwner: category.ownerUserId == _currentUser?.userId,
         ),
-      );
-    } else {
-      // Nếu không phải chủ nhân → màn hình xem public + lưu category
-      _showCategoryPublicDialog(category);
-    }
+      ),
+    );
   }
 
-  /// ✅ Navigate to Class - Phân quyền theo owner
+  /// Navigate to Class
   void _navigateToClass(ClassModel classModel) {
-    // ✅ FIX: Sử dụng userId thay vì id
     if (_currentUser != null && classModel.ownerId == _currentUser!.userId) {
       Navigator.push(
         context,
@@ -127,7 +118,6 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       );
     } else {
-      // Nếu không phải chủ nhân → màn hình public (xem + tham gia)
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -137,101 +127,12 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  /// ✅ Hiển thị dialog cho category public (chưa phải chủ nhân)
-  void _showCategoryPublicDialog(CategoryModel category) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          category.name,
-          style: AppTextStyles.heading2,
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (category.description != null && category.description!.isNotEmpty)
-              Text(
-                category.description!,
-                style: AppTextStyles.body,
-              ),
-            const SizedBox(height: 16),
-            if (category.flashcardCount != null)
-              Row(
-                children: [
-                  const Icon(Icons.style, size: 16, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${category.flashcardCount} thẻ',
-                    style: AppTextStyles.body,
-                  ),
-                ],
-              ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '🌐 Chủ đề công khai',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Đóng'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _handleSaveCategory(category);
-            },
-            icon: Icon(
-              category.isSaved ? Icons.bookmark : Icons.bookmark_border,
-            ),
-            label: Text(category.isSaved ? 'Đã lưu' : 'Lưu chủ đề'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// ✅ Xử lý lưu/bỏ lưu category
-  Future<void> _handleSaveCategory(CategoryModel category) async {
-    try {
-      if (category.isSaved) {
-        await CategoryService.unsaveCategory(category.id);
-        _showSuccessSnackBar('Đã bỏ lưu chủ đề');
-      } else {
-        await CategoryService.saveCategory(category.id);
-        _showSuccessSnackBar('Đã lưu chủ đề vào thư viện');
-      }
-
-      // Refresh search results
-      _performSearch(_searchController.text);
-    } catch (e) {
-      _showErrorSnackBar('Lỗi: $e');
-    }
-  }
-
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -240,8 +141,8 @@ class _SearchScreenState extends State<SearchScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -249,52 +150,51 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        title: Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.inputBackground,
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: TextField(
+            controller: _searchController,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Tìm chủ đề, lớp học...',
+              hintStyle: AppTextStyles.hint,
+              prefixIcon: const Icon(Icons.search, color: AppColors.textGray),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                icon: const Icon(Icons.clear, color: AppColors.textGray),
+                onPressed: () {
+                  _searchController.clear();
+                  _performSearch('');
+                },
+              )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+            onChanged: (value) {
+              setState(() {});
+              if (value.length >= 2) {
+                _performSearch(value);
+              }
+            },
+            onSubmitted: _performSearch,
+          ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primaryDark),
           onPressed: () => Navigator.pop(context),
         ),
-        title: TextField(
-          controller: _searchController,
-          autofocus: true,
-          decoration: InputDecoration(
-            isDense: true,
-            border: InputBorder.none,
-            hintText: 'Tìm chủ đề, lớp học, mã lớp...',
-            hintStyle: AppTextStyles.hint.copyWith(
-              color: AppColors.textGray,
-              fontSize: 16,
-            ),
-          ),
-          style: AppTextStyles.body.copyWith(fontSize: 16),
-          onChanged: (value) {
-            // Debounce search
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (_searchController.text == value) {
-                _performSearch(value);
-              }
-            });
-          },
-          onSubmitted: _performSearch,
-        ),
-        actions: [
-          if (_searchController.text.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.clear, color: AppColors.textGray),
-              onPressed: () {
-                _searchController.clear();
-                setState(() {
-                  _categories = [];
-                  _classes = [];
-                  _hasSearched = false;
-                  _errorMessage = null;
-                });
-              },
-            ),
-        ],
       ),
       body: _buildBody(),
     );
@@ -308,46 +208,7 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppConstants.padding * 2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: AppColors.textGray.withOpacity(0.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Đã có lỗi xảy ra',
-                style: AppTextStyles.heading2.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => _performSearch(_searchController.text),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Thử lại'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildErrorState();
     }
 
     if (!_hasSearched) {
@@ -358,45 +219,74 @@ class _SearchScreenState extends State<SearchScreen> {
       return _buildNoResults();
     }
 
+    return _buildSearchResults();
+  }
+
+  Widget _buildSearchResults() {
     return ListView(
-      padding: const EdgeInsets.all(AppConstants.padding),
+      padding: const EdgeInsets.all(16),
       children: [
-        // Categories section
+        // Categories Section
         if (_categories.isNotEmpty) ...[
-          _buildSectionHeader('Chủ đề (${_categories.length})'),
+          _buildSectionHeader('Chủ đề', Icons.style, _categories.length),
           const SizedBox(height: 12),
-          ..._categories.map((category) => _buildCategoryCard(category)),
+          ..._categories.map((category) => _buildCategoryItem(category)),
           const SizedBox(height: 24),
         ],
 
-        // Classes section
+        // Classes Section
         if (_classes.isNotEmpty) ...[
-          _buildSectionHeader('Lớp học (${_classes.length})'),
+          _buildSectionHeader('Lớp học', Icons.school, _classes.length),
           const SizedBox(height: 12),
-          ..._classes.map((classModel) => _buildClassCard(classModel)),
+          ..._classes.map((classModel) => _buildClassItem(classModel)),
         ],
       ],
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: AppTextStyles.heading2.copyWith(
-        color: AppColors.primaryDark,
-      ),
+  Widget _buildSectionHeader(String title, IconData icon, int count) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: AppTextStyles.heading3.copyWith(color: AppColors.primaryDark),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '$count',
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildCategoryCard(CategoryModel category) {
-    // ✅ FIX: Kiểm tra xem user có phải chủ nhân không - dùng userId
+  Widget _buildCategoryItem(CategoryModel category) {
     final isOwner = _currentUser != null && category.ownerUserId == _currentUser!.userId;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppConstants.padding),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: InkWell(
         onTap: () => _navigateToCategory(category),
@@ -414,7 +304,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  isOwner ? Icons.folder : Icons.public,
+                  isOwner ? Icons.folder : Icons.folder_open,
                   color: AppColors.primary,
                   size: 24,
                 ),
@@ -426,37 +316,58 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tên chủ đề
                     Text(
                       category.name,
                       style: AppTextStyles.heading3.copyWith(
                         color: AppColors.primaryDark,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
 
-                    // Badge: Chủ nhân hoặc Public
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isOwner
-                            ? AppColors.secondary.withOpacity(0.1)
-                            : AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        isOwner ? '👤 Của tôi' : '🌐 Công khai',
-                        style: AppTextStyles.caption.copyWith(
-                          fontSize: 11,
-                          color: isOwner ? AppColors.secondary : AppColors.primary,
-                          fontWeight: FontWeight.w600,
+                    // Badge
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isOwner
+                                ? AppColors.primary.withOpacity(0.1)
+                                : AppColors.secondary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isOwner ? '👤 Của tôi' : '🌐 Công khai',
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 11,
+                              color: isOwner ? AppColors.primary : AppColors.secondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        if (category.flashcardCount != null)
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.style,
+                                size: 14,
+                                color: AppColors.textGray,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${category.flashcardCount} thẻ',
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.textGray,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
 
                     // Description
@@ -468,53 +379,17 @@ class _SearchScreenState extends State<SearchScreen> {
                         style: AppTextStyles.caption.copyWith(
                           color: AppColors.textGray,
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-
-                    // Flashcard count
-                    if (category.flashcardCount != null) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.style,
-                            size: 14,
-                            color: AppColors.textGray,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${category.flashcardCount} thẻ',
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textGray,
-                            ),
-                          ),
-                          if (category.isSaved) ...[
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.bookmark,
-                              size: 14,
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Đã lưu',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ],
                       ),
                     ],
                   ],
                 ),
               ),
 
-              // Arrow icon
+              // Arrow
               Icon(
-                isOwner ? Icons.settings : Icons.arrow_forward_ios,
+                Icons.arrow_forward_ios,
                 size: 16,
                 color: AppColors.textGray,
               ),
@@ -525,15 +400,21 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildClassCard(ClassModel classModel) {
-    // ✅ FIX: Kiểm tra xem user có phải chủ nhân không - dùng userId
+  Widget _buildClassItem(ClassModel classModel) {
     final isOwner = _currentUser != null && classModel.ownerId == _currentUser!.userId;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppConstants.padding),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: InkWell(
         onTap: () => _navigateToClass(classModel),
@@ -563,7 +444,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tên lớp
                     Text(
                       classModel.name,
                       style: AppTextStyles.heading3.copyWith(
@@ -574,7 +454,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                     const SizedBox(height: 4),
 
-                    // Badge: Chủ nhân hoặc Public
+                    // Badge
                     Row(
                       children: [
                         Container(
@@ -597,7 +477,6 @@ class _SearchScreenState extends State<SearchScreen> {
                             ),
                           ),
                         ),
-                        // Mã lớp
                         if (classModel.inviteCode != null &&
                             classModel.inviteCode!.isNotEmpty) ...[
                           const SizedBox(width: 8),
@@ -623,7 +502,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       ],
                     ),
 
-                    // Description
+                    // Description & members
                     if (classModel.description != null &&
                         classModel.description!.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -637,47 +516,28 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ],
 
-                    // Owner & Members
                     const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 8,
+                    Row(
                       children: [
                         if (classModel.ownerName != null) ...[
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.person,
-                                size: 14,
-                                color: AppColors.textGray,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                classModel.ownerName!,
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.textGray,
-                                ),
-                              ),
-                            ],
+                          Icon(Icons.person, size: 14, color: AppColors.textGray),
+                          const SizedBox(width: 4),
+                          Text(
+                            classModel.ownerName!,
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textGray,
+                            ),
                           ),
+                          const SizedBox(width: 12),
                         ],
                         if (classModel.memberCount != null) ...[
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.people,
-                                size: 14,
-                                color: AppColors.textGray,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${classModel.memberCount} thành viên',
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.textGray,
-                                ),
-                              ),
-                            ],
+                          Icon(Icons.people, size: 14, color: AppColors.textGray),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${classModel.memberCount} thành viên',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textGray,
+                            ),
                           ),
                         ],
                       ],
@@ -686,7 +546,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               ),
 
-              // Arrow icon
+              // Arrow
               Icon(
                 isOwner ? Icons.settings : Icons.arrow_forward_ios,
                 size: 16,
@@ -757,6 +617,49 @@ class _SearchScreenState extends State<SearchScreen> {
               'Thử tìm kiếm với từ khóa khác',
               style: AppTextStyles.body.copyWith(
                 color: AppColors.textGray,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.padding * 2),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 80,
+              color: AppColors.error.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Đã có lỗi xảy ra',
+              style: AppTextStyles.heading2.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Vui lòng thử lại',
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textGray,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _performSearch(_searchController.text),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Thử lại'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
               ),
             ),
           ],
