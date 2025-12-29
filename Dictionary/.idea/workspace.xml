@@ -140,7 +140,17 @@
       <workItem from="1766970897872" duration="1632000" />
       <workItem from="1766997744941" duration="1537000" />
       <workItem from="1766999322767" duration="1747000" />
+      <workItem from="1767001104501" duration="354000" />
     </task>
+    <task id="LOCAL-00001" summary="crawl Dictionary">
+      <option name="closed" value="true" />
+      <created>1767001455280</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1767001455282</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
