@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="142d9db8-935b-4a66-97b1-4c256839aa7c" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_creation_screen_new.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_creation_screen_new.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/category_suggestion_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/category_suggestion_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/dictionary_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/dictionary_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/flashcard_creation_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/flashcard_creation_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/image_suggestion_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/image_suggestion_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/CategorySuggestionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/CategorySuggestionController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/DictionaryController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/DictionaryController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/FlashcardCreationController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/FlashcardCreationController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/ImageSuggestionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/ImageSuggestionController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/model/Dictionary.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/model/Dictionary.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/repository/CategoryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/repository/CategoryRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/repository/DictionaryRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/repository/DictionaryRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/CategorySuggestionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/CategorySuggestionService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/DictionaryService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/DictionaryService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/FlashcardCreationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/FlashcardCreationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/ImageSuggestionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/ImageSuggestionService.java" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Lyly-126&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Lyly-126/TieuLuanTotNghiep&quot;,
+    &quot;accountId&quot;: &quot;f89fbc78-fc8a-48f6-b7bb-18e07017dce3&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="37TS1Edjjvge0VhENEd4Pqtt19Q" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.merge_en_vi.executor": "Coverage",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "ai.playground.ignore.import.keys.banner.in.settings": "true",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "E:/Code/Dictionary",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\ASUS\PycharmProjects\Dictionary\data" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\ASUS\PycharmProjects\Dictionary" />
+      <recent name="C:\Users\ASUS\PycharmProjects\Dictionary\dump" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="merge_en_vi" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Dictionary" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="RUN_TOOL" value="" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/merge_en_vi.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.merge_en_vi" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-PY-253.29346.142" />
+        <option value="bundled-python-sdk-f2b7a9f6281b-6e1f45a539f7-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-253.29346.142" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="142d9db8-935b-4a66-97b1-4c256839aa7c" name="Changes" comment="" />
+      <created>1766925350262</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1766925350262</updated>
+      <workItem from="1766925351306" duration="13604000" />
+      <workItem from="1766941856340" duration="7234000" />
+      <workItem from="1766970897872" duration="1632000" />
+      <workItem from="1766997744941" duration="1537000" />
+      <workItem from="1766999322767" duration="1747000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/Dictionary$merge_en_vi.coverage" NAME="merge_en_vi Coverage Results" MODIFIED="1766937365303" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>

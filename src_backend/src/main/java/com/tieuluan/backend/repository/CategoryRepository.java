@@ -13,6 +13,7 @@ import java.util.Optional;
  * CategoryRepository - ONE-TO-MANY Architecture
  * ✅ Category has classId (nullable)
  * ✅ FIXED: Removed createdAt from ORDER BY (field doesn't exist in DB)
+ * ✅ FIXED: Use cm.id.classId and cm.id.userId for EmbeddedId
  */
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long> {
@@ -100,7 +101,31 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
             "LOWER(c.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<Category> searchPublicCategories(@Param("keyword") String keyword);
 
-    // ✅ THÊM: Lấy public categories
     @Query("SELECT c FROM Category c WHERE c.isSystem = true OR c.visibility = 'PUBLIC'")
     List<Category> findAllPublicCategories();
+
+    // ============ NEW: For CategorySuggestionService ============
+
+    /**
+     * ✅ FIXED: Lấy categories từ classes mà user là member
+     * Sử dụng cm.id.classId và cm.id.userId vì ClassMember dùng @EmbeddedId
+     */
+    @Query("SELECT DISTINCT c FROM Category c " +
+            "JOIN ClassMember cm ON c.classId = cm.id.classId " +
+            "WHERE c.classId IS NOT NULL " +
+            "AND cm.id.userId = :userId " +
+            "AND cm.status = 'APPROVED'")
+    List<Category> findAccessibleByUserId(@Param("userId") Long userId);
+
+    /**
+     * ✅ FIXED: Lấy tất cả categories user có thể access
+     * Bao gồm: System, Owned, Public, và từ Classes đã join
+     */
+    @Query("SELECT DISTINCT c FROM Category c " +
+            "LEFT JOIN ClassMember cm ON c.classId = cm.id.classId AND cm.id.userId = :userId " +
+            "WHERE c.isSystem = true " +
+            "OR c.ownerUserId = :userId " +
+            "OR c.visibility = 'PUBLIC' " +
+            "OR (c.classId IS NOT NULL AND cm.status = 'APPROVED')")
+    List<Category> findAllAccessibleByUserId(@Param("userId") Long userId);
 }
