@@ -1,34 +1,67 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
-import 'dictionary_service.dart';
-import 'image_suggestion_service.dart';
+// Import CategorySuggestionResult và CategorySuggestion từ category_suggestion_service
 import 'category_suggestion_service.dart';
 
-/// Service tạo Flashcard mới với flow:
-/// 1. Preview: Tra từ điển + gợi ý ảnh
-/// 2. Suggest Category: AI phân loại
-/// 3. Create: Lưu flashcard
+/// Service tạo Flashcard mới
+///
+/// Flow:
+/// 1. preview() → Tra từ điển + Lấy 5 ảnh
+/// 2. suggestCategory() → AI gợi ý category
+/// 3. create() → Tạo flashcard (với userId)
 class FlashcardCreationService {
 
-  /// ========================================
-  /// STEP 1: Preview flashcard
-  /// ========================================
-  /// Tra từ điển + lấy gợi ý 5 ảnh
-  static Future<FlashcardPreviewResult> preview(String term) async {
+  /// Lấy token từ SharedPreferences
+  static Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  /// ✅ Headers với authentication token
+  static Future<Map<String, String>> _getPublicHeaders() async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
+
+    // static Map<String, String> _getPublicHeaders() {
+    //   return {
+    //     'Content-Type': 'application/json',
+    //     'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+    //   };
+    // }
+
+    // Luôn gửi token nếu có
+    final token = await _getToken();
+    print('🔑 Token: ${token != null ? "${token.substring(0, 20)}..." : "NULL"}');
+
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+      print('✅ Authorization header added');
+    } else {
+      print('⚠️ No token found - request will be unauthenticated');
+    }
+
+    return headers;
+  }
+
+  /// STEP 1: Preview - Tra từ điển + lấy 5 ảnh gợi ý
+  static Future<FlashcardPreviewResult> preview(String word) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/flashcard-creation/preview');
+      final url = '${ApiConfig.baseUrl}/api/flashcard-creation/preview';
+      print('📝 Preview: POST $url');
 
-      print('📝 Preview flashcard for: $term');
-
+      final headers = await _getPublicHeaders();
       final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({'term': term}),
+        Uri.parse(url),
+        headers: headers,
+        body: jsonEncode({'word': word}),
       );
+
+      print('📥 Response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -42,49 +75,23 @@ class FlashcardCreationService {
     }
   }
 
-  /// Preview qua GET
-  static Future<FlashcardPreviewResult> previewGet(String term) async {
-    try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/flashcard-creation/preview')
-          .replace(queryParameters: {'term': term});
-
-      final response = await http.get(uri, headers: {
-        'ngrok-skip-browser-warning': 'true',
-      });
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return FlashcardPreviewResult.fromJson(data);
-      } else {
-        throw Exception('Failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Preview error: $e');
-      rethrow;
-    }
-  }
-
-  /// ========================================
-  /// STEP 2: Suggest category
-  /// ========================================
+  /// STEP 2: Gợi ý category bằng AI
+  /// Sử dụng CategorySuggestionResult từ category_suggestion_service.dart
   static Future<CategorySuggestionResult> suggestCategory({
-    required String term,
+    required String word,
     String? meaning,
     String? partOfSpeech,
   }) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/flashcard-creation/suggest-category');
+      final url = '${ApiConfig.baseUrl}/api/flashcard-creation/suggest-category';
+      print('🏷️ Suggest category: POST $url');
 
-      print('🏷️ Suggest category for: $term');
-
+      final headers = await _getPublicHeaders();
       final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
+        Uri.parse(url),
+        headers: headers,
         body: jsonEncode({
-          'term': term,
+          'word': word,
           'meaning': meaning,
           'partOfSpeech': partOfSpeech,
         }),
@@ -97,87 +104,63 @@ class FlashcardCreationService {
         throw Exception('Failed: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Category suggestion error: $e');
+      print('❌ Suggest category error: $e');
       rethrow;
     }
   }
 
-  /// ========================================
-  /// STEP 3: Create flashcard
-  /// ========================================
+  /// STEP 3: Tạo flashcard
   static Future<FlashcardCreateResult> create(FlashcardCreateRequest request) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/flashcard-creation/create');
+      final url = '${ApiConfig.baseUrl}/api/flashcard-creation/create';
+      print('💾 Create: POST $url');
 
-      print('💾 Creating flashcard: ${request.term}');
-
+      final headers = await _getPublicHeaders();
       final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
+        Uri.parse(url),
+        headers: headers,
         body: jsonEncode(request.toJson()),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return FlashcardCreateResult.fromJson(data);
-      } else {
-        final data = jsonDecode(response.body);
-        return FlashcardCreateResult.fromJson(data);
-      }
+      print('📥 Create response: ${response.statusCode}');
+      final data = jsonDecode(response.body);
+      return FlashcardCreateResult.fromJson(data);
     } catch (e) {
       print('❌ Create error: $e');
       rethrow;
     }
   }
 
-  /// ========================================
   /// BATCH: Tạo nhiều flashcard
-  /// ========================================
   static Future<BatchCreateResult> batchCreate(List<FlashcardCreateRequest> requests) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/flashcard-creation/batch');
+      final url = '${ApiConfig.baseUrl}/api/flashcard-creation/batch';
 
-      print('📚 Batch creating ${requests.length} flashcards');
-
+      final headers = await _getPublicHeaders();
       final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
+        Uri.parse(url),
+        headers: headers,
         body: jsonEncode(requests.map((e) => e.toJson()).toList()),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return BatchCreateResult.fromJson(data);
-      } else {
-        final data = jsonDecode(response.body);
-        return BatchCreateResult.fromJson(data);
-      }
+      final data = jsonDecode(response.body);
+      return BatchCreateResult.fromJson(data);
     } catch (e) {
       print('❌ Batch create error: $e');
       rethrow;
     }
   }
 
-  /// Preview nhiều từ cùng lúc
-  static Future<List<FlashcardPreviewResult>> batchPreview(List<String> terms) async {
+  /// BATCH: Preview nhiều từ
+  static Future<List<FlashcardPreviewResult>> batchPreview(List<String> words) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/flashcard-creation/batch-preview');
+      final url = '${ApiConfig.baseUrl}/api/flashcard-creation/batch-preview';
 
-      print('📝 Batch preview ${terms.length} terms');
-
+      final headers = await _getPublicHeaders();
       final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({'terms': terms}),
+        Uri.parse(url),
+        headers: headers,
+        body: jsonEncode({'words': words}),
       );
 
       if (response.statusCode == 200) {
@@ -193,20 +176,20 @@ class FlashcardCreationService {
   }
 }
 
-/// ================== DTOs ==================
+// ================== DTOs ==================
 
 /// Kết quả preview flashcard
 class FlashcardPreviewResult {
   final bool success;
   final String? message;
-  final String term;
+  final String word;
   final DictionaryLookupResult? dictionaryResult;
   final List<ImageInfo> imageSuggestions;
 
   FlashcardPreviewResult({
     required this.success,
     this.message,
-    required this.term,
+    required this.word,
     this.dictionaryResult,
     required this.imageSuggestions,
   });
@@ -215,39 +198,114 @@ class FlashcardPreviewResult {
     return FlashcardPreviewResult(
       success: json['success'] ?? false,
       message: json['message'],
-      term: json['term'] ?? '',
+      word: json['word'] ?? '',
       dictionaryResult: json['dictionaryResult'] != null
           ? DictionaryLookupResult.fromJson(json['dictionaryResult'])
           : null,
       imageSuggestions: (json['imageSuggestions'] as List<dynamic>?)
           ?.map((e) => ImageInfo.fromJson(e))
-          .toList() ??
-          [],
+          .toList() ?? [],
     );
   }
 
-  /// Check if dictionary found the word
-  bool get isFoundInDictionary => dictionaryResult?.found ?? false;
+  // ============ Getters cho backward compatibility ============
 
-  /// Get Vietnamese meaning
+  bool get isFoundInDictionary => dictionaryResult?.found ?? false;
+  String? get phonetic => dictionaryResult?.phonetic;
+  String? get partOfSpeech => dictionaryResult?.partOfSpeech;
+  String? get partOfSpeechVi => dictionaryResult?.partOfSpeechVi;
+
+  /// Nghĩa tiếng Việt (alias cho code cũ dùng vietnameseMeaning)
+  String? get meaning => dictionaryResult?.meanings;
   String? get vietnameseMeaning => dictionaryResult?.meanings;
 
-  /// Get English definition
+  /// Định nghĩa tiếng Anh (alias cho code cũ dùng englishDefinition)
+  String? get definition => dictionaryResult?.definitions;
   String? get englishDefinition => dictionaryResult?.definitions;
+}
 
-  /// Get phonetic
-  String? get phonetic => dictionaryResult?.phonetic;
+/// Kết quả tra từ điển
+class DictionaryLookupResult {
+  final bool found;
+  final String? word;
+  final String? partOfSpeech;
+  final String? partOfSpeechVi;
+  final String? phonetic;
+  final String? definitions;
+  final String? meanings;
+  final String? source;
+  final String? errorMessage;
 
-  /// Get part of speech
-  String? get partOfSpeech => dictionaryResult?.partOfSpeech;
+  DictionaryLookupResult({
+    required this.found,
+    this.word,
+    this.partOfSpeech,
+    this.partOfSpeechVi,
+    this.phonetic,
+    this.definitions,
+    this.meanings,
+    this.source,
+    this.errorMessage,
+  });
+
+  factory DictionaryLookupResult.fromJson(Map<String, dynamic> json) {
+    return DictionaryLookupResult(
+      found: json['found'] ?? false,
+      word: json['word'],
+      partOfSpeech: json['partOfSpeech'],
+      partOfSpeechVi: json['partOfSpeechVi'],
+      phonetic: json['phonetic'],
+      definitions: json['definitions'],
+      meanings: json['meanings'],
+      source: json['source'],
+      errorMessage: json['errorMessage'],
+    );
+  }
+}
+
+/// Thông tin ảnh từ Pexels
+class ImageInfo {
+  final int? id;
+  final String url;
+  final String? original;
+  final String? large;
+  final String? medium;
+  final String? small;
+  final String? photographer;
+  final String? alt;
+
+  ImageInfo({
+    this.id,
+    required this.url,
+    this.original,
+    this.large,
+    this.medium,
+    this.small,
+    this.photographer,
+    this.alt,
+  });
+
+  factory ImageInfo.fromJson(Map<String, dynamic> json) {
+    return ImageInfo(
+      id: json['id'],
+      url: json['url'] ?? json['medium'] ?? '',
+      original: json['original'],
+      large: json['large'],
+      medium: json['medium'],
+      small: json['small'],
+      photographer: json['photographer'],
+      alt: json['alt'],
+    );
+  }
 }
 
 /// Request tạo flashcard
 class FlashcardCreateRequest {
-  final String term;
+  final String word;
   final String? partOfSpeech;
+  final String? partOfSpeechVi;
   final String? phonetic;
-  final String? meaning;          // Vietnamese
+  final String meaning;           // Vietnamese (bắt buộc)
   final String? definition;       // English
   final String? example;
   final String? selectedImageUrl;
@@ -255,10 +313,11 @@ class FlashcardCreateRequest {
   final bool generateAudio;
 
   FlashcardCreateRequest({
-    required this.term,
+    required this.word,
     this.partOfSpeech,
+    this.partOfSpeechVi,
     this.phonetic,
-    this.meaning,
+    required this.meaning,
     this.definition,
     this.example,
     this.selectedImageUrl,
@@ -268,8 +327,9 @@ class FlashcardCreateRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'term': term,
+      'word': word,
       'partOfSpeech': partOfSpeech,
+      'partOfSpeechVi': partOfSpeechVi,
       'phonetic': phonetic,
       'meaning': meaning,
       'definition': definition,
@@ -286,11 +346,13 @@ class FlashcardCreateResult {
   final bool success;
   final String? message;
   final int? flashcardId;
+  final FlashcardDTO? flashcard;
 
   FlashcardCreateResult({
     required this.success,
     this.message,
     this.flashcardId,
+    this.flashcard,
   });
 
   factory FlashcardCreateResult.fromJson(Map<String, dynamic> json) {
@@ -298,6 +360,51 @@ class FlashcardCreateResult {
       success: json['success'] ?? false,
       message: json['message'],
       flashcardId: json['flashcardId'],
+      flashcard: json['flashcard'] != null
+          ? FlashcardDTO.fromJson(json['flashcard'])
+          : null,
+    );
+  }
+}
+
+/// Flashcard DTO từ response
+class FlashcardDTO {
+  final int id;
+  final int? userId;
+  final String word;
+  final String? partOfSpeech;
+  final String? partOfSpeechVi;
+  final String? phonetic;
+  final String meaning;
+  final String? imageUrl;
+  final String? ttsUrl;
+  final int? categoryId;
+
+  FlashcardDTO({
+    required this.id,
+    this.userId,
+    required this.word,
+    this.partOfSpeech,
+    this.partOfSpeechVi,
+    this.phonetic,
+    required this.meaning,
+    this.imageUrl,
+    this.ttsUrl,
+    this.categoryId,
+  });
+
+  factory FlashcardDTO.fromJson(Map<String, dynamic> json) {
+    return FlashcardDTO(
+      id: json['id'] ?? 0,
+      userId: json['userId'],
+      word: json['word'] ?? '',
+      partOfSpeech: json['partOfSpeech'],
+      partOfSpeechVi: json['partOfSpeechVi'],
+      phonetic: json['phonetic'],
+      meaning: json['meaning'] ?? '',
+      imageUrl: json['imageUrl'],
+      ttsUrl: json['ttsUrl'],
+      categoryId: json['categoryId'],
     );
   }
 }
@@ -329,11 +436,9 @@ class BatchCreateResult {
       failCount: json['failCount'] ?? 0,
       results: (json['results'] as List<dynamic>?)
           ?.map((e) => FlashcardCreateResult.fromJson(e))
-          .toList() ??
-          [],
+          .toList() ?? [],
     );
   }
 
-  /// Success percentage
   double get successRate => totalRequested > 0 ? successCount / totalRequested : 0;
 }

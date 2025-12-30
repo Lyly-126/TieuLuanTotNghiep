@@ -36,14 +36,8 @@ public class DictionaryController {
     @GetMapping("/lookup")
     public ResponseEntity<DictionaryLookupResult> lookup(@RequestParam String word) {
         log.info("📖 API: Lookup word '{}'", word);
-
         DictionaryLookupResult result = dictionaryService.lookup(word);
-
-        if (result.isFound()) {
-            return ResponseEntity.ok(result);
-        } else {
-            return ResponseEntity.ok(result); // Vẫn trả về 200 với found=false
-        }
+        return ResponseEntity.ok(result);
     }
 
     /**
@@ -53,7 +47,6 @@ public class DictionaryController {
     @GetMapping("/suggest")
     public ResponseEntity<List<String>> suggest(@RequestParam String prefix) {
         log.info("🔍 API: Suggest words with prefix '{}'", prefix);
-
         List<String> suggestions = dictionaryService.suggest(prefix);
         return ResponseEntity.ok(suggestions);
     }
@@ -65,7 +58,6 @@ public class DictionaryController {
     @GetMapping("/search")
     public ResponseEntity<List<DictionaryLookupResult>> search(@RequestParam String keyword) {
         log.info("🔎 API: Search words containing '{}'", keyword);
-
         List<DictionaryLookupResult> results = dictionaryService.search(keyword);
         return ResponseEntity.ok(results);
     }
@@ -77,7 +69,6 @@ public class DictionaryController {
     @GetMapping("/exists")
     public ResponseEntity<Map<String, Object>> exists(@RequestParam String word) {
         log.info("❓ API: Check if word '{}' exists", word);
-
         boolean exists = dictionaryService.exists(word);
         return ResponseEntity.ok(Map.of(
                 "word", word,
@@ -92,7 +83,6 @@ public class DictionaryController {
     @GetMapping("/stats")
     public ResponseEntity<DictionaryStats> getStats() {
         log.info("📊 API: Get dictionary stats");
-
         DictionaryStats stats = dictionaryService.getStats();
         return ResponseEntity.ok(stats);
     }
@@ -105,11 +95,9 @@ public class DictionaryController {
     @PostMapping("/batch-lookup")
     public ResponseEntity<List<DictionaryLookupResult>> batchLookup(@RequestBody List<String> words) {
         log.info("📚 API: Batch lookup {} words", words.size());
-
         List<DictionaryLookupResult> results = words.stream()
                 .map(dictionaryService::lookup)
                 .toList();
-
         return ResponseEntity.ok(results);
     }
 }

@@ -5,65 +5,112 @@ import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import java.time.LocalDateTime;
+
+/**
+ * Flashcard Entity
+ *
+ * Schema:
+ * - id: Primary key
+ * - userId: Người tạo flashcard
+ * - word: Từ vựng (thay vì term)
+ * - partOfSpeech: Loại từ tiếng Anh (noun, verb, adj...)
+ * - partOfSpeechVi: Loại từ tiếng Việt (danh từ, động từ...)
+ * - phonetic: Phiên âm IPA
+ * - imageUrl: URL hình ảnh
+ * - meaning: Nghĩa tiếng Việt
+ * - categoryId: ID category
+ * - ttsUrl: URL file audio TTS
+ * - createdAt: Thời gian tạo
+ */
 @Entity
 @Table(name = "flashcards")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // ✅ THÊM: Ignore Hibernate proxy
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Flashcard {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "term", nullable = false)
-    private String term;
+    // ✅ Quan hệ với User (người tạo flashcard)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "\"userId\"", referencedColumnName = "id")
+    @JsonIgnore
+    private User user;
 
-    @Column(name = "partOfSpeech")
+    @Column(name = "word", nullable = false)
+    private String word;
+
+    @Column(name = "\"partOfSpeech\"")
     private String partOfSpeech;
+
+    @Column(name = "\"partOfSpeechVi\"")
+    private String partOfSpeechVi;
 
     @Column(name = "phonetic")
     private String phonetic;
 
-    @Column(name = "imageUrl")
+    @Column(name = "\"imageUrl\"")
     private String imageUrl;
 
     @Column(name = "meaning", nullable = false, columnDefinition = "TEXT")
     private String meaning;
 
-    // ✅ SỬA: Thêm JsonIgnore để không serialize toàn bộ category object
-    // Thay vào đó chỉ trả về categoryId
+    // ✅ Quan hệ với Category
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "categoryId", referencedColumnName = "id")
-    @JsonIgnore // ✅ QUAN TRỌNG: Không serialize category object
+    @JoinColumn(name = "\"categoryId\"", referencedColumnName = "id")
+    @JsonIgnore
     private Category category;
 
-    @Column(name = "ttsUrl")
+    @Column(name = "\"ttsUrl\"")
     private String ttsUrl;
 
-    // ✅ GIỮ NGUYÊN: Transient field để Flutter parse categoryId
+    @Column(name = "\"createdAt\"")
+    private LocalDateTime createdAt;
+
+    // ============ Transient Getters cho JSON ============
+
+    @Transient
+    public Long getUserId() {
+        return user != null ? user.getId() : null;
+    }
+
     @Transient
     public Long getCategoryId() {
         return category != null ? category.getId() : null;
     }
 
-    // Constructor với các field bắt buộc
-    public Flashcard(String term, String meaning) {
-        this.term = term;
+    // ============ PrePersist ============
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
+
+    // ============ Constructors ============
+
+    public Flashcard(String word, String meaning) {
+        this.word = word;
         this.meaning = meaning;
     }
 
-    // Constructor đầy đủ (không có ID)
-    public Flashcard(String term, String partOfSpeech, String phonetic,
-                     String imageUrl, String meaning, Category category, String ttsUrl) {
-        this.term = term;
+    public Flashcard(String word, String partOfSpeech, String partOfSpeechVi,
+                     String phonetic, String imageUrl, String meaning,
+                     Category category, User user, String ttsUrl) {
+        this.word = word;
         this.partOfSpeech = partOfSpeech;
+        this.partOfSpeechVi = partOfSpeechVi;
         this.phonetic = phonetic;
         this.imageUrl = imageUrl;
         this.meaning = meaning;
         this.category = category;
+        this.user = user;
         this.ttsUrl = ttsUrl;
     }
 
@@ -71,13 +118,14 @@ public class Flashcard {
     public String toString() {
         return "Flashcard{" +
                 "id=" + id +
-                ", term='" + term + '\'' +
+                ", userId=" + getUserId() +
+                ", word='" + word + '\'' +
                 ", partOfSpeech='" + partOfSpeech + '\'' +
+                ", partOfSpeechVi='" + partOfSpeechVi + '\'' +
                 ", phonetic='" + phonetic + '\'' +
-                ", imageUrl='" + imageUrl + '\'' +
                 ", meaning='" + meaning + '\'' +
-                ", categoryId=" + (category != null ? category.getId() : null) +
-                ", ttsUrl='" + ttsUrl + '\'' +
+                ", categoryId=" + getCategoryId() +
+                ", createdAt=" + createdAt +
                 '}';
     }
 }

@@ -35,7 +35,6 @@ public class ClassService {
     private final UserRepository userRepository;
     private final ClassMemberRepository classMemberRepository;
 
-    // ✅ SỬA: Thêm parameter Boolean isPublic
     @Transactional
     public Class createClass(String name, String description, Long teacherId, Boolean isPublic) {
         String inviteCode = generateInviteCode();
@@ -65,32 +64,19 @@ public class ClassService {
         Class clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
 
-        // Admin xem tất cả
-        if (isAdmin) {
-            return clazz;
-        }
+        if (isAdmin) return clazz;
+        if (clazz.isOwnedBy(userId)) return clazz;
 
-        // Owner xem lớp của mình
-        if (clazz.isOwnedBy(userId)) {
-            return clazz;
-        }
-
-        // ✅ FIX: Member đã APPROVED có thể xem lớp
         ClassMemberId memberId = new ClassMemberId(classId, userId);
         boolean isApprovedMember = classMemberRepository.findById(memberId)
                 .map(member -> "APPROVED".equals(member.getStatus()))
                 .orElse(false);
-        if (isApprovedMember) {
-            return clazz;
-        }
-        // Lớp PUBLIC
-        if (Boolean.TRUE.equals(clazz.getIsPublic())) {
-            return clazz;
-        }
+        if (isApprovedMember) return clazz;
+        if (Boolean.TRUE.equals(clazz.getIsPublic())) return clazz;
+
         throw new RuntimeException("Bạn không có quyền xem lớp này");
     }
 
-    // ✅ SỬA: Thêm parameter Boolean isPublic
     @Transactional
     public Class updateClass(Long classId, String name, String description,
                              Long teacherId, boolean isAdmin, Boolean isPublic) {
@@ -116,7 +102,6 @@ public class ClassService {
         return classRepository.save(clazz);
     }
 
-    // ✅ FIX: Cho phép xóa lớp có categories (categories sẽ tự động có classId = NULL)
     @Transactional
     public void deleteClass(Long classId, Long userId, boolean isAdmin) {
         Class clazz = classRepository.findById(classId)
@@ -125,9 +110,6 @@ public class ClassService {
         if (!isAdmin && !clazz.isOwnedBy(userId)) {
             throw new RuntimeException("Bạn không có quyền xóa lớp này");
         }
-
-        // ✅ BỎ VALIDATION - Cho phép xóa lớp có categories
-        // Database có ON DELETE SET NULL → categories sẽ tự động có classId = NULL
 
         classRepository.delete(clazz);
         log.info("✅ Deleted class {} (categories become independent)", classId);
@@ -150,9 +132,6 @@ public class ClassService {
         return classRepository.existsByIdAndOwnerId(classId, teacherId);
     }
 
-    /**
-     * ✅ FIXED: Use CategoryRepository.countByClassId()
-     */
     public long getCategoryCountInClass(Long classId) {
         return categoryRepository.countByClassId(classId);
     }
@@ -171,11 +150,9 @@ public class ClassService {
 
     @Transactional
     public void addMemberByEmail(Long classId, String email, String currentUsername) {
-        // Kiểm tra class có tồn tại không
         Class classEntity = classRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
 
-        // Kiểm tra quyền - chỉ owner mới được thêm member
         User currentUser = userRepository.findByEmail(currentUsername)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user hiện tại"));
 
@@ -183,17 +160,14 @@ public class ClassService {
             throw new RuntimeException("Bạn không có quyền thêm thành viên vào lớp này");
         }
 
-        // Tìm user theo email
         User userToAdd = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với email: " + email));
 
-        // Kiểm tra xem user đã là member chưa
         ClassMemberId memberId = new ClassMemberId(classId, userToAdd.getId());
         if (classMemberRepository.existsById(memberId)) {
             throw new RuntimeException("Người dùng đã là thành viên của lớp");
         }
 
-        // ✅ FIXED: Use @EmbeddedId approach
         ClassMember newMember = new ClassMember();
         newMember.setId(memberId);
         newMember.setClassEntity(classEntity);
@@ -202,29 +176,19 @@ public class ClassService {
         newMember.setJoinedAt(LocalDateTime.now());
 
         classMemberRepository.save(newMember);
-
         log.info("✅ Added member {} to class {}", email, classId);
     }
 
-
-    /**
-     * ✅ LEAVE CLASS - Student rời lớp
-     * Thêm method này vào ClassService.java
-     */
     @Transactional
     public void leaveClass(Long classId, Long userId) {
-        // Kiểm tra class có tồn tại không
         Class classEntity = classRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Lớp học không tồn tại"));
 
-        // Kiểm tra user có phải owner không
         if (classEntity.getOwnerId() != null && classEntity.getOwnerId().equals(userId)) {
             throw new RuntimeException("Bạn là chủ lớp, không thể rời lớp");
         }
 
-        // Xóa khỏi classMembers
         ClassMemberId memberId = new ClassMemberId(classId, userId);
-
         if (!classMemberRepository.existsById(memberId)) {
             throw new RuntimeException("Bạn chưa tham gia lớp này");
         }
@@ -233,22 +197,12 @@ public class ClassService {
         log.info("✅ User {} left class {}", userId, classId);
     }
 
-    /**
-     * ✅ CHECK IF USER IS OWNER
-     * Thêm method này vào ClassService.java
-     */
     public boolean isOwner(Long classId, Long userId) {
         Class classEntity = classRepository.findById(classId).orElse(null);
-        if (classEntity == null) {
-            return false;
-        }
+        if (classEntity == null) return false;
         return classEntity.getOwnerId() != null && classEntity.getOwnerId().equals(userId);
     }
 
-    /**
-     * ✅ CHECK IF USER IS MEMBER
-     * Thêm method này vào ClassService.java
-     */
     public boolean isMember(Long classId, Long userId) {
         ClassMemberId memberId = new ClassMemberId(classId, userId);
         return classMemberRepository.existsById(memberId);
@@ -256,7 +210,6 @@ public class ClassService {
 
     /**
      * ✅ SEARCH BY INVITE CODE - EXACT MATCH
-     * Tìm kiếm TUYỆT ĐỐI theo invite code
      * Trả về TẤT CẢ lớp (public + private) nếu mã khớp chính xác
      */
     public List<Class> searchByInviteCode(String inviteCode) {
@@ -264,65 +217,61 @@ public class ClassService {
             return List.of();
         }
 
-        // ✅ EXACT MATCH - Không phân biệt hoa thường
         String cleanCode = inviteCode.trim().toUpperCase();
-
         Optional<Class> result = classRepository.findByInviteCode(cleanCode);
-
-        // Trả về list (có thể rỗng hoặc có 1 phần tử)
         return result.map(List::of).orElse(List.of());
     }
 
     /**
-     * ✅ SEARCH CLASSES - Cập nhật logic
-     * - Nếu là invite code (6-12 ký tự, chỉ gồm A-Z0-9) → exact match
-     * - Nếu không phải invite code → fuzzy search trong name, description
+     * ✅ SEARCH CLASSES - CẢI TIẾN
+     * - LUÔN THỬ EXACT MATCH INVITE CODE TRƯỚC
+     * - Nếu tìm thấy → trả về lớp (cả public + private)
+     * - Nếu không tìm thấy → fuzzy search trong name, description (chỉ public)
      */
     public List<Class> searchPublicClasses(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return classRepository.findByIsPublicTrue();
         }
 
-        String cleanKeyword = keyword.trim().toUpperCase();
+        String cleanKeyword = keyword.trim();
 
-        // ✅ KIỂM TRA XEM CÓ PHẢI INVITE CODE KHÔNG
-        boolean isInviteCodePattern = cleanKeyword.matches("^[A-Z0-9]{6,12}$");
-
-        if (isInviteCodePattern) {
-            // ✅ EXACT MATCH - Tìm theo invite code (cả public + private)
-            return searchByInviteCode(cleanKeyword);
-        } else {
-            // ✅ FUZZY MATCH - Tìm trong name, description (chỉ public)
-            String lowerKeyword = keyword.toLowerCase().trim();
-            List<Class> publicClasses = classRepository.findByIsPublicTrue();
-
-            return publicClasses.stream()
-                    .filter(c -> {
-                        boolean matchName = c.getName().toLowerCase().contains(lowerKeyword);
-                        boolean matchDesc = c.getDescription() != null &&
-                                c.getDescription().toLowerCase().contains(lowerKeyword);
-                        return matchName || matchDesc;
-                    })
-                    .collect(Collectors.toList());
+        // ✅ BƯỚC 1: LUÔN THỬ TÌM THEO INVITE CODE TRƯỚC (EXACT MATCH)
+        // Không cần check pattern - cứ thử tìm exact match
+        Optional<Class> exactMatch = classRepository.findByInviteCode(cleanKeyword.toUpperCase());
+        if (exactMatch.isPresent()) {
+            log.info("✅ Found class by exact invite code: {}", cleanKeyword);
+            return List.of(exactMatch.get());
         }
+
+        // ✅ BƯỚC 2: NẾU KHÔNG TÌM THẤY → FUZZY SEARCH TRONG PUBLIC CLASSES
+        String lowerKeyword = cleanKeyword.toLowerCase();
+        List<Class> publicClasses = classRepository.findByIsPublicTrue();
+
+        List<Class> results = publicClasses.stream()
+                .filter(c -> {
+                    boolean matchName = c.getName().toLowerCase().contains(lowerKeyword);
+                    boolean matchDesc = c.getDescription() != null &&
+                            c.getDescription().toLowerCase().contains(lowerKeyword);
+                    // ✅ THÊM: Match invite code partial (cho trường hợp user nhập một phần mã)
+                    boolean matchCode = c.getInviteCode() != null &&
+                            c.getInviteCode().toLowerCase().contains(lowerKeyword);
+                    return matchName || matchDesc || matchCode;
+                })
+                .collect(Collectors.toList());
+
+        log.info("✅ Found {} public classes matching: {}", results.size(), keyword);
+        return results;
     }
 
-    /**
-     * ✅ FIX 3: REGENERATE INVITE CODE
-     * Tạo mã mời mới cho lớp học
-     */
     @Transactional
     public Class regenerateInviteCode(Long classId, Long userId, boolean isAdmin) {
-        // Kiểm tra lớp tồn tại
         Class clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
 
-        // Kiểm tra quyền
         if (!isAdmin && !clazz.isOwnedBy(userId)) {
             throw new RuntimeException("Bạn không có quyền tạo lại mã mời");
         }
 
-        // Tạo mã mới (đảm bảo unique)
         String newCode;
         int maxRetries = 10;
         int attempt = 0;
@@ -330,62 +279,39 @@ public class ClassService {
         do {
             newCode = Class.generateInviteCode();
             attempt++;
-
             if (attempt >= maxRetries) {
                 throw new RuntimeException("Không thể tạo mã mời mới. Vui lòng thử lại.");
             }
         } while (classRepository.existsByInviteCode(newCode));
 
-        // Lưu mã cũ để log
         String oldCode = clazz.getInviteCode();
-
-        // Cập nhật mã mới
         clazz.setInviteCode(newCode);
         clazz.setUpdatedAt(ZonedDateTime.now());
 
         Class saved = classRepository.save(clazz);
-
-        log.info("✅ Regenerated invite code for class {} - Old: {}, New: {}",
-                classId, oldCode, newCode);
+        log.info("✅ Regenerated invite code for class {} - Old: {}, New: {}", classId, oldCode, newCode);
 
         return saved;
     }
 
-    /**
-     * ✅ GET CLASS BY ID FOR MEMBER
-     * Cho phép member/owner/admin xem thông tin lớp
-     * Method này KHÔNG check quyền - dùng khi đã xác nhận user là member
-     */
     public Class getClassByIdForMember(Long classId) {
         return classRepository.findById(classId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học"));
     }
 
-    /**
-     * ✅ GET JOINED CLASSES WITH FULL INFO
-     * Lấy danh sách lớp mà user đã tham gia (APPROVED) với thông tin đầy đủ
-     *
-     * @param userId ID của user
-     * @return List<Class> danh sách các lớp đã tham gia
-     */
     public List<Class> getJoinedClassesByUser(Long userId) {
-        // Lấy danh sách classId từ ClassMemberService
         List<Long> classIds = classMemberRepository.findByIdUserId(userId)
                 .stream()
                 .filter(member -> "APPROVED".equals(member.getStatus()))
                 .map(member -> member.getId().getClassId())
                 .collect(Collectors.toList());
 
-        // Load thông tin đầy đủ của các lớp
         return classIds.stream()
                 .map(classId -> classRepository.findById(classId).orElse(null))
                 .filter(clazz -> clazz != null)
                 .collect(Collectors.toList());
     }
-    /**
-     * ✅ THÊM METHOD NÀY
-     * Lấy lớp theo invite code (public - không cần auth)
-     */
+
     public Class getClassByInviteCode(String inviteCode) {
         return classRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new IllegalArgumentException("Mã lớp không hợp lệ hoặc đã hết hạn"));

@@ -30,7 +30,7 @@ public class AIFlashcardService {
     private final GoogleCloudStorageService gcsService;
 
     /**
-     * ✅ FIXED: Tạo flashcard với AI - có check category ownership
+     * ✅ Tạo flashcard với AI - có check category ownership
      */
     @Transactional
     public CreateFlashcardResponse generateFlashcard(CreateFlashcardRequest request) {
@@ -49,7 +49,7 @@ public class AIFlashcardService {
                 }
             }
 
-            // 1. ✅ FIXED: Generate content using Gemini AI
+            // 1. ✅ Generate content using Gemini AI
             response.definitionStatus = "processing";
             GeminiService.FlashcardContent content = geminiService.generateFlashcardContent(request.term);
 
@@ -66,7 +66,7 @@ public class AIFlashcardService {
             response.definitionStatus = "success";
             log.info("✅ Content generated");
 
-            // 2. ✅ FIXED: Generate image using Pexels
+            // 2. ✅ Generate image using Pexels
             String imageUrl = null;
             if (request.generateImage) {
                 response.imageStatus = "processing";
@@ -93,7 +93,7 @@ public class AIFlashcardService {
                 response.imageStatus = "skipped";
             }
 
-            // 3. ✅ FIXED: Generate audio using Google TTS
+            // 3. ✅ Generate audio using Google TTS
             String audioUrl = null;
             if (request.generateAudio) {
                 response.audioStatus = "processing";
@@ -111,14 +111,21 @@ public class AIFlashcardService {
                 response.audioStatus = "skipped";
             }
 
-            // 4. ✅ FIXED: Tạo Flashcard entity và lưu vào DB
+            // 4. ✅ FIXED: Tạo Flashcard entity và lưu vào DB - dùng setWord() thay vì setTerm()
             Flashcard flashcard = new Flashcard();
-            flashcard.setTerm(request.term);
+            flashcard.setWord(request.term);  // ✅ FIXED: setWord() thay vì setTerm()
             flashcard.setPartOfSpeech(content.partOfSpeech);
             flashcard.setPhonetic(content.phonetic);
-            flashcard.setMeaning(meaning);          // ✅ FIXED: setMeaning() thay vì setDefinitions()
+            flashcard.setMeaning(meaning);
             flashcard.setImageUrl(imageUrl);
-            flashcard.setTtsUrl(audioUrl);          // ✅ FIXED: setTtsUrl() thay vì setAudioUrl()
+            flashcard.setTtsUrl(audioUrl);
+
+            // Set user nếu có
+            Long userId = getCurrentUserId();
+            if (userId != null) {
+                User user = userRepository.findById(userId).orElse(null);
+                flashcard.setUser(user);
+            }
 
             // Gán category nếu có
             if (request.categoryId != null) {
@@ -169,7 +176,7 @@ public class AIFlashcardService {
     }
 
     /**
-     * ✅ UPDATED: Batch generate với category ownership check
+     * ✅ Batch generate với category ownership check
      */
     @Transactional
     public CreateFlashcardResponse[] batchGenerateFlashcards(String[] terms, Long categoryId) {
@@ -228,6 +235,9 @@ public class AIFlashcardService {
     private Long getCurrentUserId() {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+                return null;
+            }
             String email = auth.getName();
 
             User user = userRepository.findByEmail(email)

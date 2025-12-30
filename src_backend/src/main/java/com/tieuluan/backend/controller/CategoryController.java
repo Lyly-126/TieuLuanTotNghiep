@@ -3,6 +3,7 @@ package com.tieuluan.backend.controller;
 import com.tieuluan.backend.dto.CategoryDTO;
 import com.tieuluan.backend.model.Category;
 import com.tieuluan.backend.model.User;
+import com.tieuluan.backend.repository.CategoryRepository;
 import com.tieuluan.backend.repository.UserRepository;
 import com.tieuluan.backend.service.CategoryService;
 import com.tieuluan.backend.service.UserService;
@@ -22,7 +23,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * ✅ FINAL CLEAN VERSION - No duplicates
+ * ✅ FINAL CLEAN VERSION - With flashcardCount fix
  */
 @RestController
 @RequestMapping("/api/categories")
@@ -33,11 +34,12 @@ public class CategoryController {
     private final CategoryService categoryService;
     private final UserRepository userRepository;
     private final UserService userService;
+    private final CategoryRepository categoryRepository;  // ✅ THÊM
 
     // ==================== PUBLIC/USER ENDPOINTS ====================
 
     /**
-     * ✅ GET MY CATEGORIES - CHỈ MỘT METHOD
+     * ✅ GET MY CATEGORIES
      */
     @GetMapping("/my")
     @PreAuthorize("isAuthenticated()")
@@ -104,22 +106,56 @@ public class CategoryController {
     }
 
     /**
-     * Get PUBLIC categories
+     * ✅ FIXED: Get PUBLIC categories - Có flashcardCount
      */
     @GetMapping("/public")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<CategoryDTO>> getPublicCategories() {
         try {
+            Long userId = getCurrentUserId();
             List<Category> categories = categoryService.getPublicCategories();
 
+            // ✅ FIXED: Convert với flashcardCount
             List<CategoryDTO> dtos = categories.stream()
-                    .map(CategoryDTO::fromEntitySimple)
+                    .map(cat -> convertToDTOWithFlashcardCount(cat, userId))
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(dtos);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    /**
+     * ✅ HELPER: Convert Category to DTO with flashcardCount
+     */
+    private CategoryDTO convertToDTOWithFlashcardCount(Category category, Long userId) {
+        CategoryDTO dto = new CategoryDTO();
+        dto.setId(category.getId());
+        dto.setName(category.getName());
+        dto.setDescription(category.getDescription());
+        dto.setOwnerUserId(category.getOwnerUserId());
+        dto.setClassId(category.getClassId());
+        dto.setVisibility(category.getVisibility());
+        dto.setIsSystem(category.isSystemCategory());
+
+        // ✅ Đếm flashcard count
+        try {
+            long flashcardCount = categoryRepository.countFlashcardsInCategory(category.getId());
+            dto.setFlashcardCount((int) flashcardCount);
+        } catch (Exception e) {
+            dto.setFlashcardCount(0);
+        }
+
+        // Check saved status
+        boolean isSaved = userId != null && categoryService.isCategorySaved(userId, category.getId());
+        dto.setIsSaved(isSaved);
+
+        // Set flags
+        dto.setIsUserCategory(category.getOwnerUserId() != null && category.getClassId() == null);
+        dto.setIsClassCategory(category.getClassId() != null);
+
+        return dto;
     }
 
     /**
@@ -133,7 +169,10 @@ public class CategoryController {
             boolean isAdmin = isCurrentUserAdmin();
 
             Category category = categoryService.getCategoryById(id, userId, isAdmin);
-            return ResponseEntity.ok(CategoryDTO.fromEntity(category));
+
+            // ✅ FIXED: Sử dụng helper method để có flashcardCount
+            CategoryDTO dto = convertToDTOWithFlashcardCount(category, userId);
+            return ResponseEntity.ok(dto);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("message", e.getMessage()));
@@ -153,7 +192,7 @@ public class CategoryController {
                     id,
                     request.getName(),
                     request.getDescription(),
-                    request.getVisibility(),  // ✅ THÊM
+                    request.getVisibility(),
                     userId,
                     isAdmin
             );
@@ -240,16 +279,18 @@ public class CategoryController {
     }
 
     /**
-     * Get categories in a class
+     * ✅ FIXED: Get categories in a class - Có flashcardCount
      */
     @GetMapping("/class/{classId}")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'NORMAL_USER')")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'NORMAL_USER', 'PREMIUM_USER')")
     public ResponseEntity<?> getCategoriesForClass(@PathVariable Long classId) {
         try {
+            Long userId = getCurrentUserId();
             List<Category> categories = categoryService.getCategoriesForClass(classId);
 
+            // ✅ FIXED: Convert với flashcardCount
             List<CategoryDTO> dtos = categories.stream()
-                    .map(CategoryDTO::fromEntitySimple)
+                    .map(cat -> convertToDTOWithFlashcardCount(cat, userId))
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(dtos);
@@ -284,7 +325,7 @@ public class CategoryController {
     }
 
     /**
-     * TEACHER: Lấy danh sách categories của teacher
+     * ✅ FIXED: TEACHER - Có flashcardCount
      */
     @GetMapping("/teacher")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
@@ -293,8 +334,9 @@ public class CategoryController {
             Long teacherId = getCurrentUserId();
             List<Category> categories = categoryService.getUserOwnedCategories(teacherId);
 
+            // ✅ FIXED: Convert với flashcardCount
             List<CategoryDTO> dtos = categories.stream()
-                    .map(CategoryDTO::fromEntitySimple)
+                    .map(cat -> convertToDTOWithFlashcardCount(cat, teacherId))
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(dtos);
@@ -323,16 +365,18 @@ public class CategoryController {
     }
 
     /**
-     * ADMIN: Lấy tất cả system categories
+     * ✅ FIXED: ADMIN system categories - Có flashcardCount
      */
     @GetMapping("/admin/system")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<CategoryDTO>> getSystemCategories() {
         try {
+            Long userId = getCurrentUserId();
             List<Category> categories = categoryService.getSystemCategories();
 
+            // ✅ FIXED: Convert với flashcardCount
             List<CategoryDTO> dtos = categories.stream()
-                    .map(CategoryDTO::fromEntitySimple)
+                    .map(cat -> convertToDTOWithFlashcardCount(cat, userId))
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(dtos);
@@ -344,7 +388,7 @@ public class CategoryController {
     // ==================== SEARCH & SAVE ====================
 
     /**
-     * ✅ SEARCH CATEGORIES - CHỈ MỘT METHOD
+     * ✅ SEARCH CATEGORIES
      */
     @GetMapping("/search")
     @PreAuthorize("isAuthenticated()")
@@ -400,6 +444,22 @@ public class CategoryController {
         }
     }
 
+    /**
+     * ✅ GET SAVED CATEGORIES
+     */
+    @GetMapping("/saved")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CategoryDTO>> getSavedCategories() {
+        try {
+            Long userId = getCurrentUserId();
+            List<CategoryDTO> categories = categoryService.getSavedCategories(userId);
+            return ResponseEntity.ok(categories);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ArrayList<>());
+        }
+    }
+
     // ==================== HELPER METHODS ====================
 
     private Long getCurrentUserId() {
@@ -416,20 +476,5 @@ public class CategoryController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-    }
-    /**
-     * ✅ GET SAVED CATEGORIES
-     */
-    @GetMapping("/saved")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<CategoryDTO>> getSavedCategories() {
-        try {
-            Long userId = getCurrentUserId();
-            List<CategoryDTO> categories = categoryService.getSavedCategories(userId);
-            return ResponseEntity.ok(categories);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ArrayList<>());
-        }
     }
 }

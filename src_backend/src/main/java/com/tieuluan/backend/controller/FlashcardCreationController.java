@@ -2,6 +2,7 @@ package com.tieuluan.backend.controller;
 
 import com.tieuluan.backend.service.FlashcardCreationService;
 import com.tieuluan.backend.service.FlashcardCreationService.*;
+import com.tieuluan.backend.service.CategorySuggestionService;
 import com.tieuluan.backend.service.CategorySuggestionService.CategorySuggestionResult;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -12,10 +13,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * Controller cho Flashcard Creation Flow mới
+ * Controller cho Flashcard Creation Flow
  *
  * FLOW:
- * 1. POST /api/flashcard-creation/preview   → Tra từ điển + gợi ý ảnh
+ * 1. POST /api/flashcard-creation/preview   → Tra từ điển + gợi ý 6 ảnh
  * 2. POST /api/flashcard-creation/suggest-category → Gợi ý category bằng AI
  * 3. POST /api/flashcard-creation/create    → Tạo flashcard
  * 4. POST /api/flashcard-creation/batch     → Tạo nhiều flashcard (OCR/PDF)
@@ -27,53 +28,64 @@ import java.util.List;
 public class FlashcardCreationController {
 
     private final FlashcardCreationService flashcardCreationService;
+    private final CategorySuggestionService categorySuggestionService;
 
     /**
      * STEP 1: Preview flashcard
      * - Tra từ điển
-     * - Gợi ý 5 hình ảnh
+     * - Gợi ý 6 hình ảnh
      *
      * POST /api/flashcard-creation/preview
-     * Body: { "term": "apple" }
+     * Body: { "word": "apple" } hoặc { "term": "apple" }
      */
     @PostMapping("/preview")
     public ResponseEntity<FlashcardPreviewResult> previewFlashcard(
             @RequestBody PreviewRequest request) {
 
-        log.info("📝 API: Preview flashcard for '{}'", request.getTerm());
+        // Hỗ trợ cả "word" và "term"
+        String word = request.getWord() != null ? request.getWord() : request.getTerm();
+        log.info("🔍 API: Preview flashcard for '{}'", word);
 
-        FlashcardPreviewResult result = flashcardCreationService.previewFlashcard(request.getTerm());
+        FlashcardPreviewResult result = flashcardCreationService.previewFlashcard(word);
         return ResponseEntity.ok(result);
     }
 
     /**
      * GET version của preview
+     * GET /api/flashcard-creation/preview?word=apple
      * GET /api/flashcard-creation/preview?term=apple
      */
     @GetMapping("/preview")
     public ResponseEntity<FlashcardPreviewResult> previewFlashcardGet(
-            @RequestParam String term) {
+            @RequestParam(required = false) String word,
+            @RequestParam(required = false) String term) {
 
-        log.info("📝 API: Preview flashcard for '{}' (GET)", term);
+        // Hỗ trợ cả "word" và "term"
+        String actualWord = word != null ? word : term;
+        log.info("🔍 API: Preview flashcard for '{}' (GET)", actualWord);
 
-        FlashcardPreviewResult result = flashcardCreationService.previewFlashcard(term);
+        FlashcardPreviewResult result = flashcardCreationService.previewFlashcard(actualWord);
         return ResponseEntity.ok(result);
     }
 
     /**
      * STEP 2: Gợi ý category
+     * ✅ Service tự động lấy userId từ SecurityContext
      *
      * POST /api/flashcard-creation/suggest-category
-     * Body: { "term": "apple", "meaning": "quả táo", "partOfSpeech": "noun" }
+     * Body: { "word": "apple", "meaning": "quả táo", "partOfSpeech": "noun" }
      */
     @PostMapping("/suggest-category")
     public ResponseEntity<CategorySuggestionResult> suggestCategory(
             @RequestBody SuggestCategoryRequest request) {
 
-        log.info("🏷️ API: Suggest category for '{}'", request.getTerm());
+        // Hỗ trợ cả "word" và "term"
+        String word = request.getWord() != null ? request.getWord() : request.getTerm();
+        log.info("🏷️ API: Suggest category for '{}'", word);
 
-        CategorySuggestionResult result = flashcardCreationService.suggestCategories(
-                request.getTerm(),
+        // ✅ CHỈ TRUYỀN 3 THAM SỐ - Service tự lấy userId
+        CategorySuggestionResult result = categorySuggestionService.suggestCategories(
+                word,
                 request.getMeaning(),
                 request.getPartOfSpeech()
         );
@@ -90,7 +102,8 @@ public class FlashcardCreationController {
     public ResponseEntity<FlashcardCreateResult> createFlashcard(
             @RequestBody FlashcardCreateRequest request) {
 
-        log.info("💾 API: Create flashcard for '{}'", request.getTerm());
+        // ✅ Đổi từ getTerm() thành getWord()
+        log.info("💾 API: Create flashcard for '{}'", request.getWord());
 
         FlashcardCreateResult result = flashcardCreationService.createFlashcard(request);
 
@@ -139,7 +152,7 @@ public class FlashcardCreationController {
     public ResponseEntity<List<FlashcardPreviewResult>> batchPreview(
             @RequestBody BatchPreviewRequest request) {
 
-        log.info("📝 API: Batch preview {} terms", request.getTerms().size());
+        log.info("🔍 API: Batch preview {} terms", request.getTerms().size());
 
         List<FlashcardPreviewResult> results = request.getTerms().stream()
                 .map(flashcardCreationService::previewFlashcard)
@@ -152,12 +165,14 @@ public class FlashcardCreationController {
 
     @Data
     public static class PreviewRequest {
-        private String term;
+        private String word;  // Hỗ trợ Flutter mới
+        private String term;  // Backward compatible
     }
 
     @Data
     public static class SuggestCategoryRequest {
-        private String term;
+        private String word;  // Hỗ trợ Flutter mới
+        private String term;  // Backward compatible
         private String meaning;
         private String partOfSpeech;
     }

@@ -36,13 +36,6 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-//
-//        configuration.setAllowedOrigins(Arrays.asList(
-//                "http://localhost:8080",
-//                "https://*.ngrok-free.app" ,
-//                "http://10.0.2.2:8080",
-//                "https://*.ngrok-free.dev"
-//        ));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
@@ -78,11 +71,24 @@ public class SecurityConfig {
                         .requestMatchers("/api/payment/vnpay/return", "/api/payment/vnpay/callback").permitAll()
                         .requestMatchers("/api/policies", "/api/policies/{id}").permitAll()
                         .requestMatchers("/api/study-packs", "/api/study-packs/{id}").permitAll()
+
+                        // ========== FLASHCARDS - PUBLIC READ ==========
                         .requestMatchers("/api/flashcards", "/api/flashcards/{id}").permitAll()
                         .requestMatchers("/api/flashcards/category/**").permitAll()
                         .requestMatchers("/api/flashcards/random").permitAll()
                         .requestMatchers("/api/flashcards/search").permitAll()
                         .requestMatchers("/api/flashcards/ai/**").permitAll()
+
+                        // ========== ✅ FLASHCARD CREATION - Preview public, Create authenticated ==========
+                        .requestMatchers("/api/flashcard-creation/preview").permitAll()
+                        .requestMatchers("/api/flashcard-creation/batch-preview").permitAll()
+                        .requestMatchers("/api/flashcard-creation/suggest-category").authenticated()
+                        .requestMatchers("/api/flashcard-creation/create").authenticated()
+                        .requestMatchers("/api/flashcard-creation/batch").authenticated()
+
+                        // ========== ✅ DICTIONARY & IMAGE - Public ==========
+                        .requestMatchers("/api/dictionary/**").permitAll()
+                        .requestMatchers("/api/images/**").permitAll()
 
                         // ========== ADMIN ONLY ==========
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -129,6 +135,21 @@ public class SecurityConfig {
 
                         // ========== CATEGORIES - ALL AUTHENTICATED ==========
                         .requestMatchers("/api/categories/**").authenticated()
+
+                        // ========== FLASHCARD CREATION - ALL AUTHENTICATED ==========
+                        .requestMatchers("/api/flashcard-creation/**").authenticated()
+
+                        // ========== CATEGORY SUGGESTION - ALL AUTHENTICATED ==========
+                        .requestMatchers("/api/category-suggestion/**").authenticated()
+
+                        // ========== IMAGE SUGGESTION - ALL AUTHENTICATED ==========
+                        .requestMatchers("/api/image-suggestion/**").authenticated()
+
+                        // ========== DICTIONARY - PUBLIC ==========
+                        .requestMatchers("/api/dictionary/**").permitAll()
+
+                        // ========== TTS - ALL AUTHENTICATED ==========
+                        .requestMatchers("/api/tts/**").authenticated()
 
                         // Static resources
                         .requestMatchers("/audio/**").permitAll()

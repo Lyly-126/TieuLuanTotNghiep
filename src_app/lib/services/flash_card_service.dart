@@ -5,29 +5,25 @@ import '../config/api_config.dart';
 import '../models/flashcard_model.dart';
 
 class FlashcardService {
-  // Cấu hình base URL
-  // static const String baseUrl = 'http://localhost:8080/api/flashcards';
-  // Android Emulator: 'http://10.0.2.2:8080/api/flashcards'
-  // iOS Simulator: 'http://localhost:8080/api/flashcards'
-
   /// Lấy token từ SharedPreferences (nếu cần authentication)
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token');
   }
 
-  /// ✅ FIX: Headers chung cho tất cả requests
+  /// ✅ Headers chung cho tất cả requests
+  /// Luôn gửi token nếu có (để tránh 403 với một số endpoint)
   static Future<Map<String, String>> _getHeaders({bool requireAuth = false}) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+      'Accept': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
     };
 
-    if (requireAuth) {
-      final token = await _getToken();
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
+    // ✅ Luôn gửi token nếu có, không chỉ khi requireAuth
+    final token = await _getToken();
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
     }
 
     return headers;
@@ -37,7 +33,7 @@ class FlashcardService {
   static Future<List<FlashcardModel>> getAllFlashcards() async {
     try {
       final uri = Uri.parse(ApiConfig.flashcardBase);
-      final headers = await _getHeaders(); // ✅ FIX
+      final headers = await _getHeaders();
 
       final response = await http.get(uri, headers: headers);
 
@@ -56,7 +52,7 @@ class FlashcardService {
   static Future<List<FlashcardModel>> getFlashcardsByCategory(int categoryId) async {
     try {
       final uri = Uri.parse(ApiConfig.flashcardByCategory(categoryId));
-      final headers = await _getHeaders(); // ✅ FIX
+      final headers = await _getHeaders();
 
       final response = await http.get(uri, headers: headers);
 
@@ -75,7 +71,7 @@ class FlashcardService {
   static Future<FlashcardModel> getFlashcardById(int id) async {
     try {
       final uri = Uri.parse(ApiConfig.flashcardDetail(id));
-      final headers = await _getHeaders(); // ✅ FIX
+      final headers = await _getHeaders();
 
       final response = await http.get(uri, headers: headers);
 
@@ -96,7 +92,7 @@ class FlashcardService {
   static Future<List<FlashcardModel>> getRandomFlashcards({int limit = 20}) async {
     try {
       final uri = Uri.parse('${ApiConfig.flashcardRandom}?limit=$limit');
-      final headers = await _getHeaders(); // ✅ FIX
+      final headers = await _getHeaders();
 
       final response = await http.get(uri, headers: headers);
 
@@ -115,7 +111,7 @@ class FlashcardService {
   static Future<List<FlashcardModel>> searchFlashcards(String keyword) async {
     try {
       final uri = Uri.parse('${ApiConfig.flashcardSearch}?q=${Uri.encodeComponent(keyword)}');
-      final headers = await _getHeaders(); // ✅ FIX
+      final headers = await _getHeaders();
 
       final response = await http.get(uri, headers: headers);
 
@@ -136,6 +132,7 @@ class FlashcardService {
   static Future<FlashcardModel> createFlashcard({
     required String term,
     String? partOfSpeech,
+    String? partOfSpeechVi,
     String? phonetic,
     String? imageUrl,
     required String meaning,
@@ -153,16 +150,17 @@ class FlashcardService {
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true', // ✅ FIX
+          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
-          'term': term,
-          'part_of_speech': partOfSpeech,
+          'word': term,  // ✅ Backend dùng 'word' thay vì 'term'
+          'partOfSpeech': partOfSpeech,
+          'partOfSpeechVi': partOfSpeechVi,
           'phonetic': phonetic,
-          'image_url': imageUrl,
+          'imageUrl': imageUrl,
           'meaning': meaning,
-          'category_id': categoryId,
-          'tts_url': ttsUrl,
+          'categoryId': categoryId,
+          'ttsUrl': ttsUrl,
         }),
       );
 
@@ -177,38 +175,47 @@ class FlashcardService {
     }
   }
 
-  /// Cập nhật flashcard
-  static Future<FlashcardModel> updateFlashcard(int id, {
-    String? term,
-    String? partOfSpeech,
-    String? phonetic,
-    String? imageUrl,
-    String? meaning,
-    int? categoryId,
-    String? ttsUrl,
-  }) async {
+  /// ✅ Cập nhật flashcard - chấp nhận int? để tương thích với FlashcardModel.id
+  static Future<FlashcardModel> updateFlashcard(
+      int? id, {  // ✅ Đổi từ int sang int?
+        String? word,  // ✅ Đổi từ term sang word
+        String? partOfSpeech,
+        String? partOfSpeechVi,
+        String? phonetic,
+        String? imageUrl,
+        String? meaning,
+        int? categoryId,
+        String? ttsUrl,
+      }) async {
+    // ✅ Validate id không null
+    if (id == null) {
+      throw Exception('ID flashcard không hợp lệ');
+    }
+
     try {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse(ApiConfig.flashcardBase);
+      final uri = Uri.parse('${ApiConfig.flashcardBase}/$id');
+
+      final body = <String, dynamic>{};
+      if (word != null) body['word'] = word;  // ✅ Dùng word
+      if (partOfSpeech != null) body['partOfSpeech'] = partOfSpeech;
+      if (partOfSpeechVi != null) body['partOfSpeechVi'] = partOfSpeechVi;
+      if (phonetic != null) body['phonetic'] = phonetic;
+      if (imageUrl != null) body['imageUrl'] = imageUrl;
+      if (meaning != null) body['meaning'] = meaning;
+      if (categoryId != null) body['categoryId'] = categoryId;
+      if (ttsUrl != null) body['ttsUrl'] = ttsUrl;
 
       final response = await http.put(
         uri,
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true', // ✅ FIX
+          'ngrok-skip-browser-warning': 'true',
         },
-        body: jsonEncode({
-          if (term != null) 'term': term,
-          if (partOfSpeech != null) 'part_of_speech': partOfSpeech,
-          if (phonetic != null) 'phonetic': phonetic,
-          if (imageUrl != null) 'image_url': imageUrl,
-          if (meaning != null) 'meaning': meaning,
-          if (categoryId != null) 'category_id': categoryId,
-          if (ttsUrl != null) 'tts_url': ttsUrl,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {
@@ -222,8 +229,13 @@ class FlashcardService {
     }
   }
 
-  /// Xóa flashcard
-  static Future<bool> deleteFlashcard(int id) async {
+  /// ✅ Xóa flashcard - chấp nhận int? để tương thích với FlashcardModel.id
+  static Future<bool> deleteFlashcard(int? id) async {  // ✅ Đổi từ int sang int?
+    // ✅ Validate id không null
+    if (id == null) {
+      throw Exception('ID flashcard không hợp lệ');
+    }
+
     try {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
@@ -235,7 +247,7 @@ class FlashcardService {
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+          'ngrok-skip-browser-warning': 'true',
         },
       );
 
@@ -244,5 +256,4 @@ class FlashcardService {
       throw Exception('Lỗi: $e');
     }
   }
-
 }

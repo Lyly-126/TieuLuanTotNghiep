@@ -12,6 +12,7 @@ DROP TABLE IF EXISTS studyPacks CASCADE;
 DROP TABLE IF EXISTS otpVerification CASCADE;
 DROP TABLE IF EXISTS policies CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS "dictionary" CASCADE;
 
 -- ===========================
 -- USERS
@@ -188,22 +189,40 @@ CREATE INDEX idx_user_saved_categories_user ON userSavedCategories(userId);
 CREATE INDEX idx_user_saved_categories_category ON userSavedCategories(categoryId);
 
 -- ===========================
+-- Dictionary
+-- ===========================
+	CREATE TABLE dictionary (
+	    id SERIAL PRIMARY KEY,
+	    word TEXT UNIQUE,
+	    part_of_speech TEXT,
+	    part_of_speech_vi TEXT,
+	    phonetic TEXT,
+	    definitions TEXT,
+	    meanings TEXT,
+	    source TEXT
+	);
+
+
+-- ===========================
 -- FLASHCARDS
 -- ===========================
 CREATE TABLE flashcards (
   id SERIAL PRIMARY KEY,
-  term VARCHAR(255) NOT NULL,
-  partOfSpeech VARCHAR(50),
+  "userId" INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  word VARCHAR(255) NOT NULL,
+  "partOfSpeech" VARCHAR(50),
+  "partOfSpeechVi" VARCHAR(50),
   phonetic VARCHAR(100),
-  imageUrl TEXT,
+  "imageUrl" TEXT,
   meaning TEXT NOT NULL,
-  categoryId INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-  ttsUrl TEXT,
-  createdAt TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  "categoryId" INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+  "ttsUrl" TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_flashcards_category ON flashcards(categoryId);
-CREATE INDEX idx_flashcards_term ON flashcards(term);
+CREATE INDEX idx_flashcards_user ON flashcards("userId");
+CREATE INDEX idx_flashcards_category ON flashcards("categoryId");
+CREATE INDEX idx_flashcards_word ON flashcards(word);
 
 -- ===========================
 -- SEED DATA
@@ -334,34 +353,43 @@ INSERT INTO userSavedCategories (userId, categoryId) VALUES
 (7, 10);
 
 -- FLASHCARDS
-INSERT INTO flashcards (term, partOfSpeech, phonetic, meaning, categoryId) VALUES
-('hello', 'interjection', '/həˈloʊ/', 'xin chào', 1),
-('goodbye', 'interjection', '/ˌɡʊdˈbaɪ/', 'tạm biệt', 1),
-('please', 'adverb', '/pliːz/', 'làm ơn', 1),
-('thank you', 'phrase', '/θæŋk juː/', 'cảm ơn', 1);
+-- Category 1: Default English Words (System - userId = NULL, để ai cũng có thể dùng)
+-- Vì là system category, set userId = 3 (Admin) để có người quản lý
+INSERT INTO flashcards ("userId", word, "partOfSpeech", "partOfSpeechVi", phonetic, meaning, "categoryId") VALUES
+(3, 'hello', 'interjection', 'thán từ', '/həˈloʊ/', 'xin chào', 1),
+(3, 'goodbye', 'interjection', 'thán từ', '/ˌɡʊdˈbaɪ/', 'tạm biệt', 1),
+(3, 'please', 'adverb', 'trạng từ', '/pliːz/', 'làm ơn', 1),
+(3, 'thank you', 'phrase', 'cụm từ', '/θæŋk juː/', 'cảm ơn', 1);
 
-INSERT INTO flashcards (term, meaning, categoryId) VALUES
-('How are you?', 'Bạn khỏe không?', 2),
-('Nice to meet you', 'Rất vui được gặp bạn', 2),
-('See you later', 'Hẹn gặp lại', 2);
+-- Category 2: Common Phrases (System - userId = 3 Admin)
+INSERT INTO flashcards ("userId", word, "partOfSpeech", "partOfSpeechVi", phonetic, meaning, "categoryId") VALUES
+(3, 'How are you?', 'phrase', 'cụm từ', NULL, 'Bạn khỏe không?', 2),
+(3, 'Nice to meet you', 'phrase', 'cụm từ', NULL, 'Rất vui được gặp bạn', 2),
+(3, 'See you later', 'phrase', 'cụm từ', NULL, 'Hẹn gặp lại', 2);
 
-INSERT INTO flashcards (term, partOfSpeech, phonetic, meaning, categoryId) VALUES
-('schedule', 'noun', '/ˈskedʒ.uːl/', 'lịch trình', 3),
-('conference', 'noun', '/ˈkɒn.fər.əns/', 'hội nghị', 3),
-('arrive', 'verb', '/əˈraɪv/', 'đến nơi', 3),
-('appointment', 'noun', '/əˈpɔɪnt.mənt/', 'cuộc hẹn', 3),
-('deadline', 'noun', '/ˈded.laɪn/', 'hạn chót', 3);
+-- Category 3: TOEIC Basic Vocabulary (Owner: userId = 1 Teacher)
+INSERT INTO flashcards ("userId", word, "partOfSpeech", "partOfSpeechVi", phonetic, meaning, "categoryId") VALUES
+(1, 'schedule', 'noun', 'danh từ', '/ˈskedʒ.uːl/', 'lịch trình', 3),
+(1, 'conference', 'noun', 'danh từ', '/ˈkɒn.fər.əns/', 'hội nghị', 3),
+(1, 'arrive', 'verb', 'động từ', '/əˈraɪv/', 'đến nơi', 3),
+(1, 'appointment', 'noun', 'danh từ', '/əˈpɔɪnt.mənt/', 'cuộc hẹn', 3),
+(1, 'deadline', 'noun', 'danh từ', '/ˈded.laɪn/', 'hạn chót', 3);
 
-INSERT INTO flashcards (term, partOfSpeech, phonetic, meaning, categoryId) VALUES
-('run', 'verb', '/rʌn/', 'chạy', 8),
-('speak', 'verb', '/spiːk/', 'nói', 8),
-('learn', 'verb', '/lɜːrn/', 'học', 8),
-('think', 'verb', '/θɪŋk/', 'nghĩ', 8),
-('write', 'verb', '/raɪt/', 'viết', 8);
+-- Category 8: 100 Common Verbs (Owner: userId = 5 Premium)
+INSERT INTO flashcards ("userId", word, "partOfSpeech", "partOfSpeechVi", phonetic, meaning, "categoryId") VALUES
+(5, 'run', 'verb', 'động từ', '/rʌn/', 'chạy', 8),
+(5, 'speak', 'verb', 'động từ', '/spiːk/', 'nói', 8),
+(5, 'learn', 'verb', 'động từ', '/lɜːrn/', 'học', 8),
+(5, 'think', 'verb', 'động từ', '/θɪŋk/', 'nghĩ', 8),
+(5, 'write', 'verb', 'động từ', '/raɪt/', 'viết', 8);
 
-INSERT INTO flashcards (term, partOfSpeech, meaning, categoryId, imageUrl) VALUES
-('cat', 'noun', 'con mèo', 10, 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba'),
-('dog', 'noun', 'con chó', 10, 'https://images.unsplash.com/photo-1543466835-00a7907e9de1'),
-('bird', 'noun', 'con chim', 10, 'https://images.unsplash.com/photo-1444464666168-49d633b86797');
+-- Category 10: Animals For Kids (Owner: userId = 2 Ly)
+INSERT INTO flashcards ("userId", word, "partOfSpeech", "partOfSpeechVi", phonetic, meaning, "categoryId", "imageUrl") VALUES
+(2, 'cat', 'noun', 'danh từ', '/kæt/', 'con mèo', 10, 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba'),
+(2, 'dog', 'noun', 'danh từ', '/dɒɡ/', 'con chó', 10, 'https://images.unsplash.com/photo-1543466835-00a7907e9de1'),
+(2, 'bird', 'noun', 'danh từ', '/bɜːrd/', 'con chim', 10, 'https://images.unsplash.com/photo-1444464666168-49d633b86797');
 
-SELECT * FROM "classMembers" WHERE "userId" = 2;
+SELECT * FROM dictionary limit 100;
+
+SELECT * FROM flashcards;
+

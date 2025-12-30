@@ -80,10 +80,39 @@ class ApiConfig {
   static String get flashcardRandom => '$flashcardBase/random';
   static String get flashcardSearch => '$flashcardBase/search';
 
-  /// AI Flashcard endpoints
+  /// AI Flashcard endpoints (cũ - giữ lại để tương thích)
   static String get aiFlashcardBase => '$baseUrl/api/flashcards/ai';
   static String get aiFlashcardGenerate => '$aiFlashcardBase/generate';
   static String get aiFlashcardGenerateWithImage => '$aiFlashcardBase/generate-with-image';
+
+  // ==================== NEW: FLASHCARD CREATION ENDPOINTS ====================
+
+  /// Dictionary endpoints - Tra từ điển offline
+  static String get dictionaryBase => '$baseUrl/api/dictionary';
+  static String get dictionaryLookup => '$dictionaryBase/lookup';
+  static String get dictionarySuggest => '$dictionaryBase/suggest';
+  static String get dictionarySearch => '$dictionaryBase/search';
+  static String get dictionaryExists => '$dictionaryBase/exists';
+  static String get dictionaryStats => '$dictionaryBase/stats';
+  static String get dictionaryBatchLookup => '$dictionaryBase/batch-lookup';
+
+  /// Image Suggestion endpoints - Gợi ý hình ảnh từ Pexels
+  static String get imageBase => '$baseUrl/api/images';
+  static String get imageSuggest => '$imageBase/suggest';
+  static String get imageStatus => '$imageBase/status';
+
+  /// Category Suggestion endpoints - AI gợi ý category
+  static String get categorySuggest => '$categoryBase/suggest';
+
+  /// Flashcard Creation endpoints - Flow tạo flashcard mới
+  static String get flashcardCreationBase => '$baseUrl/api/flashcard-creation';
+  static String get flashcardCreationPreview => '$flashcardCreationBase/preview';
+  static String get flashcardCreationSuggestCategory => '$flashcardCreationBase/suggest-category';
+  static String get flashcardCreationCreate => '$flashcardCreationBase/create';
+  static String get flashcardCreationBatch => '$flashcardCreationBase/batch';
+  static String get flashcardCreationBatchPreview => '$flashcardCreationBase/batch-preview';
+
+  // ==================== END NEW ENDPOINTS ====================
 
   /// Payment endpoints
   static String get paymentBase => '$baseUrl/api/payment';
@@ -232,4 +261,20 @@ class ApiConfig {
 
   /// Build URL cho policy detail
   static String policyDetail(int policyId) => '$policyBase/$policyId';
+
+  // ==================== NEW URL BUILDERS ====================
+
+  /// Build URL cho dictionary lookup với word
+  static String dictionaryLookupWord(String word) => '$dictionaryLookup?word=$word';
+
+  /// Build URL cho dictionary suggest với prefix
+  static String dictionarySuggestPrefix(String prefix) => '$dictionarySuggest?prefix=$prefix';
+
+  /// Build URL cho image suggest với word và count
+  static String imageSuggestWord(String word, {int count = 5}) =>
+      '$imageSuggest?word=$word&count=$count';
+
+  /// Build URL cho flashcard creation preview với term
+  static String flashcardCreationPreviewTerm(String term) =>
+      '$flashcardCreationPreview?term=$term';
 }

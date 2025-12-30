@@ -10,10 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * CategoryRepository - ONE-TO-MANY Architecture
- * ✅ Category has classId (nullable)
- * ✅ FIXED: Removed createdAt from ORDER BY (field doesn't exist in DB)
- * ✅ FIXED: Use cm.id.classId and cm.id.userId for EmbeddedId
+ * CategoryRepository
+ * ✅ FIXED: Use cm.id.classId and cm.id.userId for EmbeddedId (ClassMemberId)
  */
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long> {
@@ -21,46 +19,28 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     // ============ Basic Queries ============
 
     Optional<Category> findByName(String name);
-
     boolean existsByName(String name);
 
     // ============ ONE-TO-MANY Queries ============
 
-    /**
-     * Find categories in a class
-     */
     List<Category> findByClassId(Long classId);
-
-    /**
-     * Count categories in a class
-     */
     long countByClassId(Long classId);
-
-    /**
-     * Find independent categories (not in any class)
-     */
     List<Category> findByClassIdIsNull();
 
     // ============ Owner Queries ============
 
     List<Category> findByOwnerUserId(Long ownerUserId);
-
     List<Category> findByOwnerUserIdAndClassId(Long ownerUserId, Long classId);
 
     // ============ System Queries ============
 
     List<Category> findByIsSystemTrue();
-
     Optional<Category> findByIdAndIsSystemTrue(Long id);
 
     // ============ Visibility Queries ============
 
     List<Category> findByVisibility(String visibility);
 
-    /**
-     * Find PUBLIC categories (for sharing)
-     * ✅ FIXED: Order by id instead of createdAt (which doesn't exist in DB)
-     */
     @Query("SELECT c FROM Category c WHERE c.visibility = 'PUBLIC' ORDER BY c.id DESC")
     List<Category> findPublicCategories();
 
@@ -89,12 +69,11 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     long countFlashcardsInCategory(@Param("categoryId") Long categoryId);
 
     long countByOwnerUserId(Long ownerUserId);
-
     long countByVisibility(String visibility);
-
     long countByIsSystemTrue();
 
-    // ✅ THÊM: Tìm kiếm public categories
+    // ============ Search ============
+
     @Query("SELECT c FROM Category c WHERE " +
             "(c.isSystem = true OR c.visibility = 'PUBLIC') AND " +
             "(LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -118,8 +97,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<Category> findAccessibleByUserId(@Param("userId") Long userId);
 
     /**
-     * ✅ FIXED: Lấy tất cả categories user có thể access
-     * Bao gồm: System, Owned, Public, và từ Classes đã join
+     * ✅ FIXED: Lấy TẤT CẢ categories user có thể access
+     * Bao gồm: System, Owned by user, Public, và từ Classes đã join
      */
     @Query("SELECT DISTINCT c FROM Category c " +
             "LEFT JOIN ClassMember cm ON c.classId = cm.id.classId AND cm.id.userId = :userId " +

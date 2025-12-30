@@ -22,6 +22,8 @@ import java.util.stream.Collectors;
 /**
  * Service gợi ý Category phù hợp cho từ vựng
  * Sử dụng Gemini AI để phân loại
+ *
+ * ✅ CHỈ LẤY CATEGORY CỦA USER - KHÔNG LẤY CATEGORY HỆ THỐNG
  */
 @Slf4j
 @Service
@@ -54,24 +56,33 @@ public class CategorySuggestionService {
         result.setWord(word);
 
         try {
-            // 1. Lấy danh sách categories của user
+            // 1. Lấy userId hiện tại
             Long userId = getCurrentUserId();
-            List<Category> userCategories = getUserAccessibleCategories(userId);
 
-            if (userCategories.isEmpty()) {
+            if (userId == null) {
                 result.setSuccess(false);
-                result.setMessage("Bạn chưa có category nào. Hãy tạo category trước.");
+                result.setMessage("Vui lòng đăng nhập để sử dụng tính năng này");
                 result.setSuggestions(List.of());
                 return result;
             }
 
-            log.info("📋 Found {} accessible categories for user", userCategories.size());
+            // 2. ✅ CHỈ LẤY CATEGORIES CỦA USER (không lấy system)
+            List<Category> userCategories = getUserOwnCategories(userId);
 
-            // 2. Gọi Gemini AI để phân loại
+            if (userCategories.isEmpty()) {
+                result.setSuccess(false);
+                result.setMessage("Bạn chưa có chủ đề nào. Hãy tạo chủ đề trước khi thêm thẻ.");
+                result.setSuggestions(List.of());
+                return result;
+            }
+
+            log.info("📋 Found {} categories for user {}", userCategories.size(), userId);
+
+            // 3. Gọi Gemini AI để phân loại
             List<CategorySuggestion> suggestions = classifyWithAI(word, meaning, partOfSpeech, userCategories);
 
             result.setSuccess(true);
-            result.setMessage("Đã phân tích và gợi ý " + suggestions.size() + " categories");
+            result.setMessage("Đã phân tích và gợi ý " + suggestions.size() + " chủ đề phù hợp");
             result.setSuggestions(suggestions);
             result.setTotalCategories(userCategories.size());
 
@@ -84,6 +95,40 @@ public class CategorySuggestionService {
             result.setSuggestions(List.of());
             return result;
         }
+    }
+
+    /**
+     * ✅ CHỈ LẤY CATEGORIES CỦA USER - KHÔNG LẤY SYSTEM
+     * Bao gồm:
+     * - Categories do user tạo (ownerUserId = userId)
+     * - Categories từ classes mà user tham gia (nếu có quyền thêm thẻ)
+     */
+    private List<Category> getUserOwnCategories(Long userId) {
+        List<Category> categories = new ArrayList<>();
+
+        // 1. ✅ CHỈ LẤY categories do user tạo (KHÔNG lấy system)
+        List<Category> ownCategories = categoryRepository.findByOwnerUserId(userId);
+        categories.addAll(ownCategories);
+        log.info("   ├── User's own categories: {}", ownCategories.size());
+
+        // 2. Categories từ classes mà user tham gia (optional - nếu có)
+        try {
+            List<Category> classCategories = categoryRepository.findAccessibleByUserId(userId);
+            // Lọc bỏ system categories
+            classCategories = classCategories.stream()
+                    .filter(c -> !c.isSystemCategory())
+                    .collect(Collectors.toList());
+            categories.addAll(classCategories);
+            log.info("   └── Class categories: {}", classCategories.size());
+        } catch (Exception e) {
+            log.warn("Could not load class categories: {}", e.getMessage());
+        }
+
+        // Remove duplicates và sort by name
+        return categories.stream()
+                .distinct()
+                .sorted(Comparator.comparing(Category::getName))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -129,40 +174,41 @@ public class CategorySuggestionService {
     }
 
     /**
-     * Build prompt cho Gemini
+     * Build prompt cho Gemini - ✅ TIẾNG VIỆT
      */
     private String buildClassificationPrompt(String word, String meaning, String partOfSpeech,
                                              String categoryList) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append("Phân loại từ vựng vào các category phù hợp nhất.\n\n");
-        prompt.append("TỪ VỰNG:\n");
-        prompt.append("- Từ: ").append(word).append("\n");
+        prompt.append("Bạn là trợ lý phân loại từ vựng tiếng Anh vào các chủ đề phù hợp.\n\n");
+        prompt.append("TỪ VỰNG CẦN PHÂN LOẠI:\n");
+        prompt.append("- Từ tiếng Anh: ").append(word).append("\n");
 
         if (meaning != null && !meaning.isEmpty()) {
-            prompt.append("- Nghĩa: ").append(meaning).append("\n");
+            prompt.append("- Nghĩa tiếng Việt: ").append(meaning).append("\n");
         }
         if (partOfSpeech != null && !partOfSpeech.isEmpty()) {
             prompt.append("- Loại từ: ").append(partOfSpeech).append("\n");
         }
 
-        prompt.append("\nDANH SÁCH CATEGORIES:\n");
+        prompt.append("\nDANH SÁCH CHỦ ĐỀ CỦA NGƯỜI DÙNG:\n");
         prompt.append(categoryList);
 
-        prompt.append("\n\nTRẢ VỀ JSON (không markdown):\n");
+        prompt.append("\n\nYÊU CẦU:\n");
+        prompt.append("1. Phân tích từ vựng và chọn chủ đề phù hợp nhất\n");
+        prompt.append("2. Đánh giá độ phù hợp từ 0.0 đến 1.0\n");
+        prompt.append("3. Giải thích lý do bằng TIẾNG VIỆT ngắn gọn\n");
+        prompt.append("4. Chỉ gợi ý tối đa 3 chủ đề phù hợp nhất\n\n");
+
+        prompt.append("TRẢ VỀ JSON (không có markdown, không giải thích thêm):\n");
         prompt.append("{\n");
         prompt.append("  \"suggestions\": [\n");
         prompt.append("    {\n");
         prompt.append("      \"categoryId\": <số ID>,\n");
         prompt.append("      \"confidenceScore\": <0.0-1.0>,\n");
-        prompt.append("      \"reason\": \"Lý do ngắn gọn\"\n");
+        prompt.append("      \"reason\": \"Lý do ngắn gọn bằng tiếng Việt\"\n");
         prompt.append("    }\n");
         prompt.append("  ]\n");
-        prompt.append("}\n\n");
-        prompt.append("QUY TẮC:\n");
-        prompt.append("1. Chỉ gợi ý tối đa 3 categories phù hợp nhất\n");
-        prompt.append("2. confidenceScore từ 0.0 (không phù hợp) đến 1.0 (rất phù hợp)\n");
-        prompt.append("3. Sắp xếp theo confidenceScore giảm dần\n");
-        prompt.append("4. Chỉ trả về JSON, không giải thích thêm\n");
+        prompt.append("}\n");
 
         return prompt.toString();
     }
@@ -274,32 +320,6 @@ public class CategorySuggestionService {
     }
 
     /**
-     * Lấy danh sách categories mà user có thể truy cập
-     */
-    private List<Category> getUserAccessibleCategories(Long userId) {
-        if (userId == null) {
-            // Chỉ trả về system categories
-            return categoryRepository.findByIsSystemTrue();
-        }
-
-        List<Category> categories = new ArrayList<>();
-
-        // 1. System categories
-        categories.addAll(categoryRepository.findByIsSystemTrue());
-
-        // 2. User's own categories
-        categories.addAll(categoryRepository.findByOwnerUserId(userId));
-
-        // 3. Categories từ classes mà user tham gia
-        categories.addAll(categoryRepository.findAccessibleByUserId(userId));
-
-        // Remove duplicates
-        return categories.stream()
-                .distinct()
-                .collect(Collectors.toList());
-    }
-
-    /**
      * Lấy userId từ Security Context
      */
     private Long getCurrentUserId() {
@@ -310,6 +330,10 @@ public class CategorySuggestionService {
             }
 
             String email = auth.getName();
+            if ("anonymousUser".equals(email)) {
+                return null;
+            }
+
             User user = userRepository.findByEmail(email).orElse(null);
             return user != null ? user.getId() : null;
 
@@ -336,6 +360,6 @@ public class CategorySuggestionService {
         private String categoryName;
         private String description;
         private double confidenceScore;  // 0.0 - 1.0
-        private String reason;           // Lý do AI gợi ý
+        private String reason;           // Lý do AI gợi ý (tiếng Việt)
     }
 }

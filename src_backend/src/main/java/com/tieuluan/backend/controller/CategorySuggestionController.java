@@ -11,8 +11,12 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Controller cho Category Suggestion API
  *
+ * ✅ Service tự động lấy userId từ SecurityContext
+ * ✅ Chỉ gợi ý categories của user (không lấy system)
+ *
  * Endpoints:
  * - POST /api/categories/suggest   → Gợi ý categories cho từ vựng
+ * - GET  /api/categories/suggest   → Gợi ý categories (simple)
  */
 @Slf4j
 @RestController
@@ -33,6 +37,7 @@ public class CategorySuggestionController {
 
         log.info("🏷️ API: Suggest categories for word '{}'", request.getWord());
 
+        // ✅ CHỈ TRUYỀN 3 THAM SỐ - Service tự lấy userId từ SecurityContext
         CategorySuggestionResult result = categorySuggestionService.suggestCategories(
                 request.getWord(),
                 request.getMeaning(),
@@ -54,6 +59,7 @@ public class CategorySuggestionController {
 
         log.info("🏷️ API: Suggest categories for word '{}' (GET)", word);
 
+        // ✅ CHỈ TRUYỀN 3 THAM SỐ - Service tự lấy userId từ SecurityContext
         CategorySuggestionResult result = categorySuggestionService.suggestCategories(
                 word, meaning, partOfSpeech
         );

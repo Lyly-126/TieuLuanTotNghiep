@@ -37,8 +37,6 @@ public class ImageSuggestionService {
 
     /**
      * Lấy danh sách ảnh gợi ý cho từ vựng
-     * @param word Từ vựng cần tìm ảnh
-     * @return Danh sách 5 ảnh gợi ý
      */
     public ImageSuggestionResult suggestImages(String word) {
         return suggestImages(word, DEFAULT_IMAGE_COUNT);
@@ -69,7 +67,6 @@ public class ImageSuggestionService {
             if (images.size() < count && word.contains(" ")) {
                 String simpleWord = word.split(" ")[0];
                 log.info("🔄 Not enough images, trying simpler query: '{}'", simpleWord);
-
                 List<ImageInfo> moreImages = searchPexelsImages(simpleWord, count - images.size());
                 images.addAll(moreImages);
             }

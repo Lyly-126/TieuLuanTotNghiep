@@ -25,7 +25,7 @@ import java.util.List;
 /**
  * Service tạo Flashcard mới với flow:
  * 1. Tra từ điển offline (DictionaryService)
- * 2. Gợi ý 5 hình ảnh (ImageSuggestionService)
+ * 2. Gợi ý 6 hình ảnh (ImageSuggestionService)
  * 3. Gợi ý category bằng AI (CategorySuggestionService)
  * 4. Tạo audio TTS (GoogleCloudStorageService)
  * 5. Lưu flashcard
@@ -49,25 +49,25 @@ public class FlashcardCreationService {
      * ========================================
      * Gọi khi user nhập từ vựng
      */
-    public FlashcardPreviewResult previewFlashcard(String term) {
-        log.info("📝 Preview flashcard for term: '{}'", term);
+    public FlashcardPreviewResult previewFlashcard(String word) {
+        log.info("🔍 Preview flashcard for word: '{}'", word);
 
         FlashcardPreviewResult result = new FlashcardPreviewResult();
-        result.setTerm(term);
+        result.setWord(word);
 
         try {
             // 1. Tra từ điển
-            DictionaryLookupResult dictResult = dictionaryService.lookup(term);
+            DictionaryLookupResult dictResult = dictionaryService.lookup(word);
             result.setDictionaryResult(dictResult);
 
             if (dictResult.isFound()) {
-                log.info("✅ Found in dictionary: {}", term);
+                log.info("✅ Found in dictionary: {}", word);
             } else {
-                log.warn("⚠️ Not found in dictionary: {}", term);
+                log.warn("⚠️ Not found in dictionary: {}", word);
             }
 
-            // 2. Gợi ý hình ảnh
-            ImageSuggestionResult imageResult = imageSuggestionService.suggestImages(term, 5);
+            // 2. Gợi ý hình ảnh - 6 ảnh
+            ImageSuggestionResult imageResult = imageSuggestionService.suggestImages(word, 6);
             result.setImageSuggestions(imageResult.getImages());
 
             result.setSuccess(true);
@@ -91,9 +91,9 @@ public class FlashcardCreationService {
      * ========================================
      * Gọi sau khi user xác nhận thông tin từ
      */
-    public CategorySuggestionResult suggestCategories(String term, String meaning, String partOfSpeech) {
-        log.info("🏷️ Suggesting categories for: '{}'", term);
-        return categorySuggestionService.suggestCategories(term, meaning, partOfSpeech);
+    public CategorySuggestionResult suggestCategories(String word, String meaning, String partOfSpeech) {
+        log.info("🏷️ Suggesting categories for: '{}'", word);
+        return categorySuggestionService.suggestCategories(word, meaning, partOfSpeech);
     }
 
     /**
@@ -104,11 +104,18 @@ public class FlashcardCreationService {
      */
     @Transactional
     public FlashcardCreateResult createFlashcard(FlashcardCreateRequest request) {
-        log.info("💾 Creating flashcard for term: '{}'", request.getTerm());
+        log.info("💾 Creating flashcard for word: '{}'", request.getWord());
 
         FlashcardCreateResult result = new FlashcardCreateResult();
 
         try {
+            // 0. Validate word không được null
+            if (request.getWord() == null || request.getWord().trim().isEmpty()) {
+                result.setSuccess(false);
+                result.setMessage("Từ vựng không được để trống");
+                return result;
+            }
+
             // 1. Validate category
             Category category = null;
             if (request.getCategoryId() != null) {
@@ -126,8 +133,8 @@ public class FlashcardCreationService {
 
             // 2. Generate TTS nếu cần
             String ttsUrl = null;
-            if (request.isGenerateAudio()) {
-                ttsUrl = gcsService.createAndUploadAudio(request.getTerm(), "en-US");
+            if (request.isGenerateAudio() && request.getWord() != null) {
+                ttsUrl = gcsService.createAndUploadAudio(request.getWord(), "en-US");
                 log.info("✅ TTS generated: {}", ttsUrl);
             }
 
@@ -136,7 +143,7 @@ public class FlashcardCreationService {
 
             // 4. Create flashcard
             Flashcard flashcard = new Flashcard();
-            flashcard.setTerm(request.getTerm());
+            flashcard.setWord(request.getWord());
             flashcard.setPartOfSpeech(request.getPartOfSpeech());
             flashcard.setPhonetic(request.getPhonetic());
             flashcard.setMeaning(meaning);
@@ -258,18 +265,19 @@ public class FlashcardCreationService {
     public static class FlashcardPreviewResult {
         private boolean success;
         private String message;
-        private String term;
+        private String word;  // ✅ Đổi từ term thành word
         private DictionaryLookupResult dictionaryResult;
         private List<ImageInfo> imageSuggestions;
     }
 
     @Data
     public static class FlashcardCreateRequest {
-        private String term;
+        private String word;              // ✅ Đổi từ term thành word (match với Flutter)
         private String partOfSpeech;
+        private String partOfSpeechVi;    // ✅ Thêm field này để match Flutter
         private String phonetic;
-        private String meaning;          // Vietnamese
-        private String definition;       // English
+        private String meaning;           // Vietnamese
+        private String definition;        // English
         private String example;
         private String selectedImageUrl;
         private Long categoryId;

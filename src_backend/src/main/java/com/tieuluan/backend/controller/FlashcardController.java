@@ -43,9 +43,6 @@ public class FlashcardController {
         return user.getRole() == User.UserRole.ADMIN;
     }
 
-    /**
-     * ✅ Check xem user có quyền TẠO flashcard không (check role)
-     */
     private boolean canCreateFlashcard(User user) {
         User.UserRole role = user.getRole();
         return role == User.UserRole.ADMIN ||
@@ -53,11 +50,8 @@ public class FlashcardController {
                 role == User.UserRole.PREMIUM_USER;
     }
 
-    /**
-     * ✅ Check xem user có phải CHỦ NHÂN của category không
-     */
     private boolean isOwnerOfCategory(User user, Category category) {
-        if (isAdmin(user)) return true;  // Admin có quyền với tất cả
+        if (isAdmin(user)) return true;
         return category.getOwnerUserId() != null &&
                 category.getOwnerUserId().equals(user.getId());
     }
@@ -94,8 +88,7 @@ public class FlashcardController {
 
     /**
      * ✅ Tạo flashcard
-     * - Check role: ADMIN/TEACHER/PREMIUM mới được tạo
-     * - Check ownership: Phải là CHỦ NHÂN của category
+     * - Hỗ trợ cả "word" và "term" (backward compatible)
      */
     @PostMapping
     @PreAuthorize("isAuthenticated()")
@@ -103,16 +96,19 @@ public class FlashcardController {
         try {
             User currentUser = getCurrentUser();
 
-            // ✅ Check role
             if (!canCreateFlashcard(currentUser)) {
                 return ResponseEntity.status(403)
                         .body(Map.of("message", "Bạn cần nâng cấp tài khoản để tạo flashcard"));
             }
 
-            // Validate
-            if (payload.get("term") == null || payload.get("meaning") == null) {
+            // ✅ Hỗ trợ cả "word" và "term"
+            String word = payload.get("word") != null
+                    ? (String) payload.get("word")
+                    : (String) payload.get("term");
+
+            if (word == null || payload.get("meaning") == null) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("message", "term và meaning là bắt buộc"));
+                        .body(Map.of("message", "word và meaning là bắt buộc"));
             }
             if (payload.get("categoryId") == null) {
                 return ResponseEntity.badRequest()
@@ -123,21 +119,22 @@ public class FlashcardController {
             Category category = categoryRepository.findById(categoryId)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy category"));
 
-            // ✅ Check ownership: Phải là CHỦ NHÂN của category
             if (!isOwnerOfCategory(currentUser, category)) {
                 return ResponseEntity.status(403)
                         .body(Map.of("message", "Bạn không phải chủ nhân của học phần này"));
             }
 
-            // Tạo flashcard
+            // ✅ Tạo flashcard với word thay vì term
             Flashcard flashcard = new Flashcard();
-            flashcard.setTerm((String) payload.get("term"));
+            flashcard.setWord(word);
             flashcard.setMeaning((String) payload.get("meaning"));
             flashcard.setPartOfSpeech((String) payload.get("partOfSpeech"));
+            flashcard.setPartOfSpeechVi((String) payload.get("partOfSpeechVi"));
             flashcard.setPhonetic((String) payload.get("phonetic"));
             flashcard.setImageUrl((String) payload.get("imageUrl"));
             flashcard.setTtsUrl((String) payload.get("ttsUrl"));
             flashcard.setCategory(category);
+            flashcard.setUser(currentUser);
 
             Flashcard created = flashcardService.createFlashcard(flashcard);
             log.info("✅ User {} created flashcard in category {}", currentUser.getEmail(), categoryId);
@@ -150,8 +147,7 @@ public class FlashcardController {
 
     /**
      * ✅ Cập nhật flashcard
-     * - Check role: ADMIN/TEACHER/PREMIUM
-     * - Check ownership: Phải là CHỦ NHÂN của category chứa flashcard
+     * - Hỗ trợ cả "word" và "term"
      */
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
@@ -159,7 +155,6 @@ public class FlashcardController {
         try {
             User currentUser = getCurrentUser();
 
-            // ✅ Check role
             if (!canCreateFlashcard(currentUser)) {
                 return ResponseEntity.status(403)
                         .body(Map.of("message", "Bạn cần nâng cấp tài khoản để sửa flashcard"));
@@ -170,17 +165,18 @@ public class FlashcardController {
                 return ResponseEntity.notFound().build();
             }
 
-            // ✅ Check ownership
             Category category = flashcard.getCategory();
             if (category != null && !isOwnerOfCategory(currentUser, category)) {
                 return ResponseEntity.status(403)
                         .body(Map.of("message", "Bạn không phải chủ nhân của học phần này"));
             }
 
-            // Update
-            if (payload.containsKey("term")) flashcard.setTerm((String) payload.get("term"));
+            // ✅ Update - hỗ trợ cả word và term
+            if (payload.containsKey("word")) flashcard.setWord((String) payload.get("word"));
+            if (payload.containsKey("term")) flashcard.setWord((String) payload.get("term"));
             if (payload.containsKey("meaning")) flashcard.setMeaning((String) payload.get("meaning"));
             if (payload.containsKey("partOfSpeech")) flashcard.setPartOfSpeech((String) payload.get("partOfSpeech"));
+            if (payload.containsKey("partOfSpeechVi")) flashcard.setPartOfSpeechVi((String) payload.get("partOfSpeechVi"));
             if (payload.containsKey("phonetic")) flashcard.setPhonetic((String) payload.get("phonetic"));
             if (payload.containsKey("imageUrl")) flashcard.setImageUrl((String) payload.get("imageUrl"));
             if (payload.containsKey("ttsUrl")) flashcard.setTtsUrl((String) payload.get("ttsUrl"));
@@ -196,8 +192,6 @@ public class FlashcardController {
 
     /**
      * ✅ Xóa flashcard
-     * - Check role: ADMIN/TEACHER/PREMIUM
-     * - Check ownership: Phải là CHỦ NHÂN của category chứa flashcard
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
@@ -205,7 +199,6 @@ public class FlashcardController {
         try {
             User currentUser = getCurrentUser();
 
-            // ✅ Check role
             if (!canCreateFlashcard(currentUser)) {
                 return ResponseEntity.status(403)
                         .body(Map.of("message", "Bạn cần nâng cấp tài khoản để xóa flashcard"));
@@ -216,7 +209,6 @@ public class FlashcardController {
                 return ResponseEntity.notFound().build();
             }
 
-            // ✅ Check ownership
             Category category = flashcard.getCategory();
             if (category != null && !isOwnerOfCategory(currentUser, category)) {
                 return ResponseEntity.status(403)

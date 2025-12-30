@@ -18,6 +18,7 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/forgot_otp_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/card/flashcard_creation_screen.dart';
+import '../screens/card/flashcard_creation_screen.dart';  // ✅ THÊM import
 import '../screens/class/join_class_via_link_screen.dart';
 import '../screens/home/search_screen.dart';
 import '../screens/profile/profile_screen.dart';
@@ -60,6 +61,7 @@ class AppRoutes {
   static const String terms_privacy = '/terms_privacy';
   static const String flashcard = '/flashcard';
   static const String flashcard_creation = '/flashcard_creation';
+  static const String flashcard_creation_new = '/flashcard_creation_new';  // ✅ THÊM route mới
   static const String library = '/library';
 
   static const String teacher_classes = '/teacher_classes';
@@ -103,6 +105,7 @@ class AppRoutes {
     terms_privacy: (context) => const TermsPrivacyScreen(),
     flashcard: (context) => FlashcardScreen(),
     flashcard_creation: (context) => const FlashcardCreationScreen(),
+    flashcard_creation_new: (context) => const FlashcardCreationScreen(),  // ✅ THÊM
     library: (context) => const LibraryScreen(),
 
     teacher_classes: (context) => const TeacherClassManagementScreen(),
@@ -167,6 +170,15 @@ class AppRoutes {
           builder: (_) => FlashcardEditScreen(
             flashcard: args['flashcard'] as FlashcardModel,
             categoryId: args['categoryId'] as int,
+          ),
+        );
+
+    // ✅ NEW CASE: Flashcard Creation New (với categoryId optional)
+      case flashcard_creation_new:
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder: (_) => FlashcardCreationScreen(
+            initialCategoryId: args?['categoryId'] as int?,
           ),
         );
 

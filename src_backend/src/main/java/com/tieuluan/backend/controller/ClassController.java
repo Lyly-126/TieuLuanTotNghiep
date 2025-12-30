@@ -165,7 +165,7 @@ public class ClassController {
     /**
      * ✅ UPDATE CLASS
      */
-    @PutMapping("/{classId}")
+    @PutMapping("/{classId}/update")
     public ResponseEntity<?> updateClass(
             @PathVariable Long classId,
             @RequestBody UpdateClassRequest request,
@@ -508,7 +508,7 @@ public class ClassController {
     /**
      * ✅ REGENERATE INVITE CODE
      */
-    @PostMapping("/{classId}/regenerate-code")
+    @PostMapping("/{classId}/regenerate-invite-code")
     public ResponseEntity<?> regenerateInviteCode(
             @PathVariable Long classId,
             Authentication authentication) {
