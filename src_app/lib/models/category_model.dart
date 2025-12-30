@@ -24,8 +24,8 @@ class CategoryModel {
     this.isSystem = false,
     this.isUserCategory = false,
     this.isClassCategory = false,
-    this.ownerUserId,           // ✅ Sử dụng ownerUserId từ DB
-    this.visibility,            // ✅ Sử dụng visibility từ DB
+    this.ownerUserId,
+    this.visibility,
     this.isSaved = false,
   });
 
@@ -40,21 +40,22 @@ class CategoryModel {
   /// ✅ Check if category is public
   bool get isPublic => visibility == 'PUBLIC';
 
-  /// ✅ UPDATED: Parse từ JSON theo DB structure
+  /// ✅ UPDATED: Parse từ JSON - hỗ trợ cả camelCase và snake_case
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     return CategoryModel(
       id: json['id'] as int,
       name: json['name'] as String,
       description: json['description'] as String?,
-      flashcardCount: json['flashcard_count'] as int?,
-      classId: json['class_id'] as int?,
-      className: json['class_name'] as String?,
-      isSystem: json['is_system'] as bool? ?? json['isSystem'] as bool? ?? false,
-      isUserCategory: json['is_user_category'] as bool? ?? false,
-      isClassCategory: json['is_class_category'] as bool? ?? false,
-      ownerUserId: json['owner_user_id'] as int? ?? json['ownerUserId'] as int?,
+      // ✅ FIX: Hỗ trợ cả camelCase (từ backend) và snake_case
+      flashcardCount: json['flashcardCount'] as int? ?? json['flashcard_count'] as int?,
+      classId: json['classId'] as int? ?? json['class_id'] as int?,
+      className: json['className'] as String? ?? json['class_name'] as String?,
+      isSystem: json['isSystem'] as bool? ?? json['is_system'] as bool? ?? false,
+      isUserCategory: json['isUserCategory'] as bool? ?? json['is_user_category'] as bool? ?? false,
+      isClassCategory: json['isClassCategory'] as bool? ?? json['is_class_category'] as bool? ?? false,
+      ownerUserId: json['ownerUserId'] as int? ?? json['owner_user_id'] as int?,
       visibility: json['visibility'] as String?,
-      isSaved: json['is_saved'] as bool? ?? false,
+      isSaved: json['isSaved'] as bool? ?? json['is_saved'] as bool? ?? false,
     );
   }
 
@@ -63,15 +64,15 @@ class CategoryModel {
       'id': id,
       'name': name,
       'description': description,
-      'flashcard_count': flashcardCount,
-      'class_id': classId,
-      'class_name': className,
-      'is_system': isSystem,
-      'is_user_category': isUserCategory,
-      'is_class_category': isClassCategory,
-      'owner_user_id': ownerUserId,
+      'flashcardCount': flashcardCount,
+      'classId': classId,
+      'className': className,
+      'isSystem': isSystem,
+      'isUserCategory': isUserCategory,
+      'isClassCategory': isClassCategory,
+      'ownerUserId': ownerUserId,
       'visibility': visibility,
-      'is_saved': isSaved,
+      'isSaved': isSaved,
     };
   }
 
@@ -108,7 +109,7 @@ class CategoryModel {
 
   @override
   String toString() {
-    return 'CategoryModel(id: $id, name: $name, description: $description, '
+    return 'CategoryModel(id: $id, name: $name, flashcardCount: $flashcardCount, '
         'isSystem: $isSystem, classId: $classId, ownerUserId: $ownerUserId, '
         'visibility: $visibility, isSaved: $isSaved)';
   }

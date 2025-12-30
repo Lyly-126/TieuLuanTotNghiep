@@ -21,7 +21,7 @@ class FlashcardEditScreen extends StatefulWidget {
 
 class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _termController;
+  late TextEditingController _wordController;  // ✅ Đổi từ _termController
   late TextEditingController _meaningController;
   bool _isLoading = false;
   bool _hasChanges = false;
@@ -30,16 +30,17 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
   void initState() {
     super.initState();
     print('📱 [SCREEN] $runtimeType');
-    _termController = TextEditingController(text: widget.flashcard.question);
+    // ✅ Sử dụng question getter (backward compatible với word)
+    _wordController = TextEditingController(text: widget.flashcard.question);
     _meaningController = TextEditingController(text: widget.flashcard.answer);
 
     // Track changes
-    _termController.addListener(_onTextChanged);
+    _wordController.addListener(_onTextChanged);
     _meaningController.addListener(_onTextChanged);
   }
 
   void _onTextChanged() {
-    final hasChanges = _termController.text != widget.flashcard.question ||
+    final hasChanges = _wordController.text != widget.flashcard.question ||
         _meaningController.text != widget.flashcard.answer;
 
     if (hasChanges != _hasChanges) {
@@ -49,7 +50,7 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
 
   @override
   void dispose() {
-    _termController.dispose();
+    _wordController.dispose();
     _meaningController.dispose();
     super.dispose();
   }
@@ -64,16 +65,17 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // ✅ Sử dụng word thay vì term
       await FlashcardService.updateFlashcard(
         widget.flashcard.id,
-        term: _termController.text.trim(),
+        word: _wordController.text.trim(),
         meaning: _meaningController.text.trim(),
         categoryId: widget.categoryId,
       );
 
       if (!mounted) return;
       _showSnackBar('Đã lưu thay đổi', isError: false);
-      Navigator.pop(context, true); // Return true to indicate changes saved
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       _showSnackBar('Lỗi: ${e.toString()}', isError: true);
@@ -112,7 +114,7 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
       await FlashcardService.deleteFlashcard(widget.flashcard.id);
       if (!mounted) return;
       _showSnackBar('Đã xóa thẻ', isError: false);
-      Navigator.pop(context, true); // Return true to indicate deletion
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       _showSnackBar('Lỗi: ${e.toString()}', isError: true);
@@ -193,12 +195,10 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
         ),
       ),
       actions: [
-        // Delete button
         IconButton(
           icon: const Icon(Icons.delete_outline, color: Colors.red),
           onPressed: _deleteFlashcard,
         ),
-        // Save button
         TextButton(
           onPressed: _hasChanges && !_isLoading ? _saveChanges : null,
           child: Text(
@@ -222,7 +222,6 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Info card
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -253,16 +252,16 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Term (Front) card
+          // Word (Front) card - ✅ Đổi label
           _buildCardSection(
-            title: 'Thuật ngữ (Mặt trước)',
+            title: 'Từ vựng (Mặt trước)',
             icon: Icons.text_fields,
             child: TextFormField(
-              controller: _termController,
+              controller: _wordController,
               style: AppTextStyles.body.copyWith(fontSize: 16),
               maxLines: null,
               decoration: InputDecoration(
-                hintText: 'Nhập thuật ngữ, từ vựng...',
+                hintText: 'Nhập từ vựng...',
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -284,7 +283,7 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Vui lòng nhập thuật ngữ';
+                  return 'Vui lòng nhập từ vựng';
                 }
                 return null;
               },
@@ -295,7 +294,7 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
 
           // Meaning (Back) card
           _buildCardSection(
-            title: 'Định nghĩa (Mặt sau)',
+            title: 'Nghĩa (Mặt sau)',
             icon: Icons.description,
             child: TextFormField(
               controller: _meaningController,
@@ -303,7 +302,7 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
               maxLines: null,
               minLines: 3,
               decoration: InputDecoration(
-                hintText: 'Nhập định nghĩa, ý nghĩa...',
+                hintText: 'Nhập nghĩa tiếng Việt...',
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -325,7 +324,7 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Vui lòng nhập định nghĩa';
+                  return 'Vui lòng nhập nghĩa';
                 }
                 return null;
               },
@@ -335,7 +334,6 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
 
           const SizedBox(height: 32),
 
-          // Save button (large)
           if (_hasChanges)
             ElevatedButton(
               onPressed: _isLoading ? null : _saveChanges,

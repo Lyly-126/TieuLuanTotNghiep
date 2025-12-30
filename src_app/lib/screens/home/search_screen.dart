@@ -164,7 +164,7 @@ class _SearchScreenState extends State<SearchScreen> {
             controller: _searchController,
             autofocus: true,
             decoration: InputDecoration(
-              hintText: 'Tìm chủ đề, lớp học...',
+              hintText: 'Tìm chủ đề, lớp học, hoặc nhập mã lớp...',
               hintStyle: AppTextStyles.hint,
               prefixIcon: const Icon(Icons.search, color: AppColors.textGray),
               suffixIcon: _searchController.text.isNotEmpty
@@ -247,24 +247,35 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildSectionHeader(String title, IconData icon, int count) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: AppColors.primary),
-        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 20),
+        ),
+        const SizedBox(width: 12),
         Text(
           title,
-          style: AppTextStyles.heading3.copyWith(color: AppColors.primaryDark),
+          style: AppTextStyles.heading2.copyWith(
+            color: AppColors.primaryDark,
+            fontSize: 18,
+          ),
         ),
-        const SizedBox(width: 8),
+        const Spacer(),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
             '$count',
-            style: AppTextStyles.caption.copyWith(
+            style: TextStyle(
               color: AppColors.primary,
               fontWeight: FontWeight.bold,
+              fontSize: 13,
             ),
           ),
         ),
@@ -273,7 +284,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildCategoryItem(CategoryModel category) {
-    final isOwner = _currentUser != null && category.ownerUserId == _currentUser!.userId;
+    final isOwner = category.ownerUserId == _currentUser?.userId;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -300,12 +311,14 @@ class _SearchScreenState extends State<SearchScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  gradient: LinearGradient(
+                    colors: [AppColors.primary, AppColors.accent],
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  isOwner ? Icons.folder : Icons.folder_open,
-                  color: AppColors.primary,
+                child: const Icon(
+                  Icons.style,
+                  color: Colors.white,
                   size: 24,
                 ),
               ),
@@ -325,70 +338,31 @@ class _SearchScreenState extends State<SearchScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-
-                    // Badge
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isOwner
-                                ? AppColors.primary.withOpacity(0.1)
-                                : AppColors.secondary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isOwner ? '👤 Của tôi' : '🌐 Công khai',
-                            style: AppTextStyles.caption.copyWith(
-                              fontSize: 11,
-                              color: isOwner ? AppColors.primary : AppColors.secondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                        _buildBadge(
+                          text: '${category.flashcardCount} thẻ',
+                          color: AppColors.primary,
                         ),
                         const SizedBox(width: 8),
-                        if (category.flashcardCount != null)
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.style,
-                                size: 14,
-                                color: AppColors.textGray,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${category.flashcardCount} thẻ',
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.textGray,
-                                ),
-                              ),
-                            ],
+                        if (isOwner)
+                          _buildBadge(
+                            text: '👤 Của tôi',
+                            color: AppColors.secondary,
+                          )
+                        else
+                          _buildBadge(
+                            text: category.isPublic ? '🌐 Công khai' : '🔒 Riêng tư',
+                            color: category.isPublic ? AppColors.success : AppColors.warning,
                           ),
                       ],
                     ),
-
-                    // Description
-                    if (category.description != null &&
-                        category.description!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        category.description!,
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textGray,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
                   ],
                 ),
               ),
 
               // Arrow
-              Icon(
+              const Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
                 color: AppColors.textGray,
@@ -454,57 +428,34 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                     const SizedBox(height: 4),
 
-                    // Badge
+                    // ✅ FIX: Badge hiển thị đúng trạng thái
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
+                        // Badge 1: Của tôi / Công khai / Riêng tư
+                        if (isOwner)
+                          _buildBadge(
+                            text: '👤 Của tôi',
+                            color: AppColors.secondary,
+                          )
+                        else
+                          _buildBadge(
+                            text: classModel.isPublic ? '🌐 Công khai' : '🔒 Riêng tư',
+                            color: classModel.isPublic ? AppColors.success : AppColors.warning,
                           ),
-                          decoration: BoxDecoration(
-                            color: isOwner
-                                ? AppColors.secondary.withOpacity(0.1)
-                                : AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isOwner ? '👤 Của tôi' : '🌐 Công khai',
-                            style: AppTextStyles.caption.copyWith(
-                              fontSize: 11,
-                              color: isOwner ? AppColors.secondary : AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (classModel.inviteCode != null &&
-                            classModel.inviteCode!.isNotEmpty) ...[
+
+                        // Badge 2: Mã mời (nếu có)
+                        if (classModel.inviteCode != null && classModel.inviteCode!.isNotEmpty) ...[
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Mã: ${classModel.inviteCode}',
-                              style: AppTextStyles.caption.copyWith(
-                                fontSize: 11,
-                                color: AppColors.accent,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                          _buildBadge(
+                            text: 'Mã: ${classModel.inviteCode}',
+                            color: AppColors.accent,
                           ),
                         ],
                       ],
                     ),
 
-                    // Description & members
-                    if (classModel.description != null &&
-                        classModel.description!.isNotEmpty) ...[
+                    // Description
+                    if (classModel.description != null && classModel.description!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         classModel.description!,
@@ -516,6 +467,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ],
 
+                    // Owner & member count
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -554,6 +506,25 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// ✅ Helper: Build Badge
+  Widget _buildBadge({required String text, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: AppTextStyles.caption.copyWith(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

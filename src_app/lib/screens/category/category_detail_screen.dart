@@ -6,27 +6,30 @@ import '../../config/app_colors.dart';
 import '../../config/app_text_styles.dart';
 import '../../models/category_model.dart';
 import '../../models/flashcard_model.dart';
+import '../../models/user_model.dart';
 import '../../services/category_service.dart';
 import '../../services/flash_card_service.dart';
+import '../../services/user_service.dart';
 import '../../services/tts_service.dart';
-import '../card/flashcard_screen.dart';
 import '../card/flashcard_creation_screen.dart';
+import '../card/flashcard_screen.dart';
 import '../card/flashcard_edit_screen.dart';
+import '../payment/upgrade_premium_screen.dart';
 
 /// 🎨 Màn hình chi tiết chủ đề - Unified Screen
-/// Dùng chung cho tất cả: Category cá nhân, Category trong Class, Category public
 ///
 /// PHÂN QUYỀN:
-/// - isOwner = true: Thêm/Sửa/Xóa category + flashcard
-/// - isOwner = false: Chỉ xem, học, kiểm tra, lưu
+/// - Owner (Tác giả): Toàn quyền - Xem, Học, Kiểm tra, Thêm/Sửa/Xóa flashcard, Sửa/Xóa category
+/// - NORMAL_USER: Chỉ xem, học, lưu chủ đề (KHÔNG có kiểm tra)
+/// - PREMIUM_USER/TEACHER: Xem, học, kiểm tra, lưu chủ đề
 class CategoryDetailScreen extends StatefulWidget {
   final CategoryModel category;
-  final bool isOwner; // ✅ THÊM: Phân quyền chủ sở hữu
+  final bool isOwner;
 
   const CategoryDetailScreen({
     Key? key,
     required this.category,
-    this.isOwner = false, // Mặc định là viewer
+    this.isOwner = false,
   }) : super(key: key);
 
   @override
@@ -40,7 +43,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   bool _isSaved = false;
   List<FlashcardModel> _flashcards = [];
   String? _errorMessage;
-  CategoryModel? _category; // ✅ SỬA: Bỏ late, dùng nullable
+  CategoryModel? _category;
+  UserModel? _currentUser;
 
   // Animation
   late AnimationController _fabController;
@@ -50,24 +54,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   int _previewIndex = 0;
   late PageController _previewController;
 
-  /// ✅ CHECK QUYỀN EDIT - Chỉ owner mới được edit
-  bool get _canEdit => widget.isOwner && !(_category?.isSystem ?? true);
+  // ✅ PHÂN QUYỀN
+  bool get _isOwner => widget.isOwner || (_category?.ownerUserId == _currentUser?.userId);
+  bool get _canEdit => _isOwner && !(_category?.isSystem ?? true);
+  bool get _canQuiz => _isOwner || (_currentUser?.hasPremiumAccess ?? false); // Premium/Teacher có thể kiểm tra
+  bool get _canStudy => true; // Ai cũng có thể học
+  bool get _canSave => !_isOwner; // Chỉ save nếu không phải owner
 
-  /// ✅ Helper getter để truy cập category an toàn
   CategoryModel get category => _category ?? widget.category;
 
   @override
   void initState() {
     super.initState();
-    // ✅ KHỞI TẠO _category TRƯỚC
     _category = widget.category;
     _isSaved = widget.category.isSaved;
-
-    // ✅ LOG ĐỂ DEBUG (sau khi khởi tạo)
-    print('📱 [SCREEN] CategoryDetailScreen');
-    print('   ├── Category: ${widget.category.name} (ID: ${widget.category.id})');
-    print('   ├── isOwner: ${widget.isOwner}');
-    print('   └── canEdit: $_canEdit');
 
     _fabController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -79,6 +79,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     );
 
     _previewController = PageController(viewportFraction: 0.85);
+    _loadCurrentUser();
     _loadCategoryDetails();
   }
 
@@ -87,6 +88,22 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     _fabController.dispose();
     _previewController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final user = await UserService.getCurrentUser();
+      if (mounted) {
+        setState(() => _currentUser = user);
+        print('📱 [CategoryDetail] User: ${user?.email}, Role: ${user?.role}');
+        print('   ├── isOwner: $_isOwner');
+        print('   ├── canEdit: $_canEdit');
+        print('   ├── canQuiz: $_canQuiz');
+        print('   └── canSave: $_canSave');
+      }
+    } catch (e) {
+      debugPrint('Error loading user: $e');
+    }
   }
 
   Future<void> _loadCategoryDetails() async {
@@ -118,6 +135,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   // ==================== ACTIONS ====================
 
   Future<void> _toggleSave() async {
+    if (!_canSave) return;
+
     try {
       if (_isSaved) {
         await CategoryService.unsaveCategory(_category!.id);
@@ -151,8 +170,89 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       _showSnackBar('Chưa có thẻ nào để kiểm tra', Icons.warning, isError: true);
       return;
     }
-    // TODO: Navigate to Quiz screen
+
+    // ✅ CHECK QUYỀN KIỂM TRA
+    if (!_canQuiz) {
+      _showUpgradeDialog();
+      return;
+    }
+
     _showSnackBar('Tính năng kiểm tra đang phát triển', Icons.quiz);
+  }
+
+  // ✅ DIALOG NÂNG CẤP PREMIUM
+  void _showUpgradeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [AppColors.warning, AppColors.warning.withOpacity(0.7)],
+                  ),
+                ),
+                child: const Icon(Icons.workspace_premium_rounded, size: 40, color: Colors.white),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Nâng cấp Premium',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Tính năng Kiểm tra chỉ dành cho người dùng Premium',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              _buildUpgradeBenefit(Icons.quiz_outlined, 'Kiểm tra kiến thức'),
+              const SizedBox(height: 8),
+              _buildUpgradeBenefit(Icons.insights, 'Theo dõi tiến độ'),
+              const SizedBox(height: 8),
+              _buildUpgradeBenefit(Icons.stars, 'Truy cập đầy đủ tính năng'),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradePremiumScreen()));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.warning,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Nâng cấp ngay', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Để sau', style: TextStyle(color: AppColors.textGray)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpgradeBenefit(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppColors.success),
+        const SizedBox(width: 12),
+        Text(text, style: const TextStyle(fontSize: 14, color: AppColors.textPrimary)),
+      ],
+    );
   }
 
   Future<void> _shareCategory() async {
@@ -163,7 +263,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     );
   }
 
-  // ==================== OWNER ACTIONS (Chỉ hiển thị khi _canEdit = true) ====================
+  // ==================== OWNER ACTIONS ====================
 
   void _addFlashcard() {
     if (!_canEdit) return;
@@ -171,10 +271,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => FlashcardCreationScreen(categoryId: _category!.id),
+        builder: (context) => FlashcardCreationScreen(
+          initialCategoryId: _category!.id,
+        ),
       ),
     ).then((created) {
-      if (created == true) _loadCategoryDetails();
+      if (created != null) _loadCategoryDetails();
     });
   }
 
@@ -186,7 +288,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       MaterialPageRoute(
         builder: (context) => FlashcardEditScreen(
           flashcard: flashcard,
-          categoryId: _category!.id, // ✅ THÊM DÒNG NÀY
+          categoryId: _category!.id,
         ),
       ),
     ).then((updated) {
@@ -215,21 +317,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
             const Text('Xóa thẻ?'),
           ],
         ),
-        content: Text(
-          'Bạn có chắc muốn xóa thẻ "${flashcard.question}"?',
-          style: const TextStyle(height: 1.5),
-        ),
+        content: Text('Bạn có chắc muốn xóa thẻ "${flashcard.question}"?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
             child: const Text('Xóa'),
           ),
         ],
@@ -254,104 +347,44 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     final descController = TextEditingController(text: _category!.description ?? '');
     String visibility = _category!.visibility ?? 'PRIVATE';
 
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Chỉnh sửa học phần'),
+          content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Chỉnh sửa học phần',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryDark,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Name field
                 TextField(
                   controller: nameController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Tên học phần',
-                    hintText: 'VD: Từ vựng IELTS',
-                    filled: true,
-                    fillColor: AppColors.inputBackground,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                    ),
+                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // Description field
                 TextField(
                   controller: descController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Mô tả (tùy chọn)',
-                    hintText: 'Thêm mô tả cho học phần...',
-                    filled: true,
-                    fillColor: AppColors.inputBackground,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                    ),
+                    border: OutlineInputBorder(),
                   ),
+                  maxLines: 3,
                 ),
-                const SizedBox(height: 20),
-
-                // Visibility toggle
-                const Text(
-                  'Quyền riêng tư',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+                const Text('Quyền riêng tư', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
                       child: _buildVisibilityOption(
                         icon: Icons.lock_outline,
                         label: 'Riêng tư',
-                        description: 'Chỉ mình tôi',
                         isSelected: visibility == 'PRIVATE',
-                        onTap: () => setModalState(() => visibility = 'PRIVATE'),
+                        onTap: () => setDialogState(() => visibility = 'PRIVATE'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -359,49 +392,26 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
                       child: _buildVisibilityOption(
                         icon: Icons.public,
                         label: 'Công khai',
-                        description: 'Mọi người',
                         isSelected: visibility == 'PUBLIC',
-                        onTap: () => setModalState(() => visibility = 'PUBLIC'),
+                        onTap: () => setDialogState(() => visibility = 'PUBLIC'),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-
-                // Save button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      if (nameController.text.trim().isEmpty) {
-                        _showSnackBar('Vui lòng nhập tên học phần', Icons.warning, isError: true);
-                        return;
-                      }
-
-                      Navigator.pop(context);
-                      await _updateCategory(
-                        nameController.text.trim(),
-                        descController.text.trim(),
-                        visibility,
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Lưu thay đổi',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _updateCategory(nameController.text, descController.text, visibility);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              child: const Text('Lưu'),
+            ),
+          ],
         ),
       ),
     );
@@ -410,45 +420,23 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   Widget _buildVisibilityOption({
     required IconData icon,
     required String label,
-    required String description,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary.withOpacity(0.1) : AppColors.background,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
+          border: Border.all(color: isSelected ? AppColors.primary : AppColors.border, width: isSelected ? 2 : 1),
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: isSelected ? AppColors.primary : AppColors.textGray,
-              size: 28,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: isSelected ? AppColors.primary : AppColors.textPrimary,
-              ),
-            ),
-            Text(
-              description,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textGray,
-              ),
-            ),
+            Icon(icon, color: isSelected ? AppColors.primary : AppColors.textGray),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: isSelected ? AppColors.primary : AppColors.textPrimary)),
           ],
         ),
       ),
@@ -467,16 +455,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       );
 
       if (!mounted) return;
-      Navigator.pop(context); // Close loading
+      Navigator.pop(context);
 
-      setState(() {
-        _category = updated;
-      });
-
+      setState(() => _category = updated);
       _showSnackBar('Đã cập nhật học phần', Icons.check_circle);
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // Close loading
+      Navigator.pop(context);
       _showSnackBar('Lỗi: $e', Icons.error, isError: true);
     }
   }
@@ -492,34 +477,22 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), shape: BoxShape.circle),
               child: const Icon(Icons.delete_forever, color: AppColors.error),
             ),
             const SizedBox(width: 12),
             const Text('Xóa học phần?'),
           ],
         ),
-        content: Text(
-          'Bạn có chắc muốn xóa "${_category!.name}"?\n\nTất cả ${_flashcards.length} thẻ sẽ bị xóa vĩnh viễn.',
-          style: const TextStyle(height: 1.5),
-        ),
+        content: Text('Bạn có chắc muốn xóa "${_category!.name}"?\n\nTất cả ${_flashcards.length} thẻ sẽ bị xóa vĩnh viễn.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _deleteCategory();
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
             child: const Text('Xóa'),
           ),
         ],
@@ -533,13 +506,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       await CategoryService.deleteCategory(_category!.id);
 
       if (!mounted) return;
-      Navigator.pop(context); // Close loading
-      Navigator.pop(context, true); // Return to previous screen
+      Navigator.pop(context);
+      Navigator.pop(context, true);
 
       _showSnackBar('Đã xóa học phần', Icons.check_circle);
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // Close loading
+      Navigator.pop(context);
       _showSnackBar('Lỗi: $e', Icons.error, isError: true);
     }
   }
@@ -548,9 +521,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      ),
+      builder: (context) => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
     );
   }
 
@@ -558,13 +529,11 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
+        content: Row(children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text(message)),
+        ]),
         backgroundColor: isError ? AppColors.error : AppColors.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -584,7 +553,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
           : _errorMessage != null
           ? _buildErrorState()
           : _buildContent(),
-      // ✅ FAB chỉ hiện khi _canEdit = true
       floatingActionButton: _canEdit && !_isLoading && _errorMessage == null
           ? ScaleTransition(
         scale: _fabAnimation,
@@ -607,10 +575,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
         children: [
           const CircularProgressIndicator(color: AppColors.primary),
           const SizedBox(height: 16),
-          Text(
-            'Đang tải học phần...',
-            style: TextStyle(color: AppColors.textGray),
-          ),
+          Text('Đang tải học phần...', style: TextStyle(color: AppColors.textGray)),
         ],
       ),
     );
@@ -618,43 +583,17 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
 
   Widget _buildErrorState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.error_outline, size: 64, color: AppColors.error),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Đã có lỗi xảy ra',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _errorMessage!,
-              style: TextStyle(color: AppColors.textGray),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadCategoryDetails,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Thử lại'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: AppColors.error),
+          const SizedBox(height: 16),
+          Text('Có lỗi xảy ra', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(_errorMessage ?? '', style: TextStyle(color: AppColors.textGray)),
+          const SizedBox(height: 24),
+          ElevatedButton(onPressed: _loadCategoryDetails, child: const Text('Thử lại')),
+        ],
       ),
     );
   }
@@ -662,161 +601,52 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   Widget _buildContent() {
     return CustomScrollView(
       slivers: [
-        _buildSliverAppBar(),
-        SliverToBoxAdapter(child: _buildOwnerBadge()), // ✅ Badge hiển thị quyền
-        SliverToBoxAdapter(child: _buildPreviewCards()),
-        SliverToBoxAdapter(child: _buildActionButtons()),
-        SliverToBoxAdapter(child: _buildStudyModes()),
-        SliverToBoxAdapter(child: _buildFlashcardSection()),
-        const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        _buildAppBar(),
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              _buildPreviewCards(),
+              _buildActionButtons(),
+              _buildStudyModes(),
+              _buildFlashcardSection(),
+              const SizedBox(height: 100),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  /// ✅ BADGE HIỂN THỊ QUYỀN (Owner/Viewer)
-  Widget _buildOwnerBadge() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _canEdit
-                  ? AppColors.success.withOpacity(0.1)
-                  : AppColors.secondary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: _canEdit ? AppColors.success : AppColors.secondary,
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _canEdit ? Icons.edit : Icons.visibility,
-                  size: 16,
-                  color: _canEdit ? AppColors.success : AppColors.secondary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _canEdit ? 'Chủ sở hữu' : 'Chế độ xem',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _canEdit ? AppColors.success : AppColors.secondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (!_canEdit)
-            Text(
-              'Bạn chỉ có thể xem và học',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textGray,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSliverAppBar() {
+  Widget _buildAppBar() {
     return SliverAppBar(
       expandedHeight: 180,
       pinned: true,
       backgroundColor: AppColors.primary,
       leading: IconButton(
-        icon: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-        ),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
         onPressed: () => Navigator.pop(context),
       ),
       actions: [
-        // Save button - AI AI CŨNG CÓ THỂ LƯU
-        IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              _isSaved ? Icons.bookmark : Icons.bookmark_border,
-              color: Colors.white,
-              size: 20,
-            ),
+        // ✅ NÚT LƯU - CHỈ HIỆN NẾU KHÔNG PHẢI OWNER
+        if (_canSave)
+          IconButton(
+            icon: Icon(_isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white),
+            onPressed: _toggleSave,
           ),
-          onPressed: _toggleSave,
-        ),
-        // Share button - AI AI CŨNG CÓ THỂ SHARE
-        IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.share, color: Colors.white, size: 20),
-          ),
-          onPressed: _shareCategory,
-        ),
-        // ✅ More options - CHỈ OWNER MỚI THẤY
+        IconButton(icon: const Icon(Icons.share_outlined, color: Colors.white), onPressed: _shareCategory),
+        // ✅ MENU - CHỈ HIỆN NẾU LÀ OWNER
         if (_canEdit)
           PopupMenuButton<String>(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
-            ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            icon: const Icon(Icons.more_vert, color: Colors.white),
             onSelected: (value) {
-              switch (value) {
-                case 'edit':
-                  _showEditCategoryDialog();
-                  break;
-                case 'delete':
-                  _showDeleteCategoryConfirmation();
-                  break;
-              }
+              if (value == 'edit') _showEditCategoryDialog();
+              if (value == 'delete') _showDeleteCategoryConfirmation();
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit_outlined, color: AppColors.textSecondary),
-                    SizedBox(width: 12),
-                    Text('Chỉnh sửa'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline, color: AppColors.error),
-                    SizedBox(width: 12),
-                    Text('Xóa học phần', style: TextStyle(color: AppColors.error)),
-                  ],
-                ),
-              ),
+              const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 20), SizedBox(width: 12), Text('Chỉnh sửa')])),
+              const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 20, color: AppColors.error), SizedBox(width: 12), Text('Xóa', style: TextStyle(color: AppColors.error))])),
             ],
           ),
-        const SizedBox(width: 8),
       ],
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
@@ -824,11 +654,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                AppColors.primary,
-                AppColors.primary.withOpacity(0.85),
-                AppColors.accent,
-              ],
+              colors: [AppColors.primary, AppColors.primary.withOpacity(0.85), AppColors.accent],
             ),
           ),
           child: SafeArea(
@@ -838,57 +664,23 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Visibility badge
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          _category!.isPublic ? Icons.public : Icons.lock_outline,
-                          size: 14,
-                          color: Colors.white,
-                        ),
+                        Icon(_category!.isPublic ? Icons.public : Icons.lock_outline, size: 14, color: Colors.white),
                         const SizedBox(width: 6),
-                        Text(
-                          _category!.isPublic ? 'Công khai' : 'Riêng tư',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        Text(_category!.isPublic ? 'Công khai' : 'Riêng tư', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Title
-                  Text(
-                    _category!.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(_category!.name, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
                   if (_category!.description != null && _category!.description!.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text(
-                      _category!.description!,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Text(_category!.description!, style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ],
               ),
@@ -918,12 +710,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
                 value = _previewController.page! - index;
                 value = (1 - (value.abs() * 0.15)).clamp(0.85, 1.0);
               }
-              return Center(
-                child: Transform.scale(
-                  scale: value,
-                  child: _buildPreviewCard(_flashcards[index], index),
-                ),
-              );
+              return Center(child: Transform.scale(scale: value, child: _buildPreviewCard(_flashcards[index])));
             },
           );
         },
@@ -931,19 +718,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     );
   }
 
-  Widget _buildPreviewCard(FlashcardModel card, int index) {
+  Widget _buildPreviewCard(FlashcardModel card) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
@@ -956,37 +737,11 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    card.question,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryDark,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(card.question, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryDark), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 16),
-                  Container(
-                    height: 2,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(1),
-                    ),
-                  ),
+                  Container(height: 2, width: 40, decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.3), borderRadius: BorderRadius.circular(1))),
                   const SizedBox(height: 16),
-                  Text(
-                    card.answer,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(card.answer, style: TextStyle(fontSize: 16, color: AppColors.textSecondary), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
@@ -1001,50 +756,27 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
       child: Row(
         children: [
-          // Stats card
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                     child: const Icon(Icons.style, color: AppColors.primary, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${_flashcards.length}',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryDark,
-                        ),
-                      ),
-                      Text(
-                        'thuật ngữ',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textGray,
-                        ),
-                      ),
+                      Text('${_flashcards.length}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                      Text('thuật ngữ', style: TextStyle(fontSize: 13, color: AppColors.textGray)),
                     ],
                   ),
                 ],
@@ -1052,42 +784,24 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
             ),
           ),
           const SizedBox(width: 12),
-          // Type badge
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
             ),
             child: Column(
               children: [
                 Icon(
-                  _category!.isClassCategory
-                      ? Icons.school_outlined
-                      : _category!.isSystem
-                      ? Icons.public
-                      : Icons.person_outline,
-                  color: AppColors.secondary,
+                  _isOwner ? Icons.edit : _category!.isClassCategory ? Icons.school_outlined : _category!.isSystem ? Icons.public : Icons.person_outline,
+                  color: _isOwner ? AppColors.success : AppColors.secondary,
                   size: 28,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _category!.isClassCategory
-                      ? 'Lớp học'
-                      : _category!.isSystem
-                      ? 'Hệ thống'
-                      : 'Cá nhân',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textGray,
-                  ),
+                  _isOwner ? 'Tác giả' : _category!.isClassCategory ? 'Lớp học' : _category!.isSystem ? 'Hệ thống' : 'Cá nhân',
+                  style: TextStyle(fontSize: 12, color: AppColors.textGray),
                 ),
               ],
             ),
@@ -1103,32 +817,30 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Chế độ học',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primaryDark,
-            ),
-          ),
+          const Text('Chế độ học', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
           const SizedBox(height: 16),
           Row(
             children: [
+              // ✅ HỌC - AI CŨNG ĐƯỢC
               Expanded(
                 child: _buildStudyModeCard(
                   icon: Icons.style_outlined,
                   label: 'Thẻ ghi nhớ',
                   color: AppColors.primary,
                   onTap: _startStudy,
+                  isEnabled: true,
                 ),
               ),
               const SizedBox(width: 12),
+              // ✅ KIỂM TRA - CHỈ PREMIUM/OWNER
               Expanded(
                 child: _buildStudyModeCard(
                   icon: Icons.quiz_outlined,
                   label: 'Kiểm tra',
                   color: AppColors.secondary,
                   onTap: _startQuiz,
+                  isEnabled: _canQuiz,
+                  isPremium: !_canQuiz,
                 ),
               ),
             ],
@@ -1142,6 +854,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
                   label: 'Ghi nhớ',
                   color: AppColors.warning,
                   onTap: () => _showSnackBar('Đang phát triển', Icons.construction),
+                  isEnabled: true,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1151,6 +864,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
                   label: 'Ghép thẻ',
                   color: AppColors.error,
                   onTap: () => _showSnackBar('Đang phát triển', Icons.construction),
+                  isEnabled: true,
                 ),
               ),
             ],
@@ -1165,6 +879,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     required String label,
     required Color color,
     required VoidCallback onTap,
+    bool isEnabled = true,
+    bool isPremium = false,
   }) {
     return Material(
       color: Colors.white,
@@ -1176,33 +892,26 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: color, size: 22),
+                decoration: BoxDecoration(color: (isEnabled ? color : AppColors.textGray).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: isEnabled ? color : AppColors.textGray, size: 22),
               ),
               const SizedBox(width: 12),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: AppColors.primaryDark,
-                ),
+              Expanded(
+                child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: isEnabled ? AppColors.primaryDark : AppColors.textGray)),
               ),
+              // ✅ BADGE PREMIUM
+              if (isPremium)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                  child: const Text('PRO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.warning)),
+                ),
             ],
           ),
         ),
@@ -1219,30 +928,15 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Thuật ngữ trong học phần',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryDark,
-                ),
-              ),
-              Text(
-                '${_flashcards.length} thẻ',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textGray,
-                ),
-              ),
+              const Text('Thuật ngữ trong học phần', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+              Text('${_flashcards.length} thẻ', style: TextStyle(fontSize: 14, color: AppColors.textGray)),
             ],
           ),
           const SizedBox(height: 16),
           if (_flashcards.isEmpty)
             _buildEmptyFlashcards()
           else
-            ..._flashcards.asMap().entries.map((entry) =>
-                _buildFlashcardItem(entry.value, entry.key)
-            ),
+            ..._flashcards.asMap().entries.map((entry) => _buildFlashcardItem(entry.value, entry.key)),
         ],
       ),
     );
@@ -1254,35 +948,19 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, style: BorderStyle.solid),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: AppColors.background, shape: BoxShape.circle),
             child: Icon(Icons.style_outlined, size: 48, color: AppColors.textGray),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'Chưa có thẻ nào',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primaryDark,
-            ),
-          ),
+          const Text('Chưa có thẻ nào', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
           const SizedBox(height: 8),
-          Text(
-            _canEdit
-                ? 'Thêm thẻ đầu tiên để bắt đầu học'
-                : 'Học phần này chưa có thẻ nào',
-            style: TextStyle(color: AppColors.textGray),
-          ),
-          // ✅ Chỉ owner mới thấy nút thêm
+          Text(_canEdit ? 'Thêm thẻ đầu tiên để bắt đầu học' : 'Học phần này chưa có thẻ nào', style: TextStyle(color: AppColors.textGray)),
           if (_canEdit) ...[
             const SizedBox(height: 20),
             ElevatedButton.icon(
@@ -1293,9 +971,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -1310,111 +986,50 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: () {
-            // TODO: Show flashcard detail or flip
-          },
+          onTap: () {},
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Index badge
                 Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.primary, AppColors.accent],
-                    ),
+                    gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent]),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
+                  child: Center(child: Text('${index + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
                 ),
                 const SizedBox(width: 16),
-                // Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        flashcard.question,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                          color: AppColors.primaryDark,
-                        ),
-                      ),
+                      Text(flashcard.question, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: AppColors.primaryDark)),
                       const SizedBox(height: 8),
-                      Text(
-                        flashcard.answer,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                          height: 1.4,
-                        ),
-                      ),
+                      Text(flashcard.answer, style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4)),
                       if (flashcard.phonetic != null) ...[
                         const SizedBox(height: 6),
-                        Text(
-                          flashcard.phonetic!,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textGray,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
+                        Text(flashcard.phonetic!, style: TextStyle(fontSize: 13, color: AppColors.textGray, fontStyle: FontStyle.italic)),
                       ],
                     ],
                   ),
                 ),
-                // Actions
                 Column(
                   children: [
-                    // TTS button - AI AI CŨNG THẤY
-                    IconButton(
-                      icon: Icon(Icons.volume_up_outlined, color: AppColors.primary, size: 22),
-                      onPressed: () {
-                        // TODO: TTSService.speak(flashcard.question);
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
-                    // ✅ Edit/Delete - CHỈ OWNER THẤY
+                    IconButton(icon: Icon(Icons.volume_up_outlined, color: AppColors.primary, size: 22), onPressed: () {}, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36, minHeight: 36)),
+                    // ✅ CHỈ HIỆN NÚT SỬA/XÓA NẾU LÀ OWNER
                     if (_canEdit) ...[
-                      IconButton(
-                        icon: Icon(Icons.edit_outlined, color: AppColors.textGray, size: 20),
-                        onPressed: () => _editFlashcard(flashcard),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline, color: AppColors.error, size: 20),
-                        onPressed: () => _deleteFlashcard(flashcard),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                      ),
+                      IconButton(icon: Icon(Icons.edit_outlined, color: AppColors.textGray, size: 20), onPressed: () => _editFlashcard(flashcard), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36, minHeight: 36)),
+                      IconButton(icon: Icon(Icons.delete_outline, color: AppColors.error, size: 20), onPressed: () => _deleteFlashcard(flashcard), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36, minHeight: 36)),
                     ],
                   ],
                 ),
@@ -1427,26 +1042,16 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   }
 }
 
-// Animation builder widget
 class AnimatedBuilder extends StatelessWidget {
   final Listenable animation;
   final Widget Function(BuildContext context, Widget? child) builder;
   final Widget? child;
 
-  const AnimatedBuilder({
-    Key? key,
-    required this.animation,
-    required this.builder,
-    this.child,
-  }) : super(key: key);
+  const AnimatedBuilder({Key? key, required this.animation, required this.builder, this.child}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder2(
-      animation: animation,
-      builder: builder,
-      child: child,
-    );
+    return AnimatedBuilder2(animation: animation, builder: builder, child: child);
   }
 }
 
@@ -1454,12 +1059,7 @@ class AnimatedBuilder2 extends AnimatedWidget {
   final Widget Function(BuildContext context, Widget? child) builder;
   final Widget? child;
 
-  const AnimatedBuilder2({
-    Key? key,
-    required Listenable animation,
-    required this.builder,
-    this.child,
-  }) : super(key: key, listenable: animation);
+  const AnimatedBuilder2({Key? key, required Listenable animation, required this.builder, this.child}) : super(key: key, listenable: animation);
 
   @override
   Widget build(BuildContext context) {
