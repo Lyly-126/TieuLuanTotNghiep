@@ -493,10 +493,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Stack(alignment: Alignment.center, children: [
-        Center(child: Text('Khóa học', style: AppTextStyles.heading2.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700))),
-        Positioned(left: 0, child: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.primary, size: 22), onPressed: () => setState(() => _selectedIndex = 0))),
-      ]),
+      child: Center(
+        child: Text('Khóa học', style: AppTextStyles.heading2.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
+      ),
     );
   }
 

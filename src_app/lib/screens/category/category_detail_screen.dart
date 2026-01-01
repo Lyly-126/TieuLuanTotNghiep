@@ -62,7 +62,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   // Permissions
   bool get _isOwner => widget.isOwner || (_category?.ownerUserId == _currentUser?.userId);
   bool get _canEdit => _isOwner && !(_category?.isSystem ?? true);
-  bool get _canQuiz => _isOwner || (_currentUser?.hasPremiumAccess ?? false);
+  bool get _canQuiz => true; // ✅ TẤT CẢ người dùng đều có thể kiểm tra
   bool get _canStudy => true;
   bool get _canSave => !_isOwner;
 
@@ -183,44 +183,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       _showSnackBar('Chưa có thẻ nào để kiểm tra', Icons.warning, isError: true);
       return;
     }
-    if (!_canQuiz) { _showUpgradeDialog(); return; }
+    // ✅ TẤT CẢ người dùng đều có thể kiểm tra
     _showSnackBar('Tính năng kiểm tra đang phát triển', Icons.quiz);
   }
-
-  void _showUpgradeDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 80, height: 80, decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [AppColors.warning, AppColors.warning.withOpacity(0.7)])), child: const Icon(Icons.workspace_premium_rounded, size: 40, color: Colors.white)),
-            const SizedBox(height: 20),
-            const Text('Nâng cấp Premium', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
-            const SizedBox(height: 12),
-            Text('Tính năng Kiểm tra chỉ dành cho người dùng Premium', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5)),
-            const SizedBox(height: 24),
-            _buildUpgradeBenefit(Icons.quiz_outlined, 'Kiểm tra kiến thức'),
-            const SizedBox(height: 8),
-            _buildUpgradeBenefit(Icons.insights, 'Theo dõi tiến độ'),
-            const SizedBox(height: 8),
-            _buildUpgradeBenefit(Icons.stars, 'Truy cập đầy đủ tính năng'),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradePremiumScreen())); },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning, foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              child: const Text('Nâng cấp ngay', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(height: 12),
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Để sau', style: TextStyle(color: AppColors.textGray))),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUpgradeBenefit(IconData icon, String text) => Row(children: [Icon(icon, size: 20, color: AppColors.success), const SizedBox(width: 12), Text(text, style: const TextStyle(fontSize: 14, color: AppColors.textPrimary))]);
 
   Future<void> _shareCategory() async {
     await Share.share('📚 ${_category!.name}\n${_flashcards.length} thuật ngữ\n\nHọc cùng tôi trên FlashLearn!\nhttps://flashlearn.vn/set/${_category!.id}', subject: _category!.name);
@@ -725,13 +690,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       Row(children: [
         Expanded(child: _buildStudyModeCard(icon: Icons.style_outlined, label: 'Thẻ ghi nhớ', color: AppColors.primary, onTap: _startStudy, isEnabled: true)),
         const SizedBox(width: 12),
-        Expanded(child: _buildStudyModeCard(icon: Icons.quiz_outlined, label: 'Kiểm tra', color: AppColors.secondary, onTap: _startQuiz, isEnabled: _canQuiz, isPremium: !_canQuiz)),
+        Expanded(child: _buildStudyModeCard(icon: Icons.quiz_outlined, label: 'Kiểm tra', color: AppColors.secondary, onTap: _startQuiz, isEnabled: true)),
       ]),
       const SizedBox(height: 12),
     ]));
   }
 
-  Widget _buildStudyModeCard({required IconData icon, required String label, required Color color, required VoidCallback onTap, bool isEnabled = true, bool isPremium = false}) {
+  Widget _buildStudyModeCard({required IconData icon, required String label, required Color color, required VoidCallback onTap, bool isEnabled = true}) {
     return Material(color: Colors.white, borderRadius: BorderRadius.circular(16), child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(16), child: Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
@@ -739,7 +704,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
         Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: (isEnabled ? color : AppColors.textGray).withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: isEnabled ? color : AppColors.textGray, size: 22)),
         const SizedBox(width: 12),
         Expanded(child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: isEnabled ? AppColors.primaryDark : AppColors.textGray))),
-        if (isPremium) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(4)), child: const Text('PRO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.warning))),
       ]),
     )));
   }
