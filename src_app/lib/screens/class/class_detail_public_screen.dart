@@ -18,22 +18,20 @@ class ClassDetailPublicScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ClassDetailPublicScreen> createState() =>
-      _ClassDetailPublicScreenState();
+  State<ClassDetailPublicScreen> createState() => _ClassDetailPublicScreenState();
 }
 
 class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
   bool _isLoading = true;
   bool _isJoining = false;
   bool _isMember = false;
-  bool _isPending = false; // ✅ THÊM: Trạng thái chờ duyệt
+  bool _isPending = false;
   List<CategoryModel> _categories = [];
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    print('📱 [SCREEN] $runtimeType');
     _loadClassDetails();
   }
 
@@ -44,7 +42,6 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     });
 
     try {
-      // Kiểm tra membership và load categories đồng thời
       final results = await Future.wait([
         ClassService.isUserMemberOfClass(widget.classModel.id),
         CategoryService.getCategoriesByClassId(widget.classModel.id),
@@ -63,7 +60,6 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     }
   }
 
-  // ✅ CẬP NHẬT: Xử lý join với logic public/private
   Future<void> _handleJoinClass() async {
     setState(() => _isJoining = true);
 
@@ -73,19 +69,14 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
       setState(() {
         _isJoining = false;
 
-        // ✅ Nếu là public → approved ngay
         if (widget.classModel.isPublic) {
           _isMember = true;
           _isPending = false;
           _showSuccessSnackBar('✅ Đã tham gia lớp học thành công!');
         } else {
-          // ✅ Nếu là private → chờ duyệt
           _isMember = false;
           _isPending = true;
-          _showInfoSnackBar(
-            '⏳ Yêu cầu tham gia đã được gửi!\n'
-                'Vui lòng đợi giáo viên phê duyệt.',
-          );
+          _showInfoSnackBar('⏳ Yêu cầu tham gia đã được gửi!\nVui lòng đợi giáo viên phê duyệt.');
         }
       });
     } catch (e) {
@@ -120,7 +111,6 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     }
   }
 
-  // ✅ THÊM: Hủy yêu cầu tham gia (khi đang pending)
   Future<void> _handleCancelRequest() async {
     final confirm = await _showConfirmDialog(
       'Hủy yêu cầu',
@@ -151,50 +141,32 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        body: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
 
     if (_errorMessage != null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: AppColors.primary,
-          title: const Text('Lỗi'),
-        ),
+        appBar: AppBar(backgroundColor: AppColors.primary, title: const Text('Lỗi')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.error_outline, size: 64, color: AppColors.error),
               const SizedBox(height: 16),
-              Text(
-                'Không thể tải thông tin lớp học',
-                style: AppTextStyles.heading2,
-              ),
+              Text('Không thể tải thông tin lớp học', style: AppTextStyles.heading2),
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  _errorMessage!,
-                  style: AppTextStyles.body,
-                  textAlign: TextAlign.center,
-                ),
+                child: Text(_errorMessage!, style: AppTextStyles.body, textAlign: TextAlign.center),
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: _loadClassDetails,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Thử lại'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               ),
             ],
           ),
@@ -208,10 +180,7 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
         slivers: [
           _buildAppBar(),
           SliverToBoxAdapter(child: _buildClassInfo()),
-
-          // ✅ CẬP NHẬT: Hiển thị action button phù hợp
           SliverToBoxAdapter(child: _buildActionButton()),
-
           if (_isMember) ...[
             SliverToBoxAdapter(child: _buildCategoriesHeader()),
             _categories.isEmpty
@@ -235,10 +204,7 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
       flexibleSpace: FlexibleSpaceBar(
         title: Text(
           widget.classModel.name,
-          style: AppTextStyles.heading2.copyWith(
-            color: Colors.white,
-            fontSize: 18,
-          ),
+          style: AppTextStyles.heading2.copyWith(color: Colors.white, fontSize: 18),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -247,29 +213,21 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                AppColors.primary,
-                AppColors.primaryDark,
-              ],
+              colors: [AppColors.primary, AppColors.primaryDark],
             ),
           ),
           child: Center(
-            child: Icon(
-              Icons.school,
-              size: 80,
-              color: Colors.white.withOpacity(0.3),
-            ),
+            child: Icon(Icons.school, size: 80, color: Colors.white.withOpacity(0.3)),
           ),
         ),
       ),
     );
   }
 
-  // ✅ CẬP NHẬT: Ẩn mã mời, chỉ hiển thị thông tin cần thiết
   Widget _buildClassInfo() {
     return Container(
       margin: const EdgeInsets.all(AppConstants.padding),
-      padding: const EdgeInsets.all(AppConstants.padding * 1.5),
+      padding: const EdgeInsets.all(AppConstants.padding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
@@ -277,291 +235,246 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tiêu đề
-          Text(
-            'Thông tin lớp học',
-            style: AppTextStyles.heading2.copyWith(
-              color: AppColors.primaryDark,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Mô tả
-          if (widget.classModel.description != null &&
-              widget.classModel.description!.isNotEmpty) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.description,
-                  size: 20,
-                  color: AppColors.primary,
+          // Visibility badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: widget.classModel.isPublic
+                      ? AppColors.success.withOpacity(0.1)
+                      : AppColors.warning.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    widget.classModel.description!,
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.textPrimary,
-                      height: 1.5,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.classModel.isPublic ? Icons.public : Icons.lock_outline,
+                      size: 16,
+                      color: widget.classModel.isPublic ? AppColors.success : AppColors.warning,
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // Giáo viên
-          _buildInfoRow(
-            icon: Icons.person,
-            label: 'Giáo viên',
-            value: widget.classModel.ownerName ?? 'Không rõ',
-          ),
-          const SizedBox(height: 12),
-
-          // Số học phần
-          _buildInfoRow(
-            icon: Icons.collections_bookmark,
-            label: 'Số học phần',
-            value: '${_categories.length} chủ đề',
-          ),
-          const SizedBox(height: 12),
-
-          // Số thành viên
-          _buildInfoRow(
-            icon: Icons.people,
-            label: 'Thành viên',
-            value: '${widget.classModel.memberCount ?? 0} người',
-          ),
-          const SizedBox(height: 12),
-
-          // ❌ XÓA: Không hiển thị mã mời cho user thường
-          // Chỉ teacher mới thấy mã mời trong màn hình class management
-
-          // Trạng thái công khai/riêng tư
-          _buildInfoRow(
-            icon: widget.classModel.isPublic ? Icons.public : Icons.lock,
-            label: 'Trạng thái',
-            value: widget.classModel.isPublic ? 'Công khai' : 'Riêng tư',
-          ),
-
-          // ✅ THÊM: Giải thích về private class
-          if (!widget.classModel.isPublic && !_isMember && !_isPending) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.warning.withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    size: 20,
-                    color: AppColors.warning,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Lớp riêng tư: Cần phê duyệt từ giáo viên',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.warning,
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.classModel.isPublic ? 'Công khai' : 'Riêng tư',
+                      style: TextStyle(
+                        color: widget.classModel.isPublic ? AppColors.success : AppColors.warning,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    Widget? trailing,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: AppColors.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Row(
-              children: [
-                Text(
-                  '$label: ',
-                  style: AppTextStyles.body.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                  ],
                 ),
-                Expanded(
-                  child: Text(
-                    value,
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              if (widget.classModel.inviteCode != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                ),
-              ],
-            ),
-          ),
-          if (trailing != null) trailing,
-        ],
-      ),
-    );
-  }
-
-  // ✅ MỚI: Build action button dựa trên trạng thái
-  Widget _buildActionButton() {
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppConstants.padding,
-        vertical: 8,
-      ),
-      child: _buildActionButtonContent(),
-    );
-  }
-
-  Widget _buildActionButtonContent() {
-    // Đang xử lý
-    if (_isJoining) {
-      return ElevatedButton(
-        onPressed: null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary.withOpacity(0.5),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('Đang xử lý...'),
-          ],
-        ),
-      );
-    }
-
-    // ✅ Đã là thành viên → Nút rời lớp
-    if (_isMember) {
-      return OutlinedButton.icon(
-        onPressed: _handleLeaveClass,
-        icon: const Icon(Icons.exit_to_app),
-        label: const Text('Rời khỏi lớp học'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.error,
-          side: BorderSide(color: AppColors.error),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-          ),
-        ),
-      );
-    }
-
-    // ✅ Đang chờ duyệt (PENDING) → Hiển thị thông báo + nút hủy
-    if (_isPending) {
-      return Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-              border: Border.all(
-                color: AppColors.warning.withOpacity(0.3),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.hourglass_empty, color: AppColors.warning),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      Icon(Icons.key, size: 16, color: AppColors.accent),
+                      const SizedBox(width: 6),
                       Text(
-                        'Đang chờ phê duyệt',
-                        style: AppTextStyles.body.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.warning,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Giáo viên sẽ xem xét yêu cầu của bạn',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                        widget.classModel.inviteCode!,
+                        style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ],
                   ),
                 ),
               ],
-            ),
+            ],
           ),
+
+          if (widget.classModel.description != null && widget.classModel.description!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(widget.classModel.description!, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary, height: 1.5)),
+          ],
+
+          const SizedBox(height: 16),
+          const Divider(),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _handleCancelRequest,
-            icon: const Icon(Icons.close),
-            label: const Text('Hủy yêu cầu'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textSecondary,
-              side: BorderSide(color: AppColors.textSecondary.withOpacity(0.3)),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-              ),
-            ),
+
+          // Stats row
+          Row(
+            children: [
+              _buildStatItem(Icons.person, widget.classModel.ownerName ?? 'Giáo viên', 'Giảng viên'),
+              const SizedBox(width: 24),
+              _buildStatItem(Icons.people, '${widget.classModel.memberCount ?? 0}', 'Thành viên'),
+              const SizedBox(width: 24),
+              _buildStatItem(Icons.folder, '${widget.classModel.categoryCount ?? 0}', 'Học phần'),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, color: AppColors.primary, size: 24),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primaryDark)),
+        Text(label, style: TextStyle(fontSize: 12, color: AppColors.textGray)),
+      ],
+    );
+  }
+
+  Widget _buildActionButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppConstants.padding),
+      child: _buildActionContent(),
+    );
+  }
+
+  Widget _buildActionContent() {
+    if (_isJoining) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
 
-    // ✅ Chưa tham gia → Nút tham gia
-    return ElevatedButton.icon(
-      onPressed: _handleJoinClass,
-      icon: const Icon(Icons.add),
-      label: Text(
-        widget.classModel.isPublic
-            ? 'Tham gia lớp học'
-            : 'Gửi yêu cầu tham gia',
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+    // ✅ ĐÃ LÀ THÀNH VIÊN
+    if (_isMember) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.success.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.success.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppColors.success.withOpacity(0.2), shape: BoxShape.circle),
+              child: const Icon(Icons.check_circle, color: AppColors.success, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Đã tham gia', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 16)),
+                  Text('Bạn là thành viên của lớp học này', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: _handleLeaveClass,
+              child: Text('Rời lớp', style: TextStyle(color: AppColors.error)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ✅ ĐANG CHỜ PHÊ DUYỆT - THIẾT KẾ ĐẸP HƠN
+    if (_isPending) {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppColors.warning.withOpacity(0.1), AppColors.warning.withOpacity(0.05)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: AppColors.warning.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: const Icon(Icons.hourglass_top, color: AppColors.warning, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Đang chờ phê duyệt',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.warning, fontSize: 16),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Giáo viên sẽ xem xét yêu cầu của bạn',
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Cancel button
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _handleCancelRequest,
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  label: const Text('Hủy yêu cầu tham gia'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: BorderSide(color: AppColors.error.withOpacity(0.5), width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ✅ CHƯA THAM GIA - NÚT THAM GIA
+    return Container(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _handleJoinClass,
+        icon: Icon(widget.classModel.isPublic ? Icons.add : Icons.send, color: Colors.white),
+        label: Text(
+          widget.classModel.isPublic ? 'Tham gia lớp học' : 'Gửi yêu cầu tham gia',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 2,
         ),
       ),
     );
@@ -569,22 +482,12 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
 
   Widget _buildCategoriesHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppConstants.padding,
-        AppConstants.padding,
-        AppConstants.padding,
-        AppConstants.padding / 2,
-      ),
+      padding: const EdgeInsets.fromLTRB(AppConstants.padding, AppConstants.padding, AppConstants.padding, AppConstants.padding / 2),
       child: Row(
         children: [
           Icon(Icons.collections_bookmark, color: AppColors.primary),
           const SizedBox(width: 8),
-          Text(
-            'Học phần (${_categories.length})',
-            style: AppTextStyles.heading2.copyWith(
-              color: AppColors.primaryDark,
-            ),
-          ),
+          Text('Học phần (${_categories.length})', style: AppTextStyles.heading2.copyWith(color: AppColors.primaryDark)),
         ],
       ),
     );
@@ -593,10 +496,7 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
   Widget _buildCategoriesList() {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
-            (context, index) {
-          final category = _categories[index];
-          return _buildCategoryCard(category);
-        },
+            (context, index) => _buildCategoryCard(_categories[index]),
         childCount: _categories.length,
       ),
     );
@@ -604,10 +504,7 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
 
   Widget _buildCategoryCard(CategoryModel category) {
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppConstants.padding,
-        vertical: AppConstants.padding / 2,
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: AppConstants.padding, vertical: AppConstants.padding / 2),
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
@@ -617,9 +514,7 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
           child: Container(
             padding: const EdgeInsets.all(AppConstants.padding),
             decoration: BoxDecoration(
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.1),
-              ),
+              border: Border.all(color: AppColors.primary.withOpacity(0.1)),
               borderRadius: BorderRadius.circular(AppConstants.borderRadius),
             ),
             child: Row(
@@ -631,10 +526,7 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    Icons.collections_bookmark,
-                    color: AppColors.primary,
-                  ),
+                  child: Icon(Icons.collections_bookmark, color: AppColors.primary),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -643,28 +535,16 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
                     children: [
                       Text(
                         category.name,
-                        style: AppTextStyles.body.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
+                        style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '${category.flashcardCount ?? 0} thẻ',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
+                      Text('${category.flashcardCount ?? 0} thẻ', style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: AppColors.textSecondary,
-                ),
+                Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.textSecondary),
               ],
             ),
           ),
@@ -680,26 +560,11 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.folder_open,
-              size: 80,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.folder_open, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text(
-              'Chưa có học phần nào',
-              style: AppTextStyles.heading2.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
+            Text('Chưa có học phần nào', style: AppTextStyles.heading2.copyWith(color: AppColors.textSecondary)),
             const SizedBox(height: 8),
-            Text(
-              'Giáo viên chưa thêm học phần vào lớp này',
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text('Giáo viên chưa thêm học phần vào lớp này', style: AppTextStyles.body.copyWith(color: AppColors.textSecondary), textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -709,12 +574,7 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
   void _navigateToFlashcards(CategoryModel category) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => CategoryDetailScreen(
-          category: category,
-          isOwner: false,
-        ),
-      ),
+      MaterialPageRoute(builder: (context) => CategoryDetailScreen(category: category, isOwner: false)),
     );
   }
 
@@ -722,18 +582,14 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(title),
         content: Text(message),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.error,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Xác nhận'),
           ),
         ],
@@ -745,16 +601,10 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
+        content: Row(children: [const Icon(Icons.check_circle, color: Colors.white), const SizedBox(width: 12), Expanded(child: Text(message))]),
         backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -763,15 +613,10 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.info, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
+        content: Row(children: [const Icon(Icons.info, color: Colors.white), const SizedBox(width: 12), Expanded(child: Text(message))]),
         backgroundColor: AppColors.warning,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 4),
       ),
     );
@@ -781,16 +626,10 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.error, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
+        content: Row(children: [const Icon(Icons.error, color: Colors.white), const SizedBox(width: 12), Expanded(child: Text(message))]),
         backgroundColor: AppColors.error,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

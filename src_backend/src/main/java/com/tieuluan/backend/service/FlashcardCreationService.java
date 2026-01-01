@@ -101,6 +101,8 @@ public class FlashcardCreationService {
      * STEP 3: Tạo và lưu flashcard
      * ========================================
      * Gọi khi user xác nhận tất cả và bấm Lưu
+     *
+     * ✅ FIXED: Thêm set userId và partOfSpeechVi
      */
     @Transactional
     public FlashcardCreateResult createFlashcard(FlashcardCreateRequest request) {
@@ -116,6 +118,15 @@ public class FlashcardCreationService {
                 return result;
             }
 
+            // ✅ FIX 1: Lấy current user
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                result.setSuccess(false);
+                result.setMessage("Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.");
+                return result;
+            }
+            log.info("👤 Creating flashcard for user: {} (ID: {})", currentUser.getEmail(), currentUser.getId());
+
             // 1. Validate category
             Category category = null;
             if (request.getCategoryId() != null) {
@@ -123,7 +134,7 @@ public class FlashcardCreationService {
                         .orElseThrow(() -> new RuntimeException("Category không tồn tại"));
 
                 // Check ownership
-                Long userId = getCurrentUserId();
+                Long userId = currentUser.getId();
                 if (!canUserAccessCategory(category, userId)) {
                     result.setSuccess(false);
                     result.setMessage("Bạn không có quyền sử dụng category này");
@@ -145,11 +156,20 @@ public class FlashcardCreationService {
             Flashcard flashcard = new Flashcard();
             flashcard.setWord(request.getWord());
             flashcard.setPartOfSpeech(request.getPartOfSpeech());
+
+            // ✅ FIX 2: Set partOfSpeechVi
+            flashcard.setPartOfSpeechVi(request.getPartOfSpeechVi());
+            log.info("📝 Setting partOfSpeechVi: {}", request.getPartOfSpeechVi());
+
             flashcard.setPhonetic(request.getPhonetic());
             flashcard.setMeaning(meaning);
             flashcard.setImageUrl(request.getSelectedImageUrl());
             flashcard.setTtsUrl(ttsUrl);
             flashcard.setCategory(category);
+
+            // ✅ FIX 3: Set user
+            flashcard.setUser(currentUser);
+            log.info("👤 Setting user: {} (ID: {})", currentUser.getEmail(), currentUser.getId());
 
             // 5. Save
             Flashcard saved = flashcardRepository.save(flashcard);
@@ -159,7 +179,8 @@ public class FlashcardCreationService {
             result.setFlashcardId(saved.getId());
             result.setFlashcard(saved);
 
-            log.info("✅ Flashcard saved with ID: {}", saved.getId());
+            log.info("✅ Flashcard saved with ID: {}, userId: {}, partOfSpeechVi: {}",
+                    saved.getId(), saved.getUserId(), saved.getPartOfSpeechVi());
             return result;
 
         } catch (Exception e) {
@@ -241,15 +262,34 @@ public class FlashcardCreationService {
         return meaning.toString();
     }
 
-    private Long getCurrentUserId() {
+    /**
+     * ✅ FIX: Trả về User object thay vì chỉ userId
+     */
+    private User getCurrentUser() {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated()) {
+                log.warn("⚠️ No authentication found");
+                return null;
+            }
+
             String email = auth.getName();
+            log.info("🔍 Looking up user by email: {}", email);
+
             User user = userRepository.findByEmail(email).orElse(null);
-            return user != null ? user.getId() : null;
+            if (user == null) {
+                log.warn("⚠️ User not found for email: {}", email);
+            }
+            return user;
         } catch (Exception e) {
+            log.error("❌ Error getting current user: {}", e.getMessage());
             return null;
         }
+    }
+
+    private Long getCurrentUserId() {
+        User user = getCurrentUser();
+        return user != null ? user.getId() : null;
     }
 
     private boolean canUserAccessCategory(Category category, Long userId) {
@@ -265,16 +305,16 @@ public class FlashcardCreationService {
     public static class FlashcardPreviewResult {
         private boolean success;
         private String message;
-        private String word;  // ✅ Đổi từ term thành word
+        private String word;
         private DictionaryLookupResult dictionaryResult;
         private List<ImageInfo> imageSuggestions;
     }
 
     @Data
     public static class FlashcardCreateRequest {
-        private String word;              // ✅ Đổi từ term thành word (match với Flutter)
+        private String word;
         private String partOfSpeech;
-        private String partOfSpeechVi;    // ✅ Thêm field này để match Flutter
+        private String partOfSpeechVi;    // ✅ Field này đã có
         private String phonetic;
         private String meaning;           // Vietnamese
         private String definition;        // English

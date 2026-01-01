@@ -229,9 +229,10 @@ class FlashcardService {
     }
   }
 
-  /// ✅ Xóa flashcard - chấp nhận int? để tương thích với FlashcardModel.id
-  static Future<bool> deleteFlashcard(int? id) async {  // ✅ Đổi từ int sang int?
-    // ✅ Validate id không null
+  /// ✅ Xóa flashcard - SỬA: Dùng endpoint /{id} thay vì /admin/{id}
+  /// Endpoint /admin/{id} chỉ dành cho ADMIN role
+  /// Endpoint /{id} dành cho owner của category
+  static Future<bool> deleteFlashcard(int? id) async {
     if (id == null) {
       throw Exception('ID flashcard không hợp lệ');
     }
@@ -240,7 +241,8 @@ class FlashcardService {
       final token = await _getToken();
       if (token == null) throw Exception('Vui lòng đăng nhập lại');
 
-      final uri = Uri.parse('${ApiConfig.flashcardBase}/admin/$id');
+      // ✅ SỬA: Dùng endpoint /{id} thay vì /admin/{id}
+      final uri = Uri.parse('${ApiConfig.flashcardBase}/$id');
 
       final response = await http.delete(
         uri,
@@ -251,7 +253,14 @@ class FlashcardService {
         },
       );
 
-      return response.statusCode == 200 || response.statusCode == 204;
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+      } else if (response.statusCode == 403) {
+        throw Exception('Bạn không có quyền xóa flashcard này');
+      } else {
+        final error = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(error['message'] ?? 'Không thể xóa flashcard');
+      }
     } catch (e) {
       throw Exception('Lỗi: $e');
     }

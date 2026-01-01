@@ -1,8 +1,10 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+
+// ✅ Conditional import for web
+import 'tts_web_stub.dart' if (dart.library.html) 'tts_web_impl.dart' as tts_web;
 
 import '../config/api_config.dart';
 
@@ -12,17 +14,20 @@ class TTSService {
   factory TTSService() => _instance;
   TTSService._internal();
 
-  // ✅ BACKEND URL - Thay đổi theo môi trường
-  // Web: http://localhost:8080/api/tts
-  // Mobile: http://10.0.2.2:8080/api/tts (Android Emulator)
-  // static const String _baseUrl = 'http://localhost:8080/api/tts';
-
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
 
   // Getters
   bool get isPlaying => _isPlaying;
   bool get isConfigured => true;
+
+  /// ✅ Headers - không cần authentication (TTS endpoint là public)
+  static Map<String, String> _getHeaders() {
+    return {
+      'Accept': 'audio/mpeg, application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
+  }
 
   /// Phát văn bản
   Future<void> speak(String text, {String languageCode = 'en-US'}) async {
@@ -33,8 +38,7 @@ class TTSService {
         await Future.delayed(const Duration(milliseconds: 100));
       }
 
-      // ✅ ĐANG TEST TRÊN WEB → GỌI BACKEND LUÔN
-      // Sau này deploy app mobile cũng gọi backend
+      // ✅ GỌI BACKEND
       await _speakViaBackend(text, languageCode);
 
     } catch (e) {
@@ -48,38 +52,52 @@ class TTSService {
   Future<void> _speakViaBackend(String text, String languageCode) async {
     try {
       if (kDebugMode) {
-        print('🎵 Calling Backend TTS API...');
-        print('   Platform: ${kIsWeb ? "WEB" : "MOBILE"}');
-        print('   Text: "$text"');
+        print('🎵 TTS Request: "$text" ($languageCode)');
       }
 
-      // Gọi backend endpoint
-      final uri = Uri.parse('${ApiConfig.ttsSynthesize}/generate-audio').replace(
+      // ✅ Gọi backend endpoint
+      final uri = Uri.parse(ApiConfig.ttsGenerateAudio).replace(
         queryParameters: {
           'text': text,
           'languageCode': languageCode,
         },
       );
 
+      final headers = _getHeaders();
+
       final response = await http.post(
         uri,
-        headers: {'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
-        },
+        headers: headers,
       );
 
+      if (kDebugMode) {
+        print('📨 Response Status: ${response.statusCode}');
+      }
+
       if (response.statusCode == 200) {
-        // Backend trả về audio bytes
         final audioBytes = response.bodyBytes;
+        if (kDebugMode) print('✅ TTS received: ${audioBytes.length} bytes');
 
-        if (kDebugMode) {
-          print('✅ Received audio: ${audioBytes.length} bytes');
+        // ✅ Phát audio tùy theo platform
+        if (kIsWeb) {
+          _isPlaying = true;
+          await tts_web.playAudioBytes(
+            audioBytes,
+            onComplete: () {
+              _isPlaying = false;
+              if (kDebugMode) print('✅ Web audio completed');
+            },
+            onError: (e) {
+              _isPlaying = false;
+              if (kDebugMode) print('❌ Web audio error: $e');
+            },
+          );
+        } else {
+          await _playAudioOnMobile(audioBytes);
         }
-
-        // Phát audio từ bytes
-        await _playAudioFromBytes(audioBytes);
       } else {
-        throw Exception('Backend TTS failed: ${response.statusCode}');
+        if (kDebugMode) print('❌ TTS Error ${response.statusCode}: ${response.body}');
+        throw Exception('Lỗi phát âm: ${response.statusCode}');
       }
     } catch (e) {
       _isPlaying = false;
@@ -88,8 +106,8 @@ class TTSService {
     }
   }
 
-  /// Phát audio từ bytes
-  Future<void> _playAudioFromBytes(List<int> audioBytes) async {
+  /// ✅ Phát audio trên MOBILE sử dụng audioplayers
+  Future<void> _playAudioOnMobile(List<int> audioBytes) async {
     try {
       _isPlaying = true;
 
@@ -100,11 +118,11 @@ class TTSService {
       // Lắng nghe khi audio kết thúc
       _audioPlayer.onPlayerComplete.listen((_) {
         _isPlaying = false;
-        if (kDebugMode) print('✅ Audio playback completed');
+        if (kDebugMode) print('✅ Mobile audio completed');
       });
     } catch (e) {
       _isPlaying = false;
-      if (kDebugMode) print('❌ Error playing audio: $e');
+      if (kDebugMode) print('❌ Error playing mobile audio: $e');
       rethrow;
     }
   }
@@ -120,12 +138,28 @@ class TTSService {
       if (kDebugMode) print('🎵 Playing from URL: $audioUrl');
 
       _isPlaying = true;
-      await _audioPlayer.play(UrlSource(audioUrl));
 
-      _audioPlayer.onPlayerComplete.listen((_) {
-        _isPlaying = false;
-        if (kDebugMode) print('✅ URL audio completed');
-      });
+      if (kIsWeb) {
+        await tts_web.playAudioUrl(
+          audioUrl,
+          onComplete: () {
+            _isPlaying = false;
+            if (kDebugMode) print('✅ URL audio completed');
+          },
+          onError: (e) {
+            _isPlaying = false;
+            if (kDebugMode) print('❌ URL audio error: $e');
+          },
+        );
+      } else {
+        // Mobile: dùng audioplayers
+        await _audioPlayer.play(UrlSource(audioUrl));
+
+        _audioPlayer.onPlayerComplete.listen((_) {
+          _isPlaying = false;
+          if (kDebugMode) print('✅ URL audio completed');
+        });
+      }
     } catch (e) {
       _isPlaying = false;
       if (kDebugMode) print('❌ Error playing from URL: $e');
@@ -136,7 +170,11 @@ class TTSService {
   /// Dừng phát audio
   Future<void> stop() async {
     try {
-      await _audioPlayer.stop();
+      if (kIsWeb) {
+        tts_web.stopAudio();
+      } else {
+        await _audioPlayer.stop();
+      }
       _isPlaying = false;
       if (kDebugMode) print('ℹ️ Audio stopped');
     } catch (e) {
@@ -146,6 +184,7 @@ class TTSService {
 
   /// Giải phóng resources
   void dispose() {
+    stop();
     _audioPlayer.dispose();
   }
 }

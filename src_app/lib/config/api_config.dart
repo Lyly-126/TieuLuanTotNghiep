@@ -125,9 +125,11 @@ class ApiConfig {
   /// Policy endpoints
   static String get policyBase => '$baseUrl/api/policies';
 
-  /// TTS endpoints
+  /// ✅ TTS endpoints - SỬA LẠI URL ĐÚNG
   static String get ttsBase => '$baseUrl/api/tts';
-  static String get ttsSynthesize => '$ttsBase/synthesize';
+  static String get ttsGenerateAudio => '$ttsBase/generate-audio';  // ✅ ĐÚNG: /api/tts/generate-audio
+  static String get ttsGenerateUrl => '$ttsBase/generate-url';      // ✅ /api/tts/generate-url
+  static String get ttsHealth => '$ttsBase/health';                  // ✅ /api/tts/health
 
   /// Admin endpoints
   static String get adminBase => '$baseUrl/api/admin';

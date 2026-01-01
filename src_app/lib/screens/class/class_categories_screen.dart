@@ -1,64 +1,130 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:math' as math;
 import '../../config/app_colors.dart';
-import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
-import '../../models/class_model.dart';
 import '../../models/category_model.dart';
+import '../../models/flashcard_model.dart';
 import '../../models/user_model.dart';
 import '../../services/category_service.dart';
+import '../../services/flash_card_service.dart';
 import '../../services/user_service.dart';
-import '../../widgets/custom_button.dart';
-import '../category/category_detail_screen.dart';
+import '../../services/tts_service.dart';
+import '../card/flashcard_creation_screen.dart';
+import '../card/flashcard_screen.dart';
+import '../card/flashcard_edit_screen.dart';
+import '../payment/upgrade_premium_screen.dart';
 
-class ClassCategoriesScreen extends StatefulWidget {
-  final ClassModel classModel;
+/// 🎨 Màn hình chi tiết chủ đề - Unified Screen
+///
+/// PHÂN QUYỀN:
+/// - Owner (Tác giả): Toàn quyền - Xem, Học, Kiểm tra, Thêm/Sửa/Xóa flashcard, Sửa/Xóa category
+/// - NORMAL_USER: Chỉ xem, học, lưu chủ đề (KHÔNG có kiểm tra)
+/// - PREMIUM_USER/TEACHER: Xem, học, kiểm tra, lưu chủ đề
+class CategoryDetailScreen extends StatefulWidget {
+  final CategoryModel category;
+  final bool isOwner;
 
-  const ClassCategoriesScreen({Key? key, required this.classModel})
-      : super(key: key);
+  const CategoryDetailScreen({
+    Key? key,
+    required this.category,
+    this.isOwner = false,
+  }) : super(key: key);
 
   @override
-  State<ClassCategoriesScreen> createState() => _ClassCategoriesScreenState();
+  State<CategoryDetailScreen> createState() => _CategoryDetailScreenState();
 }
 
-class _ClassCategoriesScreenState extends State<ClassCategoriesScreen> {
-  List<CategoryModel> _categories = [];
-  bool _isLoading = false;
+class _CategoryDetailScreenState extends State<CategoryDetailScreen>
+    with TickerProviderStateMixin {
+  // State
+  bool _isLoading = true;
+  bool _isSaved = false;
+  List<FlashcardModel> _flashcards = [];
+  String? _errorMessage;
+  CategoryModel? _category;
+  UserModel? _currentUser;
+
+  // TTS
+  final TTSService _ttsService = TTSService();
+  int? _speakingIndex; // Index của thẻ đang phát âm
+
+  // Animation
+  late AnimationController _fabController;
+  late Animation<double> _fabAnimation;
+
+  // Preview card
+  int _previewIndex = 0;
+  late PageController _previewController;
+
+  // ✅ PHÂN QUYỀN
+  bool get _isOwner => widget.isOwner || (_category?.ownerUserId == _currentUser?.userId);
+  bool get _canEdit => _isOwner && !(_category?.isSystem ?? true);
+  bool get _canQuiz => _isOwner || (_currentUser?.hasPremiumAccess ?? false);
+  bool get _canStudy => true;
+  bool get _canSave => !_isOwner;
+
+  CategoryModel get category => _category ?? widget.category;
+
   @override
   void initState() {
     super.initState();
-    print('📱 [SCREEN] $runtimeType');
+    _category = widget.category;
+    _isSaved = widget.category.isSaved;
+
+    _fabController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fabAnimation = CurvedAnimation(
+      parent: _fabController,
+      curve: Curves.easeOut,
+    );
+
+    _previewController = PageController(viewportFraction: 0.85);
     _loadCurrentUser();
-    _loadCategories();
+    _loadCategoryDetails();
+  }
+
+  @override
+  void dispose() {
+    _fabController.dispose();
+    _previewController.dispose();
+    _ttsService.stop();
+    super.dispose();
   }
 
   Future<void> _loadCurrentUser() async {
     try {
       final user = await UserService.getCurrentUser();
-      if (mounted) setState(() => _currentUser = user);
+      if (mounted) {
+        setState(() => _currentUser = user);
+      }
     } catch (e) {
       debugPrint('Error loading user: $e');
     }
   }
 
-  String _errorMessage = '';
-
-  UserModel? _currentUser;
-
-  /// Load categories của lớp
-  Future<void> _loadCategories() async {
+  Future<void> _loadCategoryDetails() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = '';
+      _errorMessage = null;
     });
 
     try {
-      final categories =
-      await CategoryService.getCategoriesByClassId(widget.classModel.id);
+      final flashcards = await FlashcardService.getFlashcardsByCategory(_category!.id);
+
+      if (!mounted) return;
+
       setState(() {
-        _categories = categories;
+        _flashcards = flashcards;
         _isLoading = false;
       });
+
+      _fabController.forward();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
@@ -66,688 +132,720 @@ class _ClassCategoriesScreenState extends State<ClassCategoriesScreen> {
     }
   }
 
-  void _navigateToCategory(CategoryModel category) {
-    // isOwner = true nếu user là owner của Class
-    final isClassOwner = widget.classModel.ownerId == _currentUser?.userId;
+  // ==================== TTS - PHÁT ÂM ====================
 
+  Future<void> _speakWord(FlashcardModel flashcard, int index) async {
+    if (_ttsService.isPlaying) {
+      await _ttsService.stop();
+      setState(() => _speakingIndex = null);
+      return;
+    }
+
+    if (!_ttsService.isConfigured) {
+      _showSnackBar('Tính năng phát âm chưa được cấu hình', Icons.warning, isError: true);
+      return;
+    }
+
+    try {
+      setState(() => _speakingIndex = index);
+
+      await _ttsService.speak(
+        flashcard.question,
+        languageCode: 'en-US',
+      );
+
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        setState(() => _speakingIndex = null);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _speakingIndex = null);
+        _showSnackBar('Không thể phát âm: $e', Icons.error, isError: true);
+      }
+    }
+  }
+
+  // ==================== ACTIONS ====================
+
+  Future<void> _toggleSave() async {
+    if (!_canSave) return;
+
+    try {
+      if (_isSaved) {
+        await CategoryService.unsaveCategory(_category!.id);
+        setState(() => _isSaved = false);
+        _showSnackBar('Đã bỏ lưu học phần', Icons.bookmark_border);
+      } else {
+        await CategoryService.saveCategory(_category!.id);
+        setState(() => _isSaved = true);
+        _showSnackBar('Đã lưu học phần', Icons.bookmark);
+      }
+    } catch (e) {
+      _showSnackBar('Không thể thực hiện: $e', Icons.error, isError: true);
+    }
+  }
+
+  void _startStudy() {
+    if (_flashcards.isEmpty) {
+      _showSnackBar('Chưa có thẻ nào để học', Icons.warning, isError: true);
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CategoryDetailScreen(
-          category: category,
-          isOwner: isClassOwner,
-        ),
-      ),
-    ).then((_) {
-      _loadCategories();
-    });
-  }
-
-  /// Hiển thị dialog tạo category mới
-  void _showCreateCategoryDialog() {
-    final nameController = TextEditingController();
-    final descriptionController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.5),
-        ),
-        title: Text(
-          'Tạo chủ đề mới',
-          style: AppTextStyles.heading2.copyWith(
-            color: AppColors.primaryDark,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(
-                labelText: 'Tên chủ đề *',
-                hintText: 'VD: Từ vựng Unit 1',
-                labelStyle: AppTextStyles.label,
-                hintStyle: AppTextStyles.hint,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: descriptionController,
-              decoration: InputDecoration(
-                labelText: 'Mô tả',
-                hintText: 'VD: 20 từ vựng về gia đình',
-                labelStyle: AppTextStyles.label,
-                hintStyle: AppTextStyles.hint,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                ),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Hủy',
-              style: AppTextStyles.label.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          CustomButton(
-            text: 'Tạo',
-            width: 100,
-            height: 40,
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('⚠️ Vui lòng nhập tên chủ đề'),
-                    backgroundColor: AppColors.warning,
-                  ),
-                );
-                return;
-              }
-
-              try {
-                await CategoryService.createCategory(
-                  name: nameController.text.trim(),
-                  classId: widget.classModel.id,
-                  description: descriptionController.text.trim().isNotEmpty
-                      ? descriptionController.text.trim()
-                      : null,
-                );
-
-                Navigator.pop(context);
-                _loadCategories();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Tạo chủ đề thành công'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('❌ $e'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              }
-            },
-          ),
-        ],
+        builder: (context) => FlashcardScreen(categoryId: _category!.id),
       ),
     );
   }
 
-  /// Hiển thị dialog sửa category
-  void _showEditCategoryDialog(CategoryModel category) {
-    final nameController = TextEditingController(text: category.name);
-    final descriptionController =
-    TextEditingController(text: category.description ?? '');
+  void _startQuiz() {
+    if (_flashcards.isEmpty) {
+      _showSnackBar('Chưa có thẻ nào để kiểm tra', Icons.warning, isError: true);
+      return;
+    }
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.5),
-        ),
-        title: Text(
-          'Sửa chủ đề',
-          style: AppTextStyles.heading2.copyWith(
-            color: AppColors.primaryDark,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(
-                labelText: 'Tên chủ đề *',
-                labelStyle: AppTextStyles.label,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: descriptionController,
-              decoration: InputDecoration(
-                labelText: 'Mô tả',
-                labelStyle: AppTextStyles.label,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                ),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Hủy',
-              style: AppTextStyles.label.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          CustomButton(
-            text: 'Lưu',
-            width: 100,
-            height: 40,
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('⚠️ Vui lòng nhập tên chủ đề'),
-                    backgroundColor: AppColors.warning,
-                  ),
-                );
-                return;
-              }
+    if (!_canQuiz) {
+      _showUpgradeDialog();
+      return;
+    }
 
-              try {
-                await CategoryService.updateCategory(
-                  categoryId: category.id,
-                  name: nameController.text.trim(),
-                  description: descriptionController.text.trim().isNotEmpty
-                      ? descriptionController.text.trim()
-                      : null,
-                );
-
-                Navigator.pop(context);
-                _loadCategories();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Cập nhật thành công'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('❌ $e'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              }
-            },
-          ),
-        ],
-      ),
-    );
+    _showSnackBar('Tính năng kiểm tra đang phát triển', Icons.quiz);
   }
 
-  /// Xóa category
-  Future<void> _deleteCategory(CategoryModel category) async {
-    final confirm = await showDialog<bool>(
+  void _showUpgradeDialog() {
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.5),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: AppColors.error,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('Xác nhận xóa'),
-          ],
-        ),
-        content: RichText(
-          text: TextSpan(
-            style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const TextSpan(text: 'Bạn có chắc muốn xóa chủ đề '),
-              TextSpan(
-                text: '"${category.name}"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(text: '?\n\n'),
-              TextSpan(
-                text: '⚠️ Tất cả ${category.flashcardCount ?? 0} thẻ trong chủ đề này cũng sẽ bị xóa!',
-                style: TextStyle(
-                  color: AppColors.error,
-                  fontWeight: FontWeight.w500,
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [AppColors.warning, AppColors.warning.withOpacity(0.7)],
+                  ),
                 ),
+                child: const Icon(Icons.workspace_premium_rounded, size: 40, color: Colors.white),
               ),
+              const SizedBox(height: 20),
+              const Text('Nâng cấp Premium', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+              const SizedBox(height: 12),
+              Text('Tính năng Kiểm tra chỉ dành cho người dùng Premium', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5)),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const UpgradePremiumScreen()));
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning, foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: const Text('Nâng cấp ngay', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 12),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Để sau', style: TextStyle(color: AppColors.textGray))),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _shareCategory() async {
+    final shareUrl = 'https://flashlearn.vn/set/${_category!.id}';
+    await Share.share('📚 ${_category!.name}\n${_flashcards.length} thuật ngữ\n\nHọc cùng tôi trên FlashLearn!\n$shareUrl', subject: _category!.name);
+  }
+
+  void _addFlashcard() {
+    if (!_canEdit) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlashcardCreationScreen(
+          initialCategoryId: _category!.id,
+          initialCategoryName: _category!.name,
+        ),
+      ),
+    ).then((created) {
+      if (created == true) _loadCategoryDetails();
+    });
+  }
+
+  void _editFlashcard(FlashcardModel flashcard) {
+    if (!_canEdit) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlashcardEditScreen(flashcard: flashcard, categoryId: _category!.id),
+      ),
+    ).then((updated) {
+      if (updated == true) _loadCategoryDetails();
+    });
+  }
+
+  Future<void> _deleteFlashcard(FlashcardModel flashcard) async {
+    if (!_canEdit) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.delete_forever, color: AppColors.error)),
+            const SizedBox(width: 12),
+            const Text('Xóa thẻ?'),
+          ],
+        ),
+        content: Text('Bạn có chắc muốn xóa thẻ "${flashcard.question}"?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Hủy',
-              style: AppTextStyles.label.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Xóa'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white), child: const Text('Xóa')),
         ],
       ),
     );
 
     if (confirm == true) {
       try {
-        await CategoryService.deleteCategory(category.id);
-        _loadCategories();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Đã xóa chủ đề'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        await FlashcardService.deleteFlashcard(flashcard.id);
+        _loadCategoryDetails();
+        _showSnackBar('Đã xóa thẻ', Icons.check_circle);
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        _showSnackBar('Lỗi: $e', Icons.error, isError: true);
       }
     }
   }
+
+  void _showEditCategoryDialog() {
+    if (!_canEdit) return;
+
+    final nameController = TextEditingController(text: _category!.name);
+    final descController = TextEditingController(text: _category!.description ?? '');
+    String visibility = _category!.visibility ?? 'PRIVATE';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Chỉnh sửa học phần'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Tên học phần', border: OutlineInputBorder())),
+                const SizedBox(height: 16),
+                TextField(controller: descController, decoration: const InputDecoration(labelText: 'Mô tả (tùy chọn)', border: OutlineInputBorder()), maxLines: 3),
+                const SizedBox(height: 16),
+                const Text('Quyền riêng tư', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: _buildVisibilityOption(icon: Icons.lock_outline, label: 'Riêng tư', isSelected: visibility == 'PRIVATE', onTap: () => setDialogState(() => visibility = 'PRIVATE'))),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildVisibilityOption(icon: Icons.public, label: 'Công khai', isSelected: visibility == 'PUBLIC', onTap: () => setDialogState(() => visibility = 'PUBLIC'))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _updateCategory(nameController.text, descController.text, visibility);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              child: const Text('Lưu', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVisibilityOption({required IconData icon, required String label, required bool isSelected, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary.withOpacity(0.1) : AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isSelected ? AppColors.primary : AppColors.border, width: isSelected ? 2 : 1),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: isSelected ? AppColors.primary : AppColors.textGray),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: isSelected ? AppColors.primary : AppColors.textPrimary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateCategory(String name, String description, String visibility) async {
+    try {
+      _showLoadingDialog();
+      final updated = await CategoryService.updateCategory(categoryId: _category!.id, name: name, description: description.isEmpty ? null : description, visibility: visibility);
+      if (!mounted) return;
+      Navigator.pop(context);
+      setState(() => _category = updated);
+      _showSnackBar('Đã cập nhật học phần', Icons.check_circle);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showSnackBar('Lỗi: $e', Icons.error, isError: true);
+    }
+  }
+
+  void _showDeleteCategoryConfirmation() {
+    if (!_canEdit) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), shape: BoxShape.circle), child: const Icon(Icons.delete_forever, color: AppColors.error)),
+            const SizedBox(width: 12),
+            const Text('Xóa học phần?'),
+          ],
+        ),
+        content: Text('Bạn có chắc muốn xóa "${_category!.name}"?\n\nTất cả ${_flashcards.length} thẻ sẽ bị xóa vĩnh viễn.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+          ElevatedButton(onPressed: () { Navigator.pop(context); _deleteCategory(); }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white), child: const Text('Xóa')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteCategory() async {
+    try {
+      _showLoadingDialog();
+      await CategoryService.deleteCategory(_category!.id);
+      if (!mounted) return;
+      Navigator.pop(context);
+      Navigator.pop(context, true);
+      _showSnackBar('Đã xóa học phần', Icons.check_circle);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showSnackBar('Lỗi: $e', Icons.error, isError: true);
+    }
+  }
+
+  void _showLoadingDialog() {
+    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator(color: AppColors.primary)));
+  }
+
+  void _showSnackBar(String message, IconData icon, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(children: [Icon(icon, color: Colors.white, size: 20), const SizedBox(width: 12), Expanded(child: Text(message))]),
+        backgroundColor: isError ? AppColors.error : AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  // ==================== BUILD UI ====================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          // Header
-          Container(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 8,
-              left: 16,
-              right: 16,
-              bottom: 16,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primary,
-                  AppColors.primary.withOpacity(0.8),
-                ],
-              ),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Back button & title
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Chủ đề',
-                            style: AppTextStyles.heading2.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            widget.classModel.name,
-                            style: AppTextStyles.caption.copyWith(
-                              color: Colors.white.withOpacity(0.8),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Stats
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem(
-                        icon: Icons.folder_rounded,
-                        value: '${_categories.length}',
-                        label: 'Chủ đề',
-                      ),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                      _buildStatItem(
-                        icon: Icons.style_rounded,
-                        value: '${_categories.fold<int>(0, (sum, c) => sum + (c.flashcardCount ?? 0))}',
-                        label: 'Thẻ',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          Expanded(
-            child: _isLoading
-                ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            )
-                : _errorMessage.isNotEmpty
-                ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: AppColors.error.withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Đã có lỗi xảy ra',
-                    style: AppTextStyles.heading3,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _errorMessage,
-                    style: AppTextStyles.caption,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: _loadCategories,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Thử lại'),
-                  ),
-                ],
-              ),
-            )
-                : _categories.isEmpty
-                ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: AppColors.inputBackground,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.folder_open_rounded,
-                        size: 60,
-                        color: AppColors.primary.withOpacity(0.5),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Chưa có chủ đề nào',
-                      style: AppTextStyles.heading2.copyWith(
-                        color: AppColors.primaryDark,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Tạo chủ đề đầu tiên để bắt đầu\nthêm flashcard vào lớp học',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.hint.copyWith(
-                        color: AppColors.textSecondary,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    CustomButton(
-                      text: 'Tạo chủ đề đầu tiên',
-                      onPressed: _showCreateCategoryDialog,
-                      icon: Icons.add_rounded,
-                    ),
-                  ],
-                ),
-              ),
-            )
-                : RefreshIndicator(
-              onRefresh: _loadCategories,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final category = _categories[index];
-                  return _buildCategoryCard(category);
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: !_isLoading && _categories.isNotEmpty
-          ? FloatingActionButton(
-        onPressed: _showCreateCategoryDialog,
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add_rounded, size: 28),
+      body: _isLoading ? _buildLoadingState() : _errorMessage != null ? _buildErrorState() : _buildContent(),
+      floatingActionButton: _canEdit && !_isLoading && _errorMessage == null
+          ? ScaleTransition(
+        scale: _fabAnimation,
+        child: FloatingActionButton.extended(
+          onPressed: _addFlashcard,
+          backgroundColor: AppColors.primary,
+          elevation: 4,
+          icon: const Icon(Icons.add_rounded, color: Colors.white),
+          label: const Text('Thêm thẻ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
       )
           : null,
     );
   }
 
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white, size: 24),
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const CircularProgressIndicator(color: AppColors.primary),
+        const SizedBox(height: 16),
+        Text('Đang tải học phần...', style: TextStyle(color: AppColors.textGray)),
+      ]),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.error_outline, size: 64, color: AppColors.error),
+        const SizedBox(height: 16),
+        const Text('Có lỗi xảy ra', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        Text(
-          value,
-          style: AppTextStyles.heading2.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: AppTextStyles.caption.copyWith(
-            color: Colors.white.withOpacity(0.8),
+        Text(_errorMessage ?? '', style: TextStyle(color: AppColors.textGray)),
+        const SizedBox(height: 24),
+        ElevatedButton(onPressed: _loadCategoryDetails, child: const Text('Thử lại')),
+      ]),
+    );
+  }
+
+  Widget _buildContent() {
+    return CustomScrollView(
+      slivers: [
+        _buildAppBar(),
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              _buildPreviewCards(),
+              _buildActionButtons(),
+              _buildStudyModes(),
+              _buildFlashcardSection(),
+              const SizedBox(height: 100),
+            ],
           ),
         ),
       ],
     );
   }
 
-  /// ✅ Build category card với navigation tới CategoryDetailScreen
-  Widget _buildCategoryCard(CategoryModel category) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListTile(
-        // ✅ FIX: Navigate tới CategoryDetailScreen thay vì route string
-        onTap: () => _navigateToCategory(category),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primary,
-                AppColors.primary.withOpacity(0.7),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            Icons.folder_rounded,
-            color: Colors.white,
-            size: 24,
-          ),
-        ),
-        title: Text(
-          category.name,
-          style: AppTextStyles.label.copyWith(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (category.description != null &&
-                category.description!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                category.description!,
-                style: AppTextStyles.hint,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+  Widget _buildAppBar() {
+    return SliverAppBar(
+      expandedHeight: 180,
+      pinned: true,
+      backgroundColor: AppColors.primary,
+      leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
+      actions: [
+        if (_canSave) IconButton(icon: Icon(_isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white), onPressed: _toggleSave),
+        IconButton(icon: const Icon(Icons.share_outlined, color: Colors.white), onPressed: _shareCategory),
+        if (_canEdit)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: (value) {
+              if (value == 'edit') _showEditCategoryDialog();
+              if (value == 'delete') _showDeleteCategoryConfirmation();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 20), SizedBox(width: 12), Text('Chỉnh sửa')])),
+              const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 20, color: AppColors.error), SizedBox(width: 12), Text('Xóa', style: TextStyle(color: AppColors.error))])),
             ],
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.style_rounded,
-                  size: 14,
-                  color: AppColors.primary.withOpacity(0.7),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${category.flashcardCount ?? 0} thẻ',
-                  style: AppTextStyles.hint.copyWith(
-                    fontSize: 12,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        trailing: PopupMenuButton(
-          icon: const Icon(Icons.more_vert_rounded),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppConstants.borderRadius),
           ),
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'edit',
-              child: Row(
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.primary, AppColors.primary.withOpacity(0.85), AppColors.accent])),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 56, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Icon(Icons.edit_outlined,
-                      size: 20, color: AppColors.primary),
-                  const SizedBox(width: 12),
-                  Text('Sửa', style: AppTextStyles.label),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  const Icon(Icons.delete_outlined,
-                      size: 20, color: AppColors.error),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Xóa',
-                    style: AppTextStyles.label.copyWith(color: AppColors.error),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_category!.isPublic ? Icons.public : Icons.lock_outline, size: 14, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text(_category!.isPublic ? 'Công khai' : 'Riêng tư', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 12),
+                  Text(_category!.name, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  if (_category!.description != null && _category!.description!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(_category!.description!, style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
                 ],
               ),
             ),
-          ],
-          onSelected: (value) {
-            if (value == 'edit') {
-              _showEditCategoryDialog(category);
-            } else if (value == 'delete') {
-              _deleteCategory(category);
-            }
-          },
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildPreviewCards() {
+    if (_flashcards.isEmpty) return const SizedBox.shrink();
+    return Container(
+      height: 200,
+      margin: const EdgeInsets.only(top: 20),
+      child: PageView.builder(
+        controller: _previewController,
+        itemCount: math.min(_flashcards.length, 5),
+        onPageChanged: (index) => setState(() => _previewIndex = index),
+        itemBuilder: (context, index) {
+          return AnimatedBuilder(
+            animation: _previewController,
+            builder: (context, child) {
+              double value = 1.0;
+              if (_previewController.position.haveDimensions) {
+                value = _previewController.page! - index;
+                value = (1 - (value.abs() * 0.15)).clamp(0.85, 1.0);
+              }
+              return Center(child: Transform.scale(scale: value, child: _buildPreviewCard(_flashcards[index])));
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPreviewCard(FlashcardModel card) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8))]),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _startStudy,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(card.question, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryDark), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 16),
+                  Container(height: 2, width: 40, decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.3), borderRadius: BorderRadius.circular(1))),
+                  const SizedBox(height: 16),
+                  Text(card.answer, style: TextStyle(fontSize: 16, color: AppColors.textSecondary), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
+              child: Row(
+                children: [
+                  Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.style, color: AppColors.primary, size: 24)),
+                  const SizedBox(width: 12),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${_flashcards.length}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                    Text('thuật ngữ', style: TextStyle(fontSize: 13, color: AppColors.textGray)),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
+            child: Column(children: [
+              Icon(_isOwner ? Icons.edit : _category!.isClassCategory ? Icons.school_outlined : _category!.isSystem ? Icons.public : Icons.person_outline, color: _isOwner ? AppColors.success : AppColors.secondary, size: 28),
+              const SizedBox(height: 4),
+              Text(_isOwner ? 'Tác giả' : _category!.isClassCategory ? 'Lớp học' : _category!.isSystem ? 'Hệ thống' : 'Cá nhân', style: TextStyle(fontSize: 12, color: AppColors.textGray)),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ CHỈ CÒN HỌC VÀ KIỂM TRA
+  Widget _buildStudyModes() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Chế độ học', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _buildStudyModeCard(icon: Icons.style_outlined, label: 'Thẻ ghi nhớ', color: AppColors.primary, onTap: _startStudy, isEnabled: true)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildStudyModeCard(icon: Icons.quiz_outlined, label: 'Kiểm tra', color: AppColors.secondary, onTap: _startQuiz, isEnabled: _canQuiz, isPremium: !_canQuiz)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudyModeCard({required IconData icon, required String label, required Color color, required VoidCallback onTap, bool isEnabled = true, bool isPremium = false}) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
+          child: Row(
+            children: [
+              Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: (isEnabled ? color : AppColors.textGray).withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: isEnabled ? color : AppColors.textGray, size: 22)),
+              const SizedBox(width: 12),
+              Expanded(child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: isEnabled ? AppColors.primaryDark : AppColors.textGray))),
+              if (isPremium) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(4)), child: const Text('PRO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.warning))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFlashcardSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Thuật ngữ trong học phần', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+            Text('${_flashcards.length} thẻ', style: TextStyle(fontSize: 14, color: AppColors.textGray)),
+          ]),
+          const SizedBox(height: 16),
+          if (_flashcards.isEmpty) _buildEmptyFlashcards() else ..._flashcards.asMap().entries.map((entry) => _buildFlashcardItem(entry.value, entry.key)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyFlashcards() {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+      child: Column(children: [
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: AppColors.background, shape: BoxShape.circle), child: Icon(Icons.style_outlined, size: 48, color: AppColors.textGray)),
+        const SizedBox(height: 20),
+        const Text('Chưa có thẻ nào', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+        const SizedBox(height: 8),
+        Text(_canEdit ? 'Thêm thẻ đầu tiên để bắt đầu học' : 'Học phần này chưa có thẻ nào', style: TextStyle(color: AppColors.textGray)),
+        if (_canEdit) ...[
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: _addFlashcard,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text('Thêm thẻ', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  // ✅ FLASHCARD ITEM VỚI PHÁT ÂM HOẠT ĐỘNG
+  Widget _buildFlashcardItem(FlashcardModel flashcard, int index) {
+    final isSpeaking = _speakingIndex == index;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.accent]), borderRadius: BorderRadius.circular(10)),
+                  child: Center(child: Text('${index + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(flashcard.question, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: AppColors.primaryDark)),
+                      const SizedBox(height: 8),
+                      Text(flashcard.answer, style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4)),
+                      if (flashcard.phonetic != null) ...[
+                        const SizedBox(height: 6),
+                        Text(flashcard.phonetic!, style: TextStyle(fontSize: 13, color: AppColors.textGray, fontStyle: FontStyle.italic)),
+                      ],
+                    ],
+                  ),
+                ),
+                Column(
+                  children: [
+                    // ✅ NÚT PHÁT ÂM HOẠT ĐỘNG
+                    IconButton(
+                      icon: isSpeaking
+                          ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+                          : Icon(Icons.volume_up_outlined, color: AppColors.primary, size: 22),
+                      onPressed: () => _speakWord(flashcard, index),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
+                    if (_canEdit) ...[
+                      IconButton(icon: Icon(Icons.edit_outlined, color: AppColors.textGray, size: 20), onPressed: () => _editFlashcard(flashcard), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36, minHeight: 36)),
+                      IconButton(icon: Icon(Icons.delete_outline, color: AppColors.error, size: 20), onPressed: () => _deleteFlashcard(flashcard), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36, minHeight: 36)),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AnimatedBuilder extends StatelessWidget {
+  final Listenable animation;
+  final Widget Function(BuildContext context, Widget? child) builder;
+  final Widget? child;
+
+  const AnimatedBuilder({Key? key, required this.animation, required this.builder, this.child}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder2(animation: animation, builder: builder, child: child);
+  }
+}
+
+class AnimatedBuilder2 extends AnimatedWidget {
+  final Widget Function(BuildContext context, Widget? child) builder;
+  final Widget? child;
+
+  const AnimatedBuilder2({Key? key, required Listenable animation, required this.builder, this.child}) : super(key: key, listenable: animation);
+
+  @override
+  Widget build(BuildContext context) {
+    return builder(context, child);
   }
 }

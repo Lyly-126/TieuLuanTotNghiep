@@ -90,6 +90,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/dictionary/**").permitAll()
                         .requestMatchers("/api/images/**").permitAll()
 
+                        // ========== ✅ TTS - PUBLIC (không cần authentication) ==========
+                        .requestMatchers("/api/tts/**").permitAll()
+
                         // ========== ADMIN ONLY ==========
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/admin/**").hasRole("ADMIN")
@@ -147,9 +150,6 @@ public class SecurityConfig {
 
                         // ========== DICTIONARY - PUBLIC ==========
                         .requestMatchers("/api/dictionary/**").permitAll()
-
-                        // ========== TTS - ALL AUTHENTICATED ==========
-                        .requestMatchers("/api/tts/**").authenticated()
 
                         // Static resources
                         .requestMatchers("/audio/**").permitAll()

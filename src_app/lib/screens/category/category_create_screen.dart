@@ -6,11 +6,12 @@ import '../../config/app_text_styles.dart';
 import '../../models/flashcard_model.dart';
 import '../../services/category_service.dart';
 import '../../services/flash_card_service.dart';
+import '../../services/flashcard_creation_service.dart';
 
 /// 🎨 Màn hình tạo chủ đề mới - PHIÊN BẢN HOÀN CHỈNH
-/// ✅ Có mô tả, đồng bộ với style cũ
+/// ✅ Tự động tra cứu từ và tạo thẻ đầy đủ (meaning, definition, phonetic, image, audio)
 class CategoryCreateScreen extends StatefulWidget {
-  final int? classId; // Optional: nếu tạo cho class cụ thể
+  final int? classId;
   final String? className;
 
   const CategoryCreateScreen({
@@ -31,17 +32,19 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
 
   bool _isPublic = false;
   bool _isLoading = false;
+  String _loadingMessage = '';
+  int _currentProcessingIndex = 0;
+  int _totalCards = 0;
 
-  // Danh sách flashcards đang tạo (CHỈ CÓ TERM)
+  // Danh sách flashcards đang tạo
   final List<_FlashcardTermData> _flashcards = [
-    _FlashcardTermData(), // Mặc định có 2 cards
+    _FlashcardTermData(),
     _FlashcardTermData(),
   ];
 
   @override
   void initState() {
     super.initState();
-    print('📱 [SCREEN] $runtimeType');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _titleFocusNode.requestFocus();
     });
@@ -58,18 +61,12 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
     super.dispose();
   }
 
-  /// Thêm flashcard mới
   void _addFlashcard() {
     setState(() {
       _flashcards.add(_FlashcardTermData());
     });
-    // Scroll to bottom sau khi thêm
-    Future.delayed(const Duration(milliseconds: 100), () {
-      // Scroll animation sẽ được handle bởi ListView
-    });
   }
 
-  /// Xóa flashcard
   void _removeFlashcard(int index) {
     if (_flashcards.length <= 1) {
       _showSnackBar('Phải có ít nhất 1 thẻ', isError: true);
@@ -81,7 +78,7 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
     });
   }
 
-  /// Validate và lưu
+  /// ✅ TẠO CATEGORY VÀ FLASHCARDS ĐẦY ĐỦ
   Future<void> _saveCategory() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -94,7 +91,12 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = 'Đang tạo chủ đề...';
+      _totalCards = validFlashcards.length;
+      _currentProcessingIndex = 0;
+    });
 
     try {
       // 1. Tạo category trước
@@ -107,24 +109,84 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
         classId: widget.classId,
       );
 
-      // 2. Tạo flashcards (CHỈ CÓ TERM - meaning sẽ generate sau)
-      for (var flashcardData in validFlashcards) {
-        await FlashcardService.createFlashcard(
-          categoryId: category.id,
-          term: flashcardData.term.trim(),
-          meaning: 'Đang chờ tạo tự động...', // Placeholder
-        );
+      // 2. ✅ TẠO FLASHCARDS ĐẦY ĐỦ - Tra cứu và tạo từng thẻ
+      int successCount = 0;
+      List<String> failedTerms = [];
+
+      for (int i = 0; i < validFlashcards.length; i++) {
+        final flashcardData = validFlashcards[i];
+        final term = flashcardData.term.trim();
+
+        setState(() {
+          _currentProcessingIndex = i + 1;
+          _loadingMessage = 'Đang tra cứu "$term" (${ i + 1}/${validFlashcards.length})...';
+        });
+
+        try {
+          // ✅ BƯỚC 1: Tra cứu từ qua API preview
+          final previewResult = await FlashcardCreationService.preview(term);
+
+          // ✅ BƯỚC 2: Tự động chọn ảnh đầu tiên (nếu có)
+          String? selectedImageUrl;
+          if (previewResult.imageSuggestions.isNotEmpty) {
+            selectedImageUrl = previewResult.imageSuggestions.first.url;
+          }
+
+          // ✅ BƯỚC 3: Tạo flashcard với đầy đủ thông tin
+          final request = FlashcardCreateRequest(
+            word: term,
+            partOfSpeech: previewResult.partOfSpeech,
+            partOfSpeechVi: previewResult.partOfSpeechVi,
+            phonetic: previewResult.phonetic,
+            meaning: previewResult.vietnameseMeaning ?? term,
+            definition: previewResult.englishDefinition,
+            // Note: FlashcardPreviewResult không có exampleSentence
+            selectedImageUrl: selectedImageUrl,
+            categoryId: category.id,
+            generateAudio: true, // Tạo audio
+          );
+
+          final result = await FlashcardCreationService.create(request);
+
+          if (result.success) {
+            successCount++;
+          } else {
+            failedTerms.add(term);
+          }
+        } catch (e) {
+          // Nếu lỗi tra cứu, vẫn tạo thẻ cơ bản
+          debugPrint('Error processing "$term": $e');
+          try {
+            await FlashcardService.createFlashcard(
+              categoryId: category.id,
+              term: term,
+              meaning: 'Không thể tra cứu tự động',
+            );
+            successCount++;
+          } catch (_) {
+            failedTerms.add(term);
+          }
+        }
       }
 
       if (!mounted) return;
 
       // Show success dialog
-      _showSuccessDialog(category.name, validFlashcards.length);
+      _showSuccessDialog(
+        categoryName: category.name,
+        successCount: successCount,
+        failedTerms: failedTerms,
+      );
     } catch (e) {
       if (!mounted) return;
       _showErrorDialog('Không thể tạo chủ đề: $e');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadingMessage = '';
+        });
+      }
     }
   }
 
@@ -141,45 +203,120 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
     );
   }
 
-  void _showSuccessDialog(String categoryName, int cardCount) {
+  void _showSuccessDialog({
+    required String categoryName,
+    required int successCount,
+    required List<String> failedTerms,
+  }) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+          borderRadius: BorderRadius.circular(20),
         ),
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: AppColors.success.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle, color: AppColors.success, size: 28),
+              child: const Icon(Icons.check_circle, color: AppColors.success, size: 32),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text('Thành công!', style: AppTextStyles.heading3),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Thành công!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text(
+                    '$successCount thẻ đã được tạo',
+                    style: TextStyle(fontSize: 14, color: AppColors.textGray, fontWeight: FontWeight.normal),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        content: Text(
-          'Đã tạo chủ đề "$categoryName" với $cardCount thẻ.\n\nNghĩa của các thẻ sẽ được tạo tự động bằng AI.',
-          style: AppTextStyles.body,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.folder, color: AppColors.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      categoryName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, color: AppColors.success, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Các thẻ đã được tạo với đầy đủ:\n• Nghĩa tiếng Việt\n• Định nghĩa tiếng Anh\n• Phiên âm\n• Hình ảnh minh họa\n• Audio phát âm',
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.5),
+                  ),
+                ),
+              ],
+            ),
+            if (failedTerms.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber, color: AppColors.warning, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Một số từ không thể tra cứu:\n${failedTerms.join(", ")}',
+                        style: TextStyle(fontSize: 12, color: AppColors.warning),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context, true); // Return to previous screen
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              minimumSize: const Size(double.infinity, 48),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Hoàn tất', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
-            child: const Text('Hoàn tất'),
           ),
         ],
       ),
@@ -220,193 +357,316 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               widget.classId != null ? 'Tạo chủ đề cho lớp' : 'Tạo chủ đề mới',
-              style: AppTextStyles.heading3.copyWith(
-                color: AppColors.textPrimary,
-              ),
+              style: AppTextStyles.heading3.copyWith(color: AppColors.textPrimary),
             ),
             if (widget.className != null)
               Text(
                 widget.className!,
-                style: AppTextStyles.hint.copyWith(fontSize: 12),
+                style: AppTextStyles.caption.copyWith(color: AppColors.textGray),
               ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _saveCategory,
-            child: _isLoading
-                ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-                : Text(
-              'Tạo',
-              style: AppTextStyles.button.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
+          // Nút tạo
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton(
+              onPressed: _isLoading ? null : _saveCategory,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Tạo',
+                  style: AppTextStyles.button.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            // Header with category info
+      body: Stack(
+        children: [
+          Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(AppConstants.padding),
+              children: [
+                // Title section
+                _buildTitleSection(),
+                const SizedBox(height: 16),
+
+                // Description section
+                _buildDescriptionSection(),
+                const SizedBox(height: 16),
+
+                // Visibility toggle
+                _buildVisibilityToggle(),
+                const SizedBox(height: 24),
+
+                // Flashcards header
+                _buildFlashcardsHeader(),
+                const SizedBox(height: 12),
+
+                // Flashcard items
+                ...List.generate(_flashcards.length, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildFlashcardItem(index, _flashcards[index]),
+                  );
+                }),
+
+                // Add card button
+                _buildAddCardButton(),
+              ],
+            ),
+          ),
+
+          // ✅ LOADING OVERLAY VỚI PROGRESS
+          if (_isLoading)
             Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: AppColors.border, width: 1),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  TextFormField(
-                    controller: _titleController,
-                    focusNode: _titleFocusNode,
-                    style: AppTextStyles.heading2,
-                    decoration: InputDecoration(
-                      hintText: 'Nhập tên chủ đề, VD: "IELTS Vocabulary"',
-                      hintStyle: AppTextStyles.hint,
-                      border: InputBorder.none,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Vui lòng nhập tên chủ đề';
-                      }
-                      return null;
-                    },
+              color: Colors.black.withOpacity(0.5),
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
                   ),
-
-                  const SizedBox(height: 12),
-
-                  // Description
-                  TextFormField(
-                    controller: _descriptionController,
-                    style: AppTextStyles.body,
-                    decoration: InputDecoration(
-                      hintText: 'Thêm mô tả (tùy chọn)',
-                      hintStyle: AppTextStyles.hint.copyWith(fontSize: 14),
-                      border: InputBorder.none,
-                      prefixIcon: Icon(
-                        Icons.description_outlined,
-                        color: AppColors.textGray,
-                        size: 20,
-                      ),
-                    ),
-                    maxLines: 2,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Visibility toggle
-                  Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        _isPublic ? Icons.public : Icons.lock_outline,
-                        size: 20,
-                        color: AppColors.textGray,
-                      ),
-                      const SizedBox(width: 8),
+                      const CircularProgressIndicator(color: AppColors.primary),
+                      const SizedBox(height: 20),
                       Text(
-                        _isPublic ? 'Công khai' : 'Riêng tư',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.textGray,
+                        _loadingMessage,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                        textAlign: TextAlign.center,
+                      ),
+                      if (_totalCards > 0) ...[
+                        const SizedBox(height: 16),
+                        LinearProgressIndicator(
+                          value: _currentProcessingIndex / _totalCards,
+                          backgroundColor: AppColors.border,
+                          valueColor: AlwaysStoppedAnimation(AppColors.primary),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Tooltip(
-                        message: _isPublic
-                            ? 'Mọi người có thể xem chủ đề này'
-                            : 'Chỉ bạn có thể xem chủ đề này',
-                        child: Icon(
-                          Icons.info_outline,
-                          size: 16,
-                          color: AppColors.textGray,
+                        const SizedBox(height: 8),
+                        Text(
+                          '$_currentProcessingIndex / $_totalCards thẻ',
+                          style: TextStyle(color: AppColors.textGray, fontSize: 13),
                         ),
-                      ),
-                      const Spacer(),
-                      Switch(
-                        value: _isPublic,
-                        onChanged: (value) => setState(() => _isPublic = value),
-                        activeColor: AppColors.primary,
-                      ),
+                      ],
                     ],
                   ),
-                ],
-              ),
-            ),
-
-            // Instruction banner
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.info.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                border: Border.all(
-                  color: AppColors.info.withOpacity(0.3),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.lightbulb_outline,
-                    color: AppColors.info,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Chỉ cần nhập thuật ngữ, nghĩa sẽ được AI tạo tự động',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.info,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
-
-            // Flashcards list
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _flashcards.length + 1, // +1 for add button
-                itemBuilder: (context, index) {
-                  if (index == _flashcards.length) {
-                    return _buildAddCardButton();
-                  }
-                  return _buildFlashcardItem(index);
-                },
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildFlashcardItem(int index) {
-    final flashcard = _flashcards[index];
-
+  Widget _buildTitleSection() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.title, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text('Tên chủ đề', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              const Text(' *', style: TextStyle(color: AppColors.error)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _titleController,
+            focusNode: _titleFocusNode,
+            decoration: InputDecoration(
+              hintText: 'VD: Từ vựng IELTS, Ngữ pháp N3...',
+              hintStyle: AppTextStyles.hint,
+              filled: true,
+              fillColor: AppColors.inputBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.error),
+              ),
+              contentPadding: const EdgeInsets.all(16),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Vui lòng nhập tên chủ đề';
+              }
+              return null;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.description_outlined, size: 18, color: AppColors.secondary),
+              const SizedBox(width: 8),
+              Text('Mô tả', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              Text(' (tùy chọn)', style: TextStyle(color: AppColors.textGray, fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _descriptionController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Mô tả ngắn về chủ đề...',
+              hintStyle: AppTextStyles.hint,
+              filled: true,
+              fillColor: AppColors.inputBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              ),
+              contentPadding: const EdgeInsets.all(16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisibilityToggle() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _isPublic ? AppColors.success.withOpacity(0.1) : AppColors.textGray.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              _isPublic ? Icons.public : Icons.lock_outline,
+              color: _isPublic ? AppColors.success : AppColors.textGray,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _isPublic ? 'Công khai' : 'Riêng tư',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+                Text(
+                  _isPublic ? 'Mọi người có thể tìm thấy và học' : 'Chỉ bạn có thể xem',
+                  style: TextStyle(color: AppColors.textGray, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: _isPublic,
+            onChanged: (value) => setState(() => _isPublic = value),
+            activeColor: AppColors.success,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFlashcardsHeader() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.style, color: AppColors.primary, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Thẻ ghi nhớ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text('${_flashcards.length} thẻ', style: TextStyle(color: AppColors.textGray, fontSize: 13)),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.success.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.auto_awesome, size: 14, color: AppColors.success),
+              const SizedBox(width: 4),
+              Text('AI tự động', style: TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFlashcardItem(int index, _FlashcardTermData flashcard) {
+    return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
@@ -426,10 +686,7 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: AppColors.inputBackground,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(AppConstants.borderRadius),
-                topRight: Radius.circular(AppConstants.borderRadius),
-              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
@@ -441,20 +698,12 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
                   ),
                   child: Text(
                     '${index + 1}',
-                    style: AppTextStyles.label.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'Thẻ ${index + 1}',
-                    style: AppTextStyles.label.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
+                  child: Text('Thẻ ${index + 1}', style: TextStyle(color: AppColors.textSecondary)),
                 ),
                 if (_flashcards.length > 1)
                   IconButton(
@@ -463,13 +712,12 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
                     color: AppColors.error,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
-                    tooltip: 'Xóa thẻ',
                   ),
               ],
             ),
           ),
 
-          // Term field ONLY
+          // Term field
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -477,58 +725,37 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.text_fields,
-                      size: 16,
-                      color: AppColors.textGray,
-                    ),
+                    Icon(Icons.text_fields, size: 16, color: AppColors.textGray),
                     const SizedBox(width: 8),
                     Text(
                       'THUẬT NGỮ',
-                      style: AppTextStyles.label.copyWith(
-                        fontSize: 11,
-                        color: AppColors.textGray,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
+                      style: TextStyle(fontSize: 11, color: AppColors.textGray, fontWeight: FontWeight.w600, letterSpacing: 0.5),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '*',
-                      style: TextStyle(
-                        color: AppColors.error,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    const Text(' *', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: flashcard.termController,
                   decoration: InputDecoration(
-                    hintText: 'VD: Photosynthesis, Algorithm, Machine Learning...',
+                    hintText: 'VD: apple, beautiful, environment...',
                     hintStyle: AppTextStyles.hint,
                     filled: true,
                     fillColor: AppColors.inputBackground,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                      borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: AppColors.border),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                      borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: AppColors.border),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                      borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                      borderSide: const BorderSide(color: AppColors.error),
                     ),
                     contentPadding: const EdgeInsets.all(16),
                   ),
-                  maxLines: 2,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Vui lòng nhập thuật ngữ';
@@ -537,30 +764,36 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
+
+                // ✅ INFO BOX - AI sẽ tạo đầy đủ
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppColors.success.withOpacity(0.2),
+                    gradient: LinearGradient(
+                      colors: [AppColors.success.withOpacity(0.1), AppColors.primary.withOpacity(0.05)],
                     ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.success.withOpacity(0.2)),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.auto_awesome,
-                        size: 18,
-                        color: AppColors.success,
-                      ),
-                      const SizedBox(width: 8),
+                      Icon(Icons.auto_awesome, size: 18, color: AppColors.success),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          'Nghĩa sẽ được tạo tự động bằng AI',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.success.withOpacity(0.9),
-                            fontWeight: FontWeight.w500,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'AI sẽ tự động tạo:',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.success),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '• Nghĩa tiếng Việt\n• Định nghĩa tiếng Anh\n• Phiên âm IPA\n• Hình ảnh minh họa\n• Audio phát âm',
+                              style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.5),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -584,11 +817,7 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-          border: Border.all(
-            color: AppColors.primary.withOpacity(0.3),
-            width: 2,
-            style: BorderStyle.solid,
-          ),
+          border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 2),
           boxShadow: [
             BoxShadow(
               color: AppColors.primary.withOpacity(0.08),
@@ -606,19 +835,12 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
                 color: AppColors.primary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.add,
-                color: AppColors.primary,
-                size: 20,
-              ),
+              child: const Icon(Icons.add, color: AppColors.primary, size: 20),
             ),
             const SizedBox(width: 12),
             Text(
               'Thêm thẻ mới',
-              style: AppTextStyles.button.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 15),
             ),
           ],
         ),
@@ -627,7 +849,7 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
   }
 }
 
-/// Helper class để lưu data của flashcard (CHỈ CÓ TERM)
+/// Helper class để lưu data của flashcard
 class _FlashcardTermData {
   final TextEditingController termController = TextEditingController();
 
