@@ -67,6 +67,7 @@ class _LibraryScreenState extends State<LibraryScreen>
   @override
   void initState() {
     super.initState();
+    // ✅ KHỞI TẠO VỚI INDEX MẶC ĐỊNH
     _tabController = TabController(length: 3, vsync: this);
     _loadUserAndData();
   }
@@ -92,7 +93,6 @@ class _LibraryScreenState extends State<LibraryScreen>
   Future<void> _loadMyCategories() async {
     try {
       final categories = await CategoryService.getUserCategories();
-      // ✅ CHỈ lấy categories do USER TỰ TẠO (ownerUserId == currentUser)
       final userCreatedOnly = categories.where((cat) =>
       !cat.isSystem && cat.ownerUserId == _currentUser?.userId
       ).toList();
@@ -224,7 +224,6 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 
-  // ✅ CATEGORY CARD ĐẸP - ĐỒNG BỘ VỚI HOME
   Widget _buildCategoryCard(CategoryModel category, int index) {
     final gradientColors = _getGradientColors(index);
     final iconData = _getCategoryIcon(index);
@@ -249,7 +248,6 @@ class _LibraryScreenState extends State<LibraryScreen>
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // ✅ Icon với gradient
                 Container(
                   width: 56,
                   height: 56,
@@ -261,7 +259,6 @@ class _LibraryScreenState extends State<LibraryScreen>
                   child: Icon(iconData, color: Colors.white, size: 28),
                 ),
                 const SizedBox(width: 16),
-                // ✅ Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,9 +293,8 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 
-  // ✅ CLASS CARD ĐẸP
   Widget _buildClassCard(ClassModel classModel, int index) {
-    final gradientColors = _getGradientColors(index + 3); // Offset để có màu khác
+    final gradientColors = _getGradientColors(index + 3);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -491,16 +487,36 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 
+  // ✅ SỬA LẠI HÀM NÀY - XỬ LÝ NAVIGATION ĐÚNG
   void _onBottomNavTapped(int index) {
-    if (index == 0) { Navigator.pop(context); return; }
+    final isTeacher = _currentUser?.canCreateClass ?? false;
+    final libraryIndex = isTeacher ? 4 : 3;
+
+    // Nếu đang ở màn Library và bấm vào Library → không làm gì
+    if (index == libraryIndex) return;
+
     if (index == 1) {
+      // Nút tạo
       final canCreate = _currentUser?.hasPremiumAccess ?? false;
-      if (!canCreate) { _showUpgradeDialog(); } else { _showCreateBottomSheet(); }
+      if (!canCreate) {
+        _showUpgradeDialog();
+      } else {
+        _showCreateBottomSheet();
+      }
       return;
     }
-    if (index == 2) { Navigator.pop(context); return; }
-    final isTeacher = _currentUser?.canCreateClass ?? false;
-    if (isTeacher && index == 3) { Navigator.pop(context); return; }
+
+    // ✅ XỬ LÝ NAVIGATION
+    if (index == 0) {
+      // Trang chủ - pop về với index 0
+      Navigator.pop(context, 0);
+    } else if (index == 2) {
+      // Khóa học - pop về với index 2
+      Navigator.pop(context, 2);
+    } else if (isTeacher && index == 3) {
+      // Lớp học (teacher) - pop về với index 3
+      Navigator.pop(context, 3);
+    }
   }
 
   void _showUpgradeDialog() {

@@ -1,13 +1,42 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 /// Service gợi ý category cho flashcard bằng AI
+///
+/// ✅ UPDATED: Thêm Authorization header để backend biết user là ai
+/// → Chỉ gợi ý categories của user (không lấy system)
 class CategorySuggestionService {
+
+  /// Lấy token từ SharedPreferences
+  static Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  /// Headers với authentication
+  static Future<Map<String, String>> _getHeaders() async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
+
+    final token = await _getToken();
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    return headers;
+  }
+
   /// Gợi ý categories phù hợp cho từ vựng
   /// [word] - Từ vựng
   /// [meaning] - Nghĩa tiếng Việt (optional)
   /// [partOfSpeech] - Loại từ (optional)
+  ///
+  /// ✅ Yêu cầu đăng nhập để lấy đúng categories của user
   static Future<CategorySuggestionResult> suggestCategories({
     required String word,
     String? meaning,
@@ -16,14 +45,15 @@ class CategorySuggestionService {
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}/api/categories/suggest');
 
+      // ✅ FIX: Thêm Authorization header
+      final headers = await _getHeaders();
+
       print('🏷️ Suggesting categories for: $word');
+      print('🔑 Has token: ${headers.containsKey('Authorization')}');
 
       final response = await http.post(
         uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
+        headers: headers,  // ✅ Sử dụng headers có token
         body: jsonEncode({
           'word': word,
           'meaning': meaning,
@@ -31,10 +61,22 @@ class CategorySuggestionService {
         }),
       );
 
+      print('📥 Response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return CategorySuggestionResult.fromJson(data);
+      } else if (response.statusCode == 401) {
+        // Unauthorized - user chưa đăng nhập
+        return CategorySuggestionResult(
+          success: false,
+          message: 'Vui lòng đăng nhập để sử dụng tính năng này',
+          totalCategories: 0,
+          suggestions: [],
+        );
       } else {
+        final errorBody = response.body;
+        print('❌ Error response: $errorBody');
         throw Exception('Failed to get category suggestions: ${response.statusCode}');
       }
     } catch (e) {
@@ -44,18 +86,27 @@ class CategorySuggestionService {
   }
 
   /// Gợi ý categories qua GET (simple)
+  /// ✅ UPDATED: Thêm Authorization header
   static Future<CategorySuggestionResult> suggestCategoriesSimple(String word) async {
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}/api/categories/suggest')
           .replace(queryParameters: {'word': word});
 
-      final response = await http.get(uri, headers: {
-        'ngrok-skip-browser-warning': 'true',
-      });
+      // ✅ FIX: Thêm Authorization header
+      final headers = await _getHeaders();
+
+      final response = await http.get(uri, headers: headers);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return CategorySuggestionResult.fromJson(data);
+      } else if (response.statusCode == 401) {
+        return CategorySuggestionResult(
+          success: false,
+          message: 'Vui lòng đăng nhập để sử dụng tính năng này',
+          totalCategories: 0,
+          suggestions: [],
+        );
       } else {
         throw Exception('Failed: ${response.statusCode}');
       }

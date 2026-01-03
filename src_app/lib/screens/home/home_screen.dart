@@ -80,18 +80,27 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onItemTapped(int index) {
+  void _onItemTapped(int index) async {
     if (index == 1) {
       _showCreateBottomSheet();
-    } else {
-      final isTeacher = _currentUser?.canCreateClass ?? false;
-      final libraryIndex = isTeacher ? 4 : 3;
+      return;
+    }
 
-      if (index == libraryIndex) {
-        Navigator.pushNamed(context, '/library');
-      } else {
-        setState(() => _selectedIndex = index);
+    final isTeacher = _currentUser?.canCreateClass ?? false;
+    final libraryIndex = isTeacher ? 4 : 3;
+
+    if (index == libraryIndex) {
+      // ✅ ĐI ĐẾN LIBRARY VÀ NHẬN KẾT QUẢ
+      final result = await Navigator.pushNamed(context, '/library');
+
+      // ✅ CHỈ CẬP NHẬT NẾU RESULT LÀ INT (không null)
+      if (result != null && result is int && mounted) {
+        setState(() => _selectedIndex = result);
       }
+      // ✅ NẾU result == null → User swipe back → KHÔNG LÀM GÌ, GIỮ NGUYÊN TAB LIBRARY
+    } else {
+      // ✅ CHUYỂN TAB BÌNH THƯỜNG
+      setState(() => _selectedIndex = index);
     }
   }
 
