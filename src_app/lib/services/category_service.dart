@@ -2,12 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_constants.dart';
-import '../config/api_config.dart';  // ← THÊM DÒNG NÀY
+import '../config/api_config.dart';
 import '../models/category_model.dart';
 
 class CategoryService {
-  // static const String baseUrl = '${AppConstants.baseUrl}/api/categories';  // ← ĐÃ COMMENT
-
   static void _log(String message) {
     print('[CategoryService] $message');
   }
@@ -27,18 +25,18 @@ class CategoryService {
     return {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json; charset=utf-8',
-      'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+      'ngrok-skip-browser-warning': 'true',
     };
   }
 
   // ==================== CATEGORY CRUD ====================
 
   /// ✅ Lấy tất cả categories của user hiện tại (Của tôi)
-  /// Bao gồm: system categories + owned categories
+  /// Bao gồm: system categories + owned categories + saved + class categories
   static Future<List<CategoryModel>> getUserCategories() async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('${ApiConfig.categoryBase}/my');  // ← THAY ĐỔI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/my');
 
       _log('GET User Categories URL: $uri');
 
@@ -63,11 +61,66 @@ class CategoryService {
     return getUserCategories();
   }
 
+  /// ✅ NEW: Lấy CHỈ categories do user tự tạo (KHÔNG có system/default)
+  /// Dùng cho:
+  /// - Tạo flashcard từ Home (chọn category)
+  /// - OCR/PDF chọn category
+  /// - Dropdown chọn category
+  static Future<List<CategoryModel>> getMyOwnedCategories() async {
+    try {
+      final headers = await _getHeaders();
+      // ✅ GỌI ENDPOINT MỚI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/my/owned');
+
+      _log('GET My Owned Categories URL: $uri');
+
+      final response = await http.get(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        final categories = data.map((json) => CategoryModel.fromJson(json)).toList();
+        _log('✅ Found ${categories.length} owned categories');
+        return categories;
+      } else {
+        _log('⚠️ API /my/owned failed, falling back to filter method');
+        // Fallback: filter từ getMyCategories nếu endpoint chưa có
+        return _getOwnedCategoriesFallback();
+      }
+    } catch (e) {
+      _log('❌ Error in getMyOwnedCategories: $e');
+      // Fallback
+      return _getOwnedCategoriesFallback();
+    }
+  }
+
+  /// Fallback: Lọc categories do user sở hữu từ danh sách categories
+  static Future<List<CategoryModel>> _getOwnedCategoriesFallback() async {
+    try {
+      _log('🔄 Using fallback method to get owned categories');
+      final allCategories = await getUserCategories();
+
+      // ✅ Lọc: chỉ lấy category do user tạo
+      // - isUserCategory = true (category cá nhân)
+      // - isSystem = false (không phải system category)
+      final ownedCategories = allCategories.where((cat) {
+        return cat.isUserCategory && !cat.isSystem;
+      }).toList();
+
+      _log('✅ Fallback: Found ${ownedCategories.length} owned categories (filtered from ${allCategories.length})');
+      return ownedCategories;
+    } catch (e) {
+      _log('❌ Error in fallback: $e');
+      return [];
+    }
+  }
+
   /// ✅ Lấy danh sách categories đã lưu
   static Future<List<CategoryModel>> getSavedCategories() async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('${ApiConfig.categoryBase}/saved');  // ← THAY ĐỔI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/saved');
 
       _log('GET Saved Categories URL: $uri');
 
@@ -91,7 +144,7 @@ class CategoryService {
   static Future<void> saveCategory(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId/save');  // ← THAY ĐỔI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId/save');
 
       _log('POST Save Category URL: $uri');
 
@@ -116,7 +169,7 @@ class CategoryService {
   static Future<void> unsaveCategory(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId/save');  // ← THAY ĐỔI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId/save');
 
       _log('DELETE Unsave Category URL: $uri');
 
@@ -141,7 +194,7 @@ class CategoryService {
   static Future<bool> isCategorySaved(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId/is-saved');  // ← THAY ĐỔI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId/is-saved');
 
       final response = await http.get(uri, headers: headers);
 
@@ -160,7 +213,7 @@ class CategoryService {
   static Future<List<CategoryModel>> getCategoriesByClassId(int classId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse(ApiConfig.classCategories(classId));  // ← THAY ĐỔI - DÙNG HELPER
+      final uri = Uri.parse(ApiConfig.classCategories(classId));
 
       _log('GET Categories for Class URL: $uri');
 
@@ -190,12 +243,17 @@ class CategoryService {
   static Future<CategoryModel> getCategoryById(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse(ApiConfig.categoryDetail(categoryId));  // ← THAY ĐỔI - DÙNG HELPER
+      final uri = Uri.parse('${ApiConfig.categoryBase}/$categoryId');
+
+      _log('GET Category by ID URL: $uri');
 
       final response = await http.get(uri, headers: headers);
 
+      _log('Response Status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        return CategoryModel.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return CategoryModel.fromJson(data);
       } else {
         throw Exception('Không thể tải thông tin chủ đề');
       }
@@ -205,19 +263,15 @@ class CategoryService {
     }
   }
 
-  /// ✅ Lấy system categories (public)
+  /// ✅ Lấy system categories
   static Future<List<CategoryModel>> getSystemCategories() async {
     try {
-      final uri = Uri.parse('${ApiConfig.categoryBase}/system');  // ← THAY ĐỔI
+      final headers = await _getHeaders();
+      final uri = Uri.parse('${ApiConfig.categoryBase}/admin/system');
 
       _log('GET System Categories URL: $uri');
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-      );
+      final response = await http.get(uri, headers: headers);
 
       _log('Response Status: ${response.statusCode}');
 
@@ -237,7 +291,7 @@ class CategoryService {
   static Future<CategoryModel> createUserCategory(String name) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('${ApiConfig.categoryBase}/user');  // ← THAY ĐỔI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/user');
 
       _log('POST Create User Category URL: $uri');
 
@@ -275,8 +329,8 @@ class CategoryService {
       // Nếu có classId, sử dụng endpoint /class
       // Nếu không, sử dụng endpoint /user
       final uri = classId != null
-          ? Uri.parse('${ApiConfig.categoryBase}/class')  // ← THAY ĐỔI
-          : Uri.parse('${ApiConfig.categoryBase}/user');  // ← THAY ĐỔI
+          ? Uri.parse('${ApiConfig.categoryBase}/class')
+          : Uri.parse('${ApiConfig.categoryBase}/user');
 
       _log('POST Create Category URL: $uri');
       _log('Body: name=$name, classId=$classId, description=$description');
@@ -313,7 +367,7 @@ class CategoryService {
   static Future<List<CategoryModel>> getTeacherCategories() async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('${ApiConfig.categoryBase}/teacher');  // ← THAY ĐỔI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/teacher');
 
       _log('GET Teacher Categories URL: $uri');
 
@@ -342,7 +396,7 @@ class CategoryService {
   }) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse(ApiConfig.categoryUpdate(categoryId));  // ← THAY ĐỔI - DÙNG HELPER
+      final uri = Uri.parse(ApiConfig.categoryUpdate(categoryId));
 
       _log('PUT Update Category URL: $uri');
 
@@ -375,7 +429,7 @@ class CategoryService {
   static Future<void> deleteCategory(int categoryId) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse(ApiConfig.categoryDelete(categoryId));  // ← THAY ĐỔI - DÙNG HELPER
+      final uri = Uri.parse(ApiConfig.categoryDelete(categoryId));
 
       _log('DELETE Category URL: $uri');
 
@@ -401,7 +455,7 @@ class CategoryService {
   static Future<List<CategoryModel>> searchPublicCategories(String query) async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('${ApiConfig.categoryBase}/search?keyword=${Uri.encodeComponent(query)}');  // ← THAY ĐỔI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/search?keyword=${Uri.encodeComponent(query)}');
 
       _log('🔍 Searching categories: $query');
       _log('GET URL: $uri');
@@ -432,7 +486,7 @@ class CategoryService {
   static Future<List<CategoryModel>> getPublicCategories() async {
     try {
       final headers = await _getHeaders();
-      final uri = Uri.parse('${ApiConfig.categoryBase}/public');  // ← THAY ĐỔI
+      final uri = Uri.parse('${ApiConfig.categoryBase}/public');
 
       _log('GET Public Categories URL: $uri');
 

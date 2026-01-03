@@ -53,6 +53,34 @@ public class CategoryController {
         }
     }
 
+    // Thêm vào CategoryController.java, sau method getMyCategories()
+
+    /**
+     * ✅ GET MY OWNED CATEGORIES (Chỉ category do user tạo, không có system/public)
+     * Dùng cho OCR/PDF khi chọn category để tạo thẻ
+     */
+    @GetMapping("/my/owned")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<CategoryDTO>> getMyOwnedCategories() {
+        try {
+            Long userId = getCurrentUserId();
+
+            // ✅ SỬA: Gọi method mới để chỉ lấy categories của user (không có system)
+            List<Category> categories = categoryService.getMyOwnedCategoriesOnly(userId);
+
+            // Convert với flashcardCount
+            List<CategoryDTO> dtos = categories.stream()
+                    .map(cat -> convertToDTOWithFlashcardCount(cat, userId))
+                    .collect(Collectors.toList());
+
+//            log.info("✅ Returning {} owned categories for user {}", dtos.size(), userId);
+            return ResponseEntity.ok(dtos);
+        } catch (Exception e) {
+//            log.error("❌ Error getting owned categories: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ArrayList<>());
+        }
+    }
+
     /**
      * Tạo category cá nhân (PRIVATE)
      */

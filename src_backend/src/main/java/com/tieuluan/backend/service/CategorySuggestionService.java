@@ -6,6 +6,7 @@ import com.tieuluan.backend.model.Category;
 import com.tieuluan.backend.model.User;
 import com.tieuluan.backend.repository.CategoryRepository;
 import com.tieuluan.backend.repository.UserRepository;
+import com.tieuluan.backend.service.CategoryService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
  * Sử dụng Gemini AI để phân loại
  *
  * ✅ CHỈ LẤY CATEGORY CỦA USER - KHÔNG LẤY CATEGORY HỆ THỐNG
+ * ✅ FIXED: Lọc chặt chẽ hơn, chỉ lấy categories mà user sở hữu
  */
 @Slf4j
 @Service
@@ -32,6 +34,7 @@ public class CategorySuggestionService {
 
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final CategoryService categoryService;
 
     @Value("${gemini.api.key}")
     private String geminiApiKey;
@@ -58,25 +61,30 @@ public class CategorySuggestionService {
         try {
             // 1. Lấy userId hiện tại
             Long userId = getCurrentUserId();
+            log.info("👤 Current userId: {}", userId);
 
             if (userId == null) {
+                log.warn("⚠️ No user logged in - cannot suggest categories");
                 result.setSuccess(false);
                 result.setMessage("Vui lòng đăng nhập để sử dụng tính năng này");
                 result.setSuggestions(List.of());
                 return result;
             }
 
-            // 2. ✅ CHỈ LẤY CATEGORIES CỦA USER (không lấy system)
-            List<Category> userCategories = getUserOwnCategories(userId);
+            // 2. ✅ CHỈ LẤY CATEGORIES CỦA USER (không lấy system, không lấy public của người khác)
+            List<Category> userCategories = getUserOwnedCategoriesOnly(userId);
 
             if (userCategories.isEmpty()) {
+                log.info("📭 User {} has no categories", userId);
                 result.setSuccess(false);
                 result.setMessage("Bạn chưa có chủ đề nào. Hãy tạo chủ đề trước khi thêm thẻ.");
                 result.setSuggestions(List.of());
                 return result;
             }
 
-            log.info("📋 Found {} categories for user {}", userCategories.size(), userId);
+            log.info("📋 Found {} categories owned by user {}", userCategories.size(), userId);
+            userCategories.forEach(c -> log.debug("   - [{}] {} (system={}, owner={})",
+                    c.getId(), c.getName(), c.isSystemCategory(), c.getOwnerUserId()));
 
             // 3. Gọi Gemini AI để phân loại
             List<CategorySuggestion> suggestions = classifyWithAI(word, meaning, partOfSpeech, userCategories);
@@ -98,37 +106,25 @@ public class CategorySuggestionService {
     }
 
     /**
-     * ✅ CHỈ LẤY CATEGORIES CỦA USER - KHÔNG LẤY SYSTEM
-     * Bao gồm:
-     * - Categories do user tạo (ownerUserId = userId)
-     * - Categories từ classes mà user tham gia (nếu có quyền thêm thẻ)
+     * ✅ CHỈ LẤY CATEGORIES MÀ USER SỞ HỮU
+     *
+     * Sử dụng CategoryService.getMyOwnedCategoriesOnly()
+     *
+     * KHÔNG bao gồm:
+     * - System categories (isSystem = true)
+     * - Public categories của người khác
      */
-    private List<Category> getUserOwnCategories(Long userId) {
-        List<Category> categories = new ArrayList<>();
+    private List<Category> getUserOwnedCategoriesOnly(Long userId) {
+        log.info("📋 Getting owned categories for user {} using CategoryService", userId);
 
-        // 1. ✅ CHỈ LẤY categories do user tạo (KHÔNG lấy system)
-        List<Category> ownCategories = categoryRepository.findByOwnerUserId(userId);
-        categories.addAll(ownCategories);
-        log.info("   ├── User's own categories: {}", ownCategories.size());
+        // ✅ SỬ DỤNG METHOD TỪ CATEGORYSERVICE
+        List<Category> categories = categoryService.getMyOwnedCategoriesOnly(userId);
 
-        // 2. Categories từ classes mà user tham gia (optional - nếu có)
-        try {
-            List<Category> classCategories = categoryRepository.findAccessibleByUserId(userId);
-            // Lọc bỏ system categories
-            classCategories = classCategories.stream()
-                    .filter(c -> !c.isSystemCategory())
-                    .collect(Collectors.toList());
-            categories.addAll(classCategories);
-            log.info("   └── Class categories: {}", classCategories.size());
-        } catch (Exception e) {
-            log.warn("Could not load class categories: {}", e.getMessage());
-        }
+        log.info("   ✅ Found {} owned categories for user {}", categories.size(), userId);
+        categories.forEach(c -> log.debug("   - [{}] {} (system={}, owner={})",
+                c.getId(), c.getName(), c.isSystemCategory(), c.getOwnerUserId()));
 
-        // Remove duplicates và sort by name
-        return categories.stream()
-                .distinct()
-                .sorted(Comparator.comparing(Category::getName))
-                .collect(Collectors.toList());
+        return categories;
     }
 
     /**
@@ -326,19 +322,29 @@ public class CategorySuggestionService {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth == null || !auth.isAuthenticated()) {
+                log.warn("⚠️ No authentication in SecurityContext");
                 return null;
             }
 
             String email = auth.getName();
+            log.debug("🔍 Looking up user by email: {}", email);
+
             if ("anonymousUser".equals(email)) {
+                log.warn("⚠️ Anonymous user - not logged in");
                 return null;
             }
 
             User user = userRepository.findByEmail(email).orElse(null);
-            return user != null ? user.getId() : null;
+            if (user == null) {
+                log.warn("⚠️ User not found for email: {}", email);
+                return null;
+            }
+
+            log.debug("✅ Found user: {} (ID: {})", email, user.getId());
+            return user.getId();
 
         } catch (Exception e) {
-            log.error("Error getting current user ID", e);
+            log.error("❌ Error getting current user ID: {}", e.getMessage());
             return null;
         }
     }

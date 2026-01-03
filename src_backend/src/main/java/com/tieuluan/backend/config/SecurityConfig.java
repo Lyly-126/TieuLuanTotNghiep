@@ -154,6 +154,9 @@ public class SecurityConfig {
                         // Static resources
                         .requestMatchers("/audio/**").permitAll()
 
+                        .requestMatchers("/api/text-extraction/**").authenticated()
+
+
                         // All other requests require authentication
                         .anyRequest().authenticated()
                 )

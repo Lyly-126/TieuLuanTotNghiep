@@ -5,6 +5,7 @@ import '../../config/app_constants.dart';
 import '../../services/flashcard_creation_service.dart';
 import '../../services/category_service.dart';
 import '../../models/category_model.dart';
+import 'text_extraction_screen.dart';
 
 /// 🎨 Màn hình tạo Flashcard - Quizlet Style
 ///
@@ -107,10 +108,13 @@ class _FlashcardCreationScreenState extends State<FlashcardCreationScreen>
 
   Future<void> _loadUserCategories() async {
     try {
-      final categories = await CategoryService.getMyCategories();
+      // ✅ SỬA: Gọi getMyOwnedCategories() thay vì getMyCategories()
+      // Để chỉ lấy categories do user tạo (không có system/default)
+      final categories = await CategoryService.getMyOwnedCategories();
       setState(() {
         _userCategories = categories;
       });
+      debugPrint('✅ Loaded ${categories.length} owned categories');
     } catch (e) {
       debugPrint('Error loading categories: $e');
     }
@@ -566,7 +570,186 @@ class _FlashcardCreationScreenState extends State<FlashcardCreationScreen>
             ))
                 .toList(),
           ),
+
+          const SizedBox(height: 32),
+
+          // ✅ MỚI: Divider với text "hoặc"
+          Row(
+            children: [
+              Expanded(child: Divider(color: AppColors.border)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'hoặc',
+                  style: TextStyle(
+                    color: AppColors.textGray,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: AppColors.border)),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // ✅ MỚI: OCR/PDF Option Card
+          _buildOCRPDFOption(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOCRPDFOption() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: _navigateToTextExtraction,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                // Icon container
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.warning.withOpacity(0.2),
+                        AppColors.warning.withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.document_scanner_rounded,
+                    color: AppColors.warning,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // Text content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Tạo từ ảnh/PDF',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'MỚI',
+                              style: TextStyle(
+                                color: AppColors.success,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Chụp ảnh hoặc chọn PDF để tự động nhận dạng và tạo nhiều thẻ cùng lúc',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Feature chips
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildFeatureChip(Icons.camera_alt, 'Chụp ảnh'),
+                          _buildFeatureChip(Icons.photo_library, 'Thư viện'),
+                          _buildFeatureChip(Icons.picture_as_pdf, 'PDF'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Arrow icon
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: AppColors.textGray,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// ✅ MỚI: Feature chip nhỏ hiển thị icon + text
+  Widget _buildFeatureChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.textSecondary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ✅ MỚI: Chuyển đến màn hình Text Extraction (OCR/PDF)
+  void _navigateToTextExtraction() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TextExtractionScreen(
+          initialCategoryId: widget.initialCategoryId,
+          initialCategoryName: widget.initialCategoryName,
+        ),
       ),
     );
   }

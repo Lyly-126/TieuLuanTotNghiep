@@ -29,6 +29,8 @@ import java.util.List;
  * 3. Gợi ý category bằng AI (CategorySuggestionService)
  * 4. Tạo audio TTS (GoogleCloudStorageService)
  * 5. Lưu flashcard
+ *
+ * ✅ UPDATED: Tự động lấy ảnh đầu tiên nếu không có selectedImageUrl
  */
 @Slf4j
 @Service
@@ -102,7 +104,7 @@ public class FlashcardCreationService {
      * ========================================
      * Gọi khi user xác nhận tất cả và bấm Lưu
      *
-     * ✅ FIXED: Thêm set userId và partOfSpeechVi
+     * ✅ UPDATED: Tự động lấy ảnh đầu tiên nếu không có selectedImageUrl
      */
     @Transactional
     public FlashcardCreateResult createFlashcard(FlashcardCreateRequest request) {
@@ -149,6 +151,12 @@ public class FlashcardCreationService {
                 log.info("✅ TTS generated: {}", ttsUrl);
             }
 
+            // ✅ NEW: Tự động lấy ảnh nếu không có selectedImageUrl
+            String imageUrl = request.getSelectedImageUrl();
+            if ((imageUrl == null || imageUrl.trim().isEmpty()) && request.getWord() != null) {
+                imageUrl = autoSelectFirstImage(request.getWord());
+            }
+
             // 3. Build meaning text
             String meaning = buildMeaning(request);
 
@@ -163,7 +171,7 @@ public class FlashcardCreationService {
 
             flashcard.setPhonetic(request.getPhonetic());
             flashcard.setMeaning(meaning);
-            flashcard.setImageUrl(request.getSelectedImageUrl());
+            flashcard.setImageUrl(imageUrl);  // ✅ Sử dụng imageUrl đã được auto-select
             flashcard.setTtsUrl(ttsUrl);
             flashcard.setCategory(category);
 
@@ -179,8 +187,9 @@ public class FlashcardCreationService {
             result.setFlashcardId(saved.getId());
             result.setFlashcard(saved);
 
-            log.info("✅ Flashcard saved with ID: {}, userId: {}, partOfSpeechVi: {}",
-                    saved.getId(), saved.getUserId(), saved.getPartOfSpeechVi());
+            log.info("✅ Flashcard saved with ID: {}, userId: {}, partOfSpeechVi: {}, imageUrl: {}",
+                    saved.getId(), saved.getUserId(), saved.getPartOfSpeechVi(),
+                    imageUrl != null ? "SET" : "NULL");
             return result;
 
         } catch (Exception e) {
@@ -188,6 +197,48 @@ public class FlashcardCreationService {
             result.setSuccess(false);
             result.setMessage("Lỗi khi tạo flashcard: " + e.getMessage());
             return result;
+        }
+    }
+
+    /**
+     * ✅ NEW: Tự động lấy ảnh đầu tiên từ Pexels cho từ vựng
+     *
+     * @param word Từ vựng cần tìm ảnh
+     * @return URL ảnh đầu tiên hoặc null nếu không tìm thấy
+     */
+    private String autoSelectFirstImage(String word) {
+        try {
+            log.info("🖼️ Auto-selecting first image for word: '{}'", word);
+
+            // Gọi API lấy 1 ảnh (chỉ cần ảnh đầu tiên)
+            ImageSuggestionResult imageResult = imageSuggestionService.suggestImages(word, 1);
+
+            if (imageResult != null && imageResult.getImages() != null && !imageResult.getImages().isEmpty()) {
+                ImageInfo firstImage = imageResult.getImages().get(0);
+
+                // Ưu tiên lấy ảnh medium (kích thước phù hợp cho flashcard)
+                String selectedUrl = firstImage.getMedium();
+                if (selectedUrl == null || selectedUrl.isEmpty()) {
+                    selectedUrl = firstImage.getUrl();
+                }
+                if (selectedUrl == null || selectedUrl.isEmpty()) {
+                    selectedUrl = firstImage.getSmall();
+                }
+                if (selectedUrl == null || selectedUrl.isEmpty()) {
+                    selectedUrl = firstImage.getOriginal();
+                }
+
+                log.info("✅ Auto-selected image for '{}': {}", word,
+                        selectedUrl != null ? selectedUrl.substring(0, Math.min(50, selectedUrl.length())) + "..." : "null");
+                return selectedUrl;
+            }
+
+            log.warn("⚠️ No images found for word: '{}'", word);
+            return null;
+
+        } catch (Exception e) {
+            log.warn("⚠️ Failed to auto-select image for '{}': {}", word, e.getMessage());
+            return null;
         }
     }
 
@@ -218,9 +269,9 @@ public class FlashcardCreationService {
                 failCount++;
             }
 
-            // Delay để tránh rate limit
+            // Delay để tránh rate limit (đặc biệt khi gọi Pexels API)
             try {
-                Thread.sleep(300);
+                Thread.sleep(500); // Tăng từ 300ms lên 500ms để tránh rate limit Pexels
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -229,7 +280,7 @@ public class FlashcardCreationService {
         result.setSuccessCount(successCount);
         result.setFailCount(failCount);
         result.setSuccess(failCount == 0);
-        result.setMessage(String.format("Đã tạo %d/%d flashcards thành công",
+        result.setMessage(String.format("Đã tạo %d/%d flashcards thành công (với hình ảnh tự động)",
                 successCount, requests.size()));
 
         log.info("✅ Batch complete: {} success, {} failed", successCount, failCount);

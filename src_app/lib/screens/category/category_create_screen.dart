@@ -45,6 +45,7 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
   @override
   void initState() {
     super.initState();
+    print('📱 [SCREEN] $runtimeType');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _titleFocusNode.requestFocus();
     });

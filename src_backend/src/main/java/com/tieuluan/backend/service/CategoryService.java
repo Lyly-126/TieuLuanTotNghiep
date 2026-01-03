@@ -13,6 +13,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * ✅ UPDATED: Thêm method getMyOwnedCategoriesOnly()
+ * để chỉ lấy categories của user (không có system/public)
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -198,37 +202,41 @@ public class CategoryService {
                 .orElseThrow(() -> new RuntimeException("Lớp học không tồn tại"));
 
         if (!classEntity.getOwnerId().equals(teacherId)) {
-            throw new RuntimeException("Bạn không phải chủ lớp học này");
+            throw new RuntimeException("Bạn không phải chủ lớp này");
         }
 
-        if (!category.isOwnedBy(teacherId) && !category.isSystemCategory()) {
-            throw new RuntimeException("Bạn không có quyền thêm category này vào lớp");
+        if (!category.isOwnedBy(teacherId)) {
+            throw new RuntimeException("Bạn không sở hữu category này");
         }
 
         category.setClassId(classId);
+        category.setVisibility("PUBLIC");
+        if (category.getShareToken() == null) {
+            category.setShareToken(generateShareToken());
+        }
+
+        log.info("✅ Added category {} to class {}", categoryId, classId);
         return categoryRepository.save(category);
     }
 
     @Transactional
-    public void removeCategoryFromClass(Long categoryId, Long classId, Long teacherId, boolean isAdmin) {
+    public Category removeCategoryFromClass(Long categoryId, Long classId, Long userId, boolean isAdmin) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category không tồn tại"));
 
-        if (!isAdmin) {
-            com.tieuluan.backend.model.Class classEntity = classRepository.findById(classId)
-                    .orElseThrow(() -> new RuntimeException("Lớp học không tồn tại"));
-
-            if (!classEntity.getOwnerId().equals(teacherId)) {
-                throw new RuntimeException("Bạn không phải chủ lớp học này");
-            }
-        }
-
-        if (category.getClassId() == null || !category.getClassId().equals(classId)) {
+        if (!category.getClassId().equals(classId)) {
             throw new RuntimeException("Category không thuộc lớp này");
         }
 
+        if (!isAdmin && !category.isOwnedBy(userId)) {
+            throw new RuntimeException("Bạn không sở hữu category này");
+        }
+
         category.setClassId(null);
-        categoryRepository.save(category);
+        category.setVisibility("PRIVATE");
+
+        log.info("✅ Removed category {} from class {}", categoryId, classId);
+        return categoryRepository.save(category);
     }
 
     public List<Category> getCategoriesForClass(Long classId) {
@@ -239,8 +247,34 @@ public class CategoryService {
         return categoryRepository.findByIsSystemTrue();
     }
 
+    /**
+     * ✅ Lấy categories do user sở hữu (ownerUserId = userId)
+     * Bao gồm cả class categories mà user tạo
+     */
     public List<Category> getUserOwnedCategories(Long userId) {
         return categoryRepository.findByOwnerUserId(userId);
+    }
+
+    /**
+     * ✅ NEW: Lấy CHỈ categories mà user sở hữu, KHÔNG có system
+     * Dùng cho:
+     * - Gợi ý category khi tạo flashcard
+     * - OCR/PDF chọn category
+     */
+    public List<Category> getMyOwnedCategoriesOnly(Long userId) {
+        log.info("📋 Getting owned categories only for user {}", userId);
+
+        List<Category> ownedCategories = categoryRepository.findByOwnerUserId(userId);
+
+        // Lọc bỏ system categories (phòng trường hợp data không nhất quán)
+        List<Category> filtered = ownedCategories.stream()
+                .filter(c -> !c.isSystemCategory())
+                .collect(Collectors.toList());
+
+        log.info("   ✅ Found {} owned categories (filtered from {})",
+                filtered.size(), ownedCategories.size());
+
+        return filtered;
     }
 
     public List<Category> getPublicCategories() {
@@ -393,6 +427,7 @@ public class CategoryService {
 
     /**
      * ✅ FIXED: getMyCategories - không dùng lazy loaded collections
+     * Lấy tất cả categories user có thể access (bao gồm system)
      */
     public List<CategoryDTO> getMyCategories(Long userId) {
         List<CategoryDTO> result = new ArrayList<>();
@@ -430,6 +465,33 @@ public class CategoryService {
         } catch (Exception e) {
             log.error("❌ Error in getMyCategories for user {}: {}", userId, e.getMessage(), e);
             throw new RuntimeException("Không thể tải danh sách chủ đề: " + e.getMessage());
+        }
+    }
+
+    /**
+     * ✅ NEW: Lấy categories để hiển thị trong dropdown chọn category khi tạo flashcard
+     * CHỈ lấy categories mà user sở hữu (KHÔNG có system)
+     */
+    public List<CategoryDTO> getMyCategoriesForFlashcardCreation(Long userId) {
+        log.info("📋 Getting categories for flashcard creation for user {}", userId);
+
+        List<CategoryDTO> result = new ArrayList<>();
+
+        try {
+            // ✅ CHỈ LẤY categories do user sở hữu
+            List<Category> ownCategories = categoryRepository.findByOwnerUserId(userId);
+
+            // Lọc bỏ system categories
+            ownCategories.stream()
+                    .filter(cat -> !cat.isSystemCategory())
+                    .forEach(cat -> result.add(convertToDTOWithSavedStatus(cat, userId, false)));
+
+            log.info("   ✅ Found {} owned categories for user {}", result.size(), userId);
+            return result;
+
+        } catch (Exception e) {
+            log.error("❌ Error in getMyCategoriesForFlashcardCreation for user {}: {}", userId, e.getMessage(), e);
+            return new ArrayList<>();
         }
     }
 }

@@ -62,6 +62,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
   @override
   void initState() {
     super.initState();
+    print('📱 [SCREEN] $runtimeType');
     _initAnimations();
     _loadFlashcards();
   }

@@ -48,6 +48,7 @@ class _FlashcardEditScreenState extends State<FlashcardEditScreen> {
     _phoneticController.addListener(_checkChanges);
     _partOfSpeechController.addListener(_checkChanges);
     _partOfSpeechViController.addListener(_checkChanges);
+    print('📱 [SCREEN] $runtimeType');
   }
 
   String _getMainMeaning(String meaning) {

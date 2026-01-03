@@ -79,6 +79,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     _previewController = PageController(viewportFraction: 0.85);
     _searchController.addListener(_onSearchChanged);
 
+    print('📱 [SCREEN] $runtimeType');
     _loadCurrentUser();
     _loadCategoryDetails();
   }
@@ -550,7 +551,16 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   Widget _buildAppBar() {
     return SliverAppBar(
       expandedHeight: 180, pinned: true, backgroundColor: AppColors.primary,
-      leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
+      leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          onPressed: () {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/library',
+                  (route) => route.isFirst,
+            );
+          }
+      ),
       actions: [
         if (_canSave) IconButton(icon: Icon(_isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white), onPressed: _toggleSave),
         IconButton(icon: const Icon(Icons.share_outlined, color: Colors.white), onPressed: _shareCategory),

@@ -19,6 +19,7 @@ import '../screens/auth/forgot_otp_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/card/flashcard_creation_screen.dart';
 import '../screens/card/flashcard_creation_screen.dart';  // ✅ THÊM import
+import '../screens/card/text_extraction_screen.dart';
 import '../screens/class/join_class_via_link_screen.dart';
 import '../screens/home/search_screen.dart';
 import '../screens/profile/profile_screen.dart';
@@ -63,6 +64,7 @@ class AppRoutes {
   static const String flashcard_creation = '/flashcard_creation';
   static const String flashcard_creation_new = '/flashcard_creation_new';  // ✅ THÊM route mới
   static const String library = '/library';
+  static const String textExtraction = '/text-extraction';
 
   static const String teacher_classes = '/teacher_classes';
   static const String class_detail = '/class_detail';
@@ -202,7 +204,10 @@ class AppRoutes {
             settings: settings,
           );
         }
-
+      case textExtraction:
+        return MaterialPageRoute(
+          builder: (_) => const TextExtractionScreen(),
+        );
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(
