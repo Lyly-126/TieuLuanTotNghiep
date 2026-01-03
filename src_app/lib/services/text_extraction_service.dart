@@ -3,18 +3,27 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import '../config/api_config.dart';
 import 'flashcard_creation_service.dart';
 
 /// Service cho tính năng OCR và PDF extraction
 ///
+/// ✅ UPDATED:
+/// - Thêm tải PDF template từ app
+/// - Thêm kiểm tra giới hạn (100 từ)
+/// - Thêm validation PDF template
+///
 /// Flow sử dụng:
-/// 1. extractFromImage() hoặc extractFromPDF() → Lấy danh sách từ
-/// 2. User chọn từ cần tạo flashcard
-/// 3. previewSelectedWords() → Preview chi tiết
-/// 4. suggestCategoryForBatch() → Gợi ý category
+/// 1. downloadPdfTemplate() → Tải mẫu PDF
+/// 2. User điền từ vựng vào mẫu
+/// 3. extractFromPDF() → Upload và trích xuất
+/// 4. User chọn từ cần tạo flashcard
 /// 5. createFlashcardsBatch() → Tạo flashcard hàng loạt
 class TextExtractionService {
+  /// Giới hạn số từ vựng tối đa
+  static const int maxWordsLimit = 100;
+
   /// Lấy token từ SharedPreferences
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -41,6 +50,76 @@ class TextExtractionService {
     final headers = await _getHeaders();
     headers['Content-Type'] = 'application/json';
     return headers;
+  }
+
+  // ==================== PDF TEMPLATE ====================
+
+  /// Tải PDF template từ server
+  ///
+  /// [templateType] - Loại template: 'BASIC' hoặc 'ADVANCED'
+  /// Returns: Đường dẫn đến file PDF đã tải
+  static Future<PdfTemplateResult> downloadPdfTemplate({
+    String templateType = 'BASIC',
+  }) async {
+    try {
+      final url = '${ApiConfig.baseUrl}/api/text-extraction/template?type=$templateType';
+      print('📥 Downloading PDF template: $url');
+
+      final headers = await _getHeaders();
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        // Lưu file PDF vào thư mục tạm
+        final directory = await getApplicationDocumentsDirectory();
+        final filePath = '${directory.path}/flashcard_template.pdf';
+        final file = File(filePath);
+        await file.writeAsBytes(response.bodyBytes);
+
+        print('✅ PDF template saved to: $filePath');
+
+        return PdfTemplateResult(
+          success: true,
+          filePath: filePath,
+          message: 'Đã tải mẫu PDF thành công',
+        );
+      } else {
+        throw Exception('Failed to download template: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Download template error: $e');
+      return PdfTemplateResult(
+        success: false,
+        message: 'Lỗi tải mẫu PDF: $e',
+      );
+    }
+  }
+
+  /// Lấy thông tin giới hạn của tính năng
+  static Future<ExtractionLimits> getExtractionLimits() async {
+    try {
+      final url = '${ApiConfig.baseUrl}/api/text-extraction/limits';
+      final headers = await _getHeaders();
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return ExtractionLimits.fromJson(data);
+      } else {
+        // Trả về giá trị mặc định nếu API lỗi
+        return ExtractionLimits.defaultLimits();
+      }
+    } catch (e) {
+      print('❌ Get limits error: $e');
+      return ExtractionLimits.defaultLimits();
+    }
   }
 
   // ==================== OCR - EXTRACT FROM IMAGE ====================
@@ -82,7 +161,12 @@ class TextExtractionService {
         return TextExtractionResult.fromJson(data);
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'OCR failed: ${response.statusCode}');
+        return TextExtractionResult(
+          success: false,
+          message: error['message'] ?? 'OCR failed: ${response.statusCode}',
+          sourceType: 'IMAGE',
+          extractedWords: [],
+        );
       }
     } catch (e) {
       print('❌ OCR error: $e');
@@ -127,7 +211,12 @@ class TextExtractionService {
         return TextExtractionResult.fromJson(data);
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'OCR failed');
+        return TextExtractionResult(
+          success: false,
+          message: error['message'] ?? 'OCR failed',
+          sourceType: 'IMAGE',
+          extractedWords: [],
+        );
       }
     } catch (e) {
       print('❌ OCR (bytes) error: $e');
@@ -143,6 +232,8 @@ class TextExtractionService {
   // ==================== PDF EXTRACTION ====================
 
   /// Trích xuất từ vựng từ PDF
+  ///
+  /// ⚠️ CHÚ Ý: Chỉ hỗ trợ PDF được tạo từ mẫu của ứng dụng
   static Future<TextExtractionResult> extractFromPDF(File pdfFile) async {
     try {
       final url = '${ApiConfig.baseUrl}/api/text-extraction/pdf';
@@ -169,7 +260,12 @@ class TextExtractionService {
         return TextExtractionResult.fromJson(data);
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'PDF extraction failed');
+        return TextExtractionResult(
+          success: false,
+          message: error['message'] ?? 'PDF extraction failed',
+          sourceType: 'PDF',
+          extractedWords: [],
+        );
       }
     } catch (e) {
       print('❌ PDF error: $e');
@@ -183,6 +279,8 @@ class TextExtractionService {
   }
 
   /// Trích xuất từ vựng từ PDF bytes (cho web)
+  ///
+  /// ⚠️ CHÚ Ý: Chỉ hỗ trợ PDF được tạo từ mẫu của ứng dụng
   static Future<TextExtractionResult> extractFromPDFBytes(
       List<int> pdfBytes,
       String fileName,
@@ -211,7 +309,12 @@ class TextExtractionService {
         return TextExtractionResult.fromJson(data);
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'PDF extraction failed');
+        return TextExtractionResult(
+          success: false,
+          message: error['message'] ?? 'PDF extraction failed',
+          sourceType: 'PDF',
+          extractedWords: [],
+        );
       }
     } catch (e) {
       print('❌ PDF (bytes) error: $e');
@@ -268,10 +371,7 @@ class TextExtractionService {
         return {
           'word': w.word,
           'partOfSpeech': w.partOfSpeech,
-          'partOfSpeechVi': w.partOfSpeechVi,
           'meaning': w.meaning,
-          'phonetic': w.phonetic,
-          'definition': w.definition,
         };
       }).toList();
 
@@ -362,6 +462,62 @@ class TextExtractionService {
 }
 
 // ==================== DTOs ====================
+
+/// Kết quả tải PDF template
+class PdfTemplateResult {
+  final bool success;
+  final String? filePath;
+  final String? message;
+
+  PdfTemplateResult({
+    required this.success,
+    this.filePath,
+    this.message,
+  });
+}
+
+/// Thông tin giới hạn của tính năng extraction
+class ExtractionLimits {
+  final int maxWordsPerExtraction;
+  final int maxImageSizeMB;
+  final int maxPdfSizeMB;
+  final List<String> supportedImageFormats;
+  final bool pdfTemplateRequired;
+  final String? message;
+
+  ExtractionLimits({
+    required this.maxWordsPerExtraction,
+    required this.maxImageSizeMB,
+    required this.maxPdfSizeMB,
+    required this.supportedImageFormats,
+    required this.pdfTemplateRequired,
+    this.message,
+  });
+
+  factory ExtractionLimits.fromJson(Map<String, dynamic> json) {
+    return ExtractionLimits(
+      maxWordsPerExtraction: json['maxWordsPerExtraction'] ?? 100,
+      maxImageSizeMB: json['maxImageSizeMB'] ?? 10,
+      maxPdfSizeMB: json['maxPdfSizeMB'] ?? 20,
+      supportedImageFormats: (json['supportedImageFormats'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList() ?? ['jpg', 'jpeg', 'png'],
+      pdfTemplateRequired: json['pdfTemplateRequired'] ?? true,
+      message: json['message'],
+    );
+  }
+
+  factory ExtractionLimits.defaultLimits() {
+    return ExtractionLimits(
+      maxWordsPerExtraction: 100,
+      maxImageSizeMB: 10,
+      maxPdfSizeMB: 20,
+      supportedImageFormats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+      pdfTemplateRequired: true,
+      message: 'Chỉ hỗ trợ PDF từ mẫu của ứng dụng. Tối đa 100 từ.',
+    );
+  }
+}
 
 /// Kết quả trích xuất text từ ảnh/PDF
 class TextExtractionResult {
@@ -521,7 +677,7 @@ class BatchCategorySuggestionResult {
   }
 }
 
-/// Category được gợi ý (định nghĩa local để tránh conflict với import)
+/// Category được gợi ý
 class CategorySuggestionItem {
   final int? categoryId;
   final String? categoryName;

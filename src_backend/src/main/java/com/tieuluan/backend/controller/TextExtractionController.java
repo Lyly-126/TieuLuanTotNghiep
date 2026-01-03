@@ -9,12 +9,14 @@ import com.tieuluan.backend.service.CategorySuggestionService.*;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -224,8 +226,66 @@ public class TextExtractionController {
             return ResponseEntity.badRequest().body(errorResult);
         }
     }
+    /**
+     * GET /api/text-extraction/template
+     *
+     * Tải PDF template trống để người dùng điền từ vựng
+     * PDF này có marker đặc biệt để app nhận diện
+     */
+    @GetMapping("/template")
+    public ResponseEntity<byte[]> downloadPdfTemplate(
+            @RequestParam(value = "type", defaultValue = "BASIC") String templateType) {
 
-    // ==================== DTOs ====================
+        log.info("📥 PDF template download request: type={}", templateType);
+
+        try {
+            byte[] pdfBytes = textExtractionService.generatePdfTemplate (templateType);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", "flashcard_template.pdf");
+            headers.setContentLength(pdfBytes.length);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdfBytes);
+
+        } catch (Exception e) {
+            log.error("❌ Template generation failed: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * GET /api/text-extraction/limits
+     *
+     * Lấy thông tin giới hạn của tính năng text extraction
+     *
+     * @return ExtractionLimitsResponse
+     */
+    @GetMapping("/limits")
+    public ResponseEntity<ExtractionLimitsResponse> getExtractionLimits() {
+        ExtractionLimitsResponse response = new ExtractionLimitsResponse();
+        response.setMaxWordsPerExtraction(100);
+        response.setMaxImageSizeMB(10);
+        response.setMaxPdfSizeMB(20);
+        response.setSupportedImageFormats(Arrays.asList("jpg", "jpeg", "png", "gif", "webp", "bmp"));
+        response.setPdfTemplateRequired(true);
+        response.setMessage("Chỉ hỗ trợ PDF được tạo từ mẫu của ứng dụng. Tối đa 100 từ vựng mỗi lần trích xuất.");
+        return ResponseEntity.ok(response);
+    }
+
+// ==================== DTO MỚI ====================
+
+    @Data
+    public static class ExtractionLimitsResponse {
+        private int maxWordsPerExtraction;
+        private int maxImageSizeMB;
+        private int maxPdfSizeMB;
+        private List<String> supportedImageFormats;
+        private boolean pdfTemplateRequired;
+        private String message;
+    }
 
     @Data
     public static class PreviewWordsRequest {

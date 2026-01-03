@@ -556,7 +556,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
           onPressed: () {
             Navigator.pushNamedAndRemoveUntil(
               context,
-              '/library',
+              '/home',
                   (route) => route.isFirst,
             );
           }

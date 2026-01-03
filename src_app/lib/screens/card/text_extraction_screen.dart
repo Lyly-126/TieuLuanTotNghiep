@@ -4,16 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../config/app_colors.dart';
-import '../../config/app_text_styles.dart';
 import '../../services/text_extraction_service.dart';
 import 'word_selection_screen.dart';
+import 'vocabulary_input_screen.dart';
 
 /// Màn hình chọn nguồn trích xuất từ vựng (OCR/PDF)
 ///
-/// Flow:
-/// 1. User chọn chụp ảnh/chọn ảnh từ thư viện/chọn PDF
-/// 2. Upload và trích xuất từ vựng
-/// 3. Chuyển sang WordSelectionScreen để chọn từ
+/// ✅ UPDATED v2:
+/// - Thêm option "Nhập thủ công" - dùng grid 100 ô
+/// - PDF export có marker để hệ thống nhận diện
+/// - Giới hạn 100 từ
+/// - UI đẹp hơn với flow rõ ràng
+///
+/// Flow mới:
+/// 1. User có thể:
+///    - Nhập thủ công qua grid → Xuất PDF → Quét trực tiếp
+///    - Chụp ảnh → OCR
+///    - Chọn ảnh từ thư viện → OCR
+/// 2. Chuyển sang WordSelectionScreen để chọn từ
 class TextExtractionScreen extends StatefulWidget {
   final int? initialCategoryId;
   final String? initialCategoryName;
@@ -61,6 +69,50 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
 
   // ==================== ACTIONS ====================
 
+  /// Mở màn hình nhập từ thủ công
+  Future<void> _openManualInput() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VocabularyInputScreen(
+          initialCategoryId: widget.initialCategoryId,
+          initialCategoryName: widget.initialCategoryName,
+        ),
+      ),
+    );
+
+    // Nếu user chọn "Quét ngay" từ màn hình nhập
+    if (result != null && result['words'] != null) {
+      final words = result['words'] as List<String>;
+      _processManualWords(words);
+    }
+  }
+
+  /// Xử lý danh sách từ nhập thủ công
+  void _processManualWords(List<String> words) {
+    if (words.isEmpty) {
+      _showError('Không có từ vựng nào để tạo flashcard');
+      return;
+    }
+
+    // Tạo TextExtractionResult giả từ dữ liệu nhập tay
+    final extractedWords = words.map((word) => ExtractedWord(
+      word: word.toLowerCase().trim(),
+      foundInDictionary: false, // Sẽ được lookup sau
+      selected: true,
+    )).toList();
+
+    final result = TextExtractionResult(
+      success: true,
+      message: 'Đã nhập ${words.length} từ vựng',
+      sourceType: 'MANUAL',
+      extractedWords: extractedWords,
+      totalWordsFound: words.length,
+    );
+
+    _navigateToWordSelection(result);
+  }
+
   /// Chụp ảnh từ camera
   Future<void> _captureImage() async {
     try {
@@ -97,7 +149,6 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
     }
   }
 
-  /// Chọn file PDF
   Future<void> _pickPDF() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -114,46 +165,6 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
     }
   }
 
-  /// Xử lý ảnh đã chọn
-  Future<void> _processImage(XFile image) async {
-    setState(() {
-      _isLoading = true;
-      _loadingMessage = 'Đang nhận dạng văn bản...';
-      _errorMessage = null;
-    });
-
-    try {
-      TextExtractionResult result;
-
-      if (kIsWeb) {
-        // Web: sử dụng bytes
-        final bytes = await image.readAsBytes();
-        result = await TextExtractionService.extractFromImageBytes(
-          bytes,
-          image.name,
-        );
-      } else {
-        // Mobile: sử dụng file
-        result = await TextExtractionService.extractFromImage(
-          File(image.path),
-        );
-      }
-
-      if (result.success && result.extractedWords.isNotEmpty) {
-        _navigateToWordSelection(result);
-      } else if (result.success && result.extractedWords.isEmpty) {
-        _showError('Không tìm thấy từ vựng tiếng Anh trong ảnh');
-      } else {
-        _showError(result.message ?? 'Lỗi không xác định');
-      }
-    } catch (e) {
-      _showError('Lỗi xử lý ảnh: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  /// Xử lý PDF đã chọn
   Future<void> _processPDF(PlatformFile file) async {
     setState(() {
       _isLoading = true;
@@ -179,15 +190,52 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
         throw Exception('Không thể đọc file PDF');
       }
 
-      if (result.success && result.extractedWords.isNotEmpty) {
-        _navigateToWordSelection(result);
-      } else if (result.success && result.extractedWords.isEmpty) {
-        _showError('Không tìm thấy từ vựng tiếng Anh trong PDF');
-      } else {
-        _showError(result.message ?? 'Lỗi không xác định');
-      }
+      _handleExtractionResult(result);
     } catch (e) {
       _showError('Lỗi đọc PDF: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// Xử lý kết quả extraction
+  void _handleExtractionResult(TextExtractionResult result) {
+    if (result.success && result.extractedWords.isNotEmpty) {
+      _navigateToWordSelection(result);
+    } else if (result.success && result.extractedWords.isEmpty) {
+      _showError('Không tìm thấy từ vựng tiếng Anh');
+    } else {
+      // Hiển thị lỗi từ server (bao gồm lỗi PDF không hợp lệ, vượt limit)
+      _showError(result.message ?? 'Lỗi không xác định');
+    }
+  }
+
+  /// Xử lý ảnh đã chọn
+  Future<void> _processImage(XFile image) async {
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = 'Đang nhận dạng văn bản...';
+      _errorMessage = null;
+    });
+
+    try {
+      TextExtractionResult result;
+
+      if (kIsWeb) {
+        final bytes = await image.readAsBytes();
+        result = await TextExtractionService.extractFromImageBytes(
+          bytes,
+          image.name,
+        );
+      } else {
+        result = await TextExtractionService.extractFromImage(
+          File(image.path),
+        );
+      }
+
+      _handleExtractionResult(result);
+    } catch (e) {
+      _showError('Lỗi xử lý ảnh: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -214,6 +262,7 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
         content: Text(message),
         backgroundColor: AppColors.error,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
       ),
     );
   }
@@ -249,7 +298,7 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
             ),
           ),
           Text(
-            'OCR ảnh hoặc đọc PDF',
+            'Tối đa 100 từ mỗi lần',
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
@@ -267,40 +316,31 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Animated loading indicator
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              color: AppColors.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 4,
-                    valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  _loadingMessage,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              strokeWidth: 3,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            _loadingMessage,
+            style: const TextStyle(
+              fontSize: 16,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Vui lòng đợi...',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
             ),
           ),
         ],
@@ -316,31 +356,69 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header illustration
+            // Header
             _buildHeader(),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-            // Error message
+            // Error card nếu có
             if (_errorMessage != null) ...[
               _buildErrorCard(),
               const SizedBox(height: 24),
             ],
 
-            // Options
-            _buildOptionCard(
+            // ⭐ OPTION 1: Nhập thủ công (RECOMMENDED)
+            _buildPrimaryOption(),
+
+            const SizedBox(height: 20),
+
+            // Divider với text
+            Row(
+              children: [
+                Expanded(child: Divider(color: AppColors.border)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'HOẶC',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textGray,
+                    ),
+                  ),
+                ),
+                Expanded(child: Divider(color: AppColors.border)),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            // Secondary options title
+            Text(
+              'Quét từ ảnh',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // OPTION 2: Chụp ảnh
+            _buildSecondaryOption(
               icon: Icons.camera_alt_rounded,
               title: 'Chụp ảnh',
               subtitle: 'Chụp ảnh tài liệu, sách, bảng từ vựng',
-              color: AppColors.primary,
+              color: AppColors.info,
               onTap: _captureImage,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            _buildOptionCard(
+            // OPTION 3: Chọn ảnh
+            _buildSecondaryOption(
               icon: Icons.photo_library_rounded,
               title: 'Chọn từ thư viện',
               subtitle: 'Chọn ảnh có sẵn trong điện thoại',
-              color: AppColors.success,
+              color: AppColors.secondary,
               onTap: _pickImage,
             ),
             const SizedBox(height: 16),
@@ -352,9 +430,7 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
               color: AppColors.warning,
               onTap: _pickPDF,
             ),
-
             const SizedBox(height: 32),
-
             // Tips
             _buildTipsSection(),
           ],
@@ -365,11 +441,11 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withOpacity(0.1),
+            AppColors.primary.withOpacity(0.15),
             AppColors.primary.withOpacity(0.05),
           ],
           begin: Alignment.topLeft,
@@ -379,28 +455,25 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
       ),
       child: Row(
         children: [
-          // Icon
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              color: AppColors.primary.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
-              Icons.document_scanner_rounded,
-              size: 40,
+              Icons.auto_awesome,
+              size: 36,
               color: AppColors.primary,
             ),
           ),
           const SizedBox(width: 16),
-
-          // Text
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Tạo thẻ từ ảnh/PDF',
+                  'Tạo Flashcard nhanh',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -409,7 +482,7 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Chụp ảnh hoặc chọn PDF để tự động nhận dạng từ vựng tiếng Anh',
+                  'Nhập từ vựng hoặc quét từ ảnh để tạo flashcard tự động',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
@@ -450,6 +523,218 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
             onPressed: () => setState(() => _errorMessage = null),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Option chính: Nhập thủ công
+  Widget _buildPrimaryOption() {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      elevation: 2,
+      shadowColor: AppColors.primary.withOpacity(0.2),
+      child: InkWell(
+        onTap: _openManualInput,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.primary, width: 2),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  // Icon
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary,
+                          AppColors.primary.withOpacity(0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.grid_view_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+
+                  // Text
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Tạo PDF',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              // decoration: BoxDecoration(
+                              //   color: AppColors.success,
+                              //   borderRadius: BorderRadius.circular(10),
+                              // ),
+                              // child: const Text(
+                              //   'Khuyên dùng',
+                              //   style: TextStyle(
+                              //     color: Colors.white,
+                              //     fontSize: 10,
+                              //     fontWeight: FontWeight.bold,
+                              //   ),
+                              // ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Gõ từ vựng vào ô, hệ thống tự động tra nghĩa',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Arrow
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Features list
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildFeatureChip(Icons.grid_on, '100 ô nhập'),
+                    _buildFeatureChip(Icons.picture_as_pdf, 'Xuất PDF'),
+                    _buildFeatureChip(Icons.flash_on, 'Tạo nhanh'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureChip(IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppColors.primaryDark,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Options phụ: Chụp/Chọn ảnh
+  Widget _buildSecondaryOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: AppColors.textGray,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -540,7 +825,7 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
               Icon(Icons.lightbulb_outline, color: AppColors.warning, size: 22),
               const SizedBox(width: 8),
               const Text(
-                'Mẹo để có kết quả tốt nhất',
+                'Mẹo sử dụng',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
@@ -551,40 +836,55 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
           ),
           const SizedBox(height: 16),
           _buildTipItem(
+            icon: Icons.keyboard,
+            text: 'Dùng "Nhập từ vựng" để gõ nhanh và chính xác nhất',
+            highlight: true,
+          ),
+          _buildTipItem(
+            icon: Icons.format_list_numbered,
+            text: 'Mỗi lần nhập tối đa 100 từ vựng',
+          ),
+          _buildTipItem(
             icon: Icons.wb_sunny_outlined,
-            text: 'Chụp ảnh ở nơi đủ ánh sáng',
+            text: 'Nếu chụp ảnh, đảm bảo đủ ánh sáng và chữ rõ ràng',
           ),
           _buildTipItem(
-            icon: Icons.crop_free,
-            text: 'Đặt tài liệu thẳng, không bị nghiêng',
-          ),
-          _buildTipItem(
-            icon: Icons.text_fields,
-            text: 'Chữ trong ảnh phải rõ ràng, không bị mờ',
+            icon: Icons.wb_sunny_outlined,
+            text: 'Nếu tải lên PDF, phải dùng mẫu có sẵn của Flai',
           ),
           _buildTipItem(
             icon: Icons.language,
-            text: 'Hệ thống chỉ nhận dạng từ tiếng Anh',
+            text: 'Hệ thống tự động tra nghĩa tiếng Việt',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTipItem({required IconData icon, required String text}) {
+  Widget _buildTipItem({
+    required IconData icon,
+    required String text,
+    bool highlight = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: AppColors.textSecondary),
+          Icon(
+            icon,
+            size: 18,
+            color: highlight ? AppColors.primary : AppColors.textSecondary,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                color: AppColors.textSecondary,
+                color: highlight ? AppColors.textPrimary : AppColors.textSecondary,
                 fontSize: 13,
                 height: 1.4,
+                fontWeight: highlight ? FontWeight.w500 : FontWeight.normal,
               ),
             ),
           ),

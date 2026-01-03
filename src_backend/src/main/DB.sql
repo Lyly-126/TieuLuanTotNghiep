@@ -290,29 +290,24 @@ INSERT INTO classes (name, description, ownerId, inviteCode, "isPublic") VALUES
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (1, 2, 'STUDENT', 'APPROVED', NOW() - INTERVAL '25 days'),
 (1, 6, 'STUDENT', 'APPROVED', NOW() - INTERVAL '20 days');
-
 -- Lớp 2
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (2, 2, 'STUDENT', 'APPROVED', NOW() - INTERVAL '25 days'),
 (2, 7, 'STUDENT', 'APPROVED', NOW() - INTERVAL '22 days');
-
 -- Lớp 3
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (3, 6, 'STUDENT', 'APPROVED', NOW() - INTERVAL '20 days'),
 (3, 7, 'STUDENT', 'APPROVED', NOW() - INTERVAL '18 days');
-
 -- Lớp 4 (có PENDING)
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (4, 5, 'STUDENT', 'APPROVED', NOW() - INTERVAL '14 days'),
 (4, 6, 'STUDENT', 'PENDING', NOW() - INTERVAL '2 days'),
 (4, 7, 'STUDENT', 'PENDING', NOW() - INTERVAL '1 day');
-
 -- Lớp 5 (có PENDING)
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (5, 2, 'STUDENT', 'APPROVED', NOW() - INTERVAL '15 days'),
 (5, 5, 'STUDENT', 'PENDING', NOW() - INTERVAL '3 days'),
 (5, 6, 'STUDENT', 'PENDING', NOW() - INTERVAL '2 days');
-
 -- Lớp 6
 INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") VALUES
 (6, 6, 'STUDENT', 'APPROVED', NOW() - INTERVAL '8 days'),
@@ -322,22 +317,17 @@ INSERT INTO "classMembers" ("classId", "userId", "role", "status", "joinedAt") V
 INSERT INTO categories (name, isSystem, ownerUserId, "classId", visibility, shareToken) VALUES
 ('Default English Words', TRUE, NULL, NULL, 'PUBLIC', 'tok_sys_default_words'),
 ('Common Phrases', TRUE, NULL, NULL, 'PUBLIC', 'tok_sys_phrases'),
-
 ('TOEIC Basic Vocabulary', FALSE, 1, 1, 'PUBLIC', 'tok_toeic_basic_123'),
 ('TOEIC Part 5 Grammar', FALSE, 1, 1, 'PUBLIC', 'tok_toeic_p5_456'),
 ('IELTS Academic Words', FALSE, 1, 2, 'PUBLIC', 'tok_ielts_435'),
 ('Business Email Templates', FALSE, 1, 4, 'PUBLIC', 'tok_biz_email_789'),
-
 ('Advanced Grammar', FALSE, 1, NULL, 'PUBLIC', 'tok_advanced_grammar'),
-
 ('100 Common Verbs', FALSE, 5, NULL, 'PUBLIC', 'tok_verb100_992'),
 ('Advanced Idioms', FALSE, 5, NULL, 'PUBLIC', 'tok_premium_idioms_444'),
 
 -- ❗❗ FIXED LINE: MISSING QUOTE
 ('Animals For Kids', FALSE, 2, NULL, 'PRIVATE', 'tok_animals_556'),
-
 ('My Personal Words', FALSE, 2, NULL, 'PRIVATE', 'tok_ly_personal_111'),
-
 ('TOEFL Reading Vocabulary', FALSE, 8, 5, 'PUBLIC', 'tok_toefl_read_333'),
 ('Kids Colors & Shapes', FALSE, 8, 6, 'PUBLIC', 'tok_kids_colors_222');
 
@@ -392,4 +382,3 @@ INSERT INTO flashcards ("userId", word, "partOfSpeech", "partOfSpeechVi", phonet
 SELECT * FROM dictionary limit 100;
 
 SELECT * FROM flashcards;
-

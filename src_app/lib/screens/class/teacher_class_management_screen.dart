@@ -8,6 +8,7 @@ import '../../services/class_service.dart';
 import '../../widgets/custom_button.dart';
 import 'class_detail_screen.dart';
 
+/// ✅ FIXED: Bỏ nút back vì đây là tab trong HomeScreen, không phải màn hình riêng
 class TeacherClassManagementScreen extends StatefulWidget {
   const TeacherClassManagementScreen({Key? key}) : super(key: key);
 
@@ -285,7 +286,7 @@ class _TeacherClassManagementScreenState
 
   void _showEditClassDialog(ClassModel cls) {
     final nameController = TextEditingController(text: cls.name);
-    final descriptionController = TextEditingController(text: cls.description);
+    final descriptionController = TextEditingController(text: cls.description ?? '');
     bool isPublic = cls.isPublic;
 
     showModalBottomSheet(
@@ -312,7 +313,7 @@ class _TeacherClassManagementScreenState
                 children: [
                   Expanded(
                     child: Text(
-                      'Chỉnh sửa lớp học',
+                      'Chỉnh sửa lớp',
                       style: AppTextStyles.heading2.copyWith(
                         color: AppColors.primary,
                       ),
@@ -418,32 +419,29 @@ class _TeacherClassManagementScreenState
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          'Xóa lớp học?',
-          style: AppTextStyles.heading3.copyWith(
-            color: AppColors.error,
-          ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_rounded, color: AppColors.error),
+            SizedBox(width: 12),
+            Text('Xóa lớp?'),
+          ],
         ),
         content: Text(
-          'Tất cả học phần và thành viên sẽ bị xóa. Hành động này không thể hoàn tác.',
-          style: AppTextStyles.body,
+          'Bạn có chắc muốn xóa lớp "${cls.name}"?\nHành động này không thể hoàn tác.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Hủy',
-              style: AppTextStyles.label.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
+            child: const Text('Hủy'),
           ),
-          CustomButton(
-            text: 'Xóa',
-            backgroundColor: AppColors.error,
-            width: 100,
-            height: 40,
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa'),
           ),
         ],
       ),
@@ -452,15 +450,13 @@ class _TeacherClassManagementScreenState
     if (confirm == true && mounted) {
       try {
         await ClassService.deleteClass(cls.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Đã xóa lớp học'),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          _loadClasses();
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Đã xóa lớp'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        _loadClasses();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -492,38 +488,47 @@ class _TeacherClassManagementScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: AppColors.primary, size: 22),
-          onPressed: () => Navigator.pop(context),
-        ),
-        centerTitle: true,
-        title: Text(
-          'Lớp học của tôi',
-          style: AppTextStyles.heading2.copyWith(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w700,
+      // ✅ FIXED: Bỏ AppBar với nút back, thay bằng header đơn giản
+      // Vì đây là tab trong HomeScreen, không phải màn hình riêng
+      body: Column(
+        children: [
+          // Header
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: SafeArea(
+              bottom: false,
+              child: Center(
+                child: Text(
+                  'Lớp học của tôi',
+                  style: AppTextStyles.heading2.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      )
-          : _ownedClasses.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-        onRefresh: _loadClasses,
-        child: ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: _ownedClasses.length,
-          itemBuilder: (context, index) {
-            return _buildClassCard(_ownedClasses[index]);
-          },
-        ),
+          // Body
+          Expanded(
+            child: _isLoading
+                ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
+                : _ownedClasses.isEmpty
+                ? _buildEmptyState()
+                : RefreshIndicator(
+              onRefresh: _loadClasses,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _ownedClasses.length,
+                itemBuilder: (context, index) {
+                  return _buildClassCard(_ownedClasses[index]);
+                },
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateClassDialog,
