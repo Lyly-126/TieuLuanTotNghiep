@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../config/app_colors.dart';
-import '../../config/app_constants.dart';
+import '../../screens/class/class_category_management_tab.dart';
 import '../../config/app_text_styles.dart';
 import '../../models/class_model.dart';
 import '../../models/class_member_model.dart';
@@ -469,10 +469,13 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
                   classMemberCount: _classDetail?.memberCount,
                   classCategoryCount: _classDetail?.categoryCount,
                 ),
-                _CategoriesTab(
+
+                ClassCategoryManagementTab(
                   classId: widget.classId,
                   isOwner: widget.isOwner,
+                  onCategoryUpdated: _loadClassDetail,
                 ),
+
                 if (widget.isOwner)
                   _PendingMembersTab(
                     classId: widget.classId,

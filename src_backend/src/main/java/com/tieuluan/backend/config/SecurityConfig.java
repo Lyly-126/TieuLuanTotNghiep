@@ -66,6 +66,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // ========== PUBLIC ENDPOINTS ==========
+                        .requestMatchers("/api/debug/**").permitAll()  // ✅ DEBUG - XÓA SAU
                         .requestMatchers("/api/users/register", "/api/users/login").permitAll()
                         .requestMatchers("/api/otp/**", "/api/auth/**").permitAll()
                         .requestMatchers("/api/payment/vnpay/return", "/api/payment/vnpay/callback").permitAll()
@@ -92,6 +93,21 @@ public class SecurityConfig {
 
                         // ========== ✅ TTS - PUBLIC (không cần authentication) ==========
                         .requestMatchers("/api/tts/**").permitAll()
+
+                        // ========== ✅ QUIZ - ALL AUTHENTICATED (phải đặt trước anyRequest) ==========
+                        .requestMatchers("/api/quiz/types").permitAll()
+                        .requestMatchers("/api/quiz/generate").authenticated()
+                        .requestMatchers("/api/quiz/generate/**").authenticated()
+                        .requestMatchers("/api/quiz/submit").authenticated()
+                        .requestMatchers("/api/quiz/answer").authenticated()
+                        .requestMatchers("/api/quiz/complete/**").authenticated()
+                        .requestMatchers("/api/quiz/history").authenticated()
+                        .requestMatchers("/api/quiz/stats").authenticated()
+                        .requestMatchers("/api/quiz/stats/**").authenticated()
+                        .requestMatchers("/api/quiz/**").authenticated()
+
+                        // ========== ✅ STUDY PROGRESS - ALL AUTHENTICATED ==========
+                        .requestMatchers("/api/study/**").authenticated()
 
                         // ========== ADMIN ONLY ==========
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

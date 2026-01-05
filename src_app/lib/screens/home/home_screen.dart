@@ -18,13 +18,10 @@ import '../../services/category_service.dart';
 import '../../routes/app_routes.dart';
 import '../category/category_detail_screen.dart';
 import '../payment/upgrade_premium_screen.dart';
+import '../../services/study_progress_service.dart';
+import '../../models/study_progress_model.dart';
 
 /// ✅ HOME SCREEN - FIX NAVIGATION
-///
-/// Thay đổi chính:
-/// - LibraryScreen được tích hợp như một tab, KHÔNG push riêng
-/// - Loại bỏ logic pop result phức tạp
-/// - Sử dụng IndexedStack để giữ state của các tab
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -39,7 +36,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<CategoryModel> _defaultCategories = [];
   bool _isLoadingCategories = true;
 
-  // ✅ Keys để giữ state của các tab
+  // ✅ Streak variables - PHẢI ở trong _HomeScreenState
+  StudyStreakModel? _streakInfo;
+  bool _isLoadingStreak = true;
+
   final GlobalKey<_LibraryTabState> _libraryTabKey = GlobalKey<_LibraryTabState>();
 
   @override
@@ -47,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadCurrentUser();
     _loadDefaultCategories();
+    _loadStreakInfo();
   }
 
   List<Color> _getGradientColors(int index) {
@@ -92,15 +93,43 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// ✅ SIMPLIFIED: Chỉ cần setState để chuyển tab
+  Future<void> _loadStreakInfo() async {
+    try {
+      final streak = await StudyProgressService.getStreakInfo();
+      if (mounted) {
+        setState(() {
+          _streakInfo = streak;
+          _isLoadingStreak = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingStreak = false);
+      debugPrint('Error loading streak: $e');
+    }
+  }
+
+  Future<void> _loadDefaultCategories() async {
+    setState(() => _isLoadingCategories = true);
+    try {
+      final categories = await CategoryService.getPublicCategories();
+      final systemCategories = categories.where((cat) => cat.isSystem).toList();
+      if (mounted) {
+        setState(() {
+          _defaultCategories = systemCategories;
+          _isLoadingCategories = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingCategories = false);
+      debugPrint('❌ Error loading default categories: $e');
+    }
+  }
+
   void _onItemTapped(int index) {
-    // Nút tạo (index 1)
     if (index == 1) {
       _showCreateBottomSheet();
       return;
     }
-
-    // ✅ Chuyển tab bình thường
     setState(() => _selectedIndex = index);
   }
 
@@ -152,7 +181,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.push(context, MaterialPageRoute(
                   builder: (context) => const FlashcardCreationScreen(),
                 )).then((_) {
-                  // Refresh data sau khi tạo xong
                   _loadDefaultCategories();
                 });
               },
@@ -171,7 +199,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   AppRoutes.categoryCreate,
                   arguments: {'classId': null, 'className': null},
                 ).then((_) {
-                  // Refresh data sau khi tạo xong
                   _loadDefaultCategories();
                 });
               },
@@ -300,6 +327,152 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ✅ _buildStreakSection PHẢI ở trong _HomeScreenState
+  Widget _buildStreakSection() {
+    if (_isLoadingStreak) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (_streakInfo == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: _streakInfo!.hasStudiedToday
+              ? [const Color(0xFF4CAF50), const Color(0xFF81C784)]
+              : _streakInfo!.isStreakAtRisk
+              ? [const Color(0xFFFF9800), const Color(0xFFFFB74D)]
+              : [AppColors.primary, AppColors.accent],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: (_streakInfo!.hasStudiedToday
+                ? const Color(0xFF4CAF50)
+                : AppColors.primary)
+                .withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Fire icon
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text('🔥', style: TextStyle(fontSize: 28)),
+          ),
+          const SizedBox(width: 16),
+
+          // Streak info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${_streakInfo!.currentStreak}',
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        'ngày streak',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _streakInfo!.hasStudiedToday
+                      ? '✓ Đã học hôm nay'
+                      : _streakInfo!.isStreakAtRisk
+                      ? '⚠ Học ngay để giữ streak!'
+                      : 'Kỷ lục: ${_streakInfo!.longestStreak} ngày',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Weekly dots
+          Column(
+            children: [
+              Row(
+                children: List.generate(7, (index) {
+                  final isStudied = index < _streakInfo!.weeklyData.length
+                      ? _streakInfo!.weeklyData[index].isStudied
+                      : false;
+                  return Container(
+                    width: 10,
+                    height: 10,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: isStudied ? Colors.white : Colors.white.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '7 ngày qua',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -309,19 +482,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// ✅ SỬ DỤNG INDEXED STACK để giữ state của các tab
   Widget _buildBody() {
     final isTeacher = _currentUser?.canCreateClass ?? false;
 
     if (isTeacher) {
-      // Teacher: 5 tabs (0: Home, 1: Create, 2: Courses, 3: Classes, 4: Library)
       return IndexedStack(
         index: _getActualIndex(_selectedIndex, isTeacher),
         children: [
-          _buildHomeTab(),           // index 0
-          _buildCoursesTab(),        // index 2 -> actual 1
-          _buildClassesTab(),        // index 3 -> actual 2
-          _LibraryTab(               // index 4 -> actual 3
+          _buildHomeTab(),
+          _buildCoursesTab(),
+          _buildClassesTab(),
+          _LibraryTab(
             key: _libraryTabKey,
             currentUser: _currentUser,
             onRefreshNeeded: _loadDefaultCategories,
@@ -329,13 +500,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
     } else {
-      // Normal user: 4 tabs (0: Home, 1: Create, 2: Courses, 3: Library)
       return IndexedStack(
         index: _getActualIndex(_selectedIndex, isTeacher),
         children: [
-          _buildHomeTab(),           // index 0
-          _buildCoursesTab(),        // index 2 -> actual 1
-          _LibraryTab(               // index 3 -> actual 2
+          _buildHomeTab(),
+          _buildCoursesTab(),
+          _LibraryTab(
             key: _libraryTabKey,
             currentUser: _currentUser,
             onRefreshNeeded: _loadDefaultCategories,
@@ -345,21 +515,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Chuyển đổi selectedIndex thành actual index cho IndexedStack
   int _getActualIndex(int selectedIndex, bool isTeacher) {
     if (isTeacher) {
       switch (selectedIndex) {
-        case 0: return 0;  // Home
-        case 2: return 1;  // Courses
-        case 3: return 2;  // Classes
-        case 4: return 3;  // Library
+        case 0: return 0;
+        case 2: return 1;
+        case 3: return 2;
+        case 4: return 3;
         default: return 0;
       }
     } else {
       switch (selectedIndex) {
-        case 0: return 0;  // Home
-        case 2: return 1;  // Courses
-        case 3: return 2;  // Library
+        case 0: return 0;
+        case 2: return 1;
+        case 3: return 2;
         default: return 0;
       }
     }
@@ -417,7 +586,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
+
+          // ✅ STREAK WIDGET
+          _buildStreakSection(),
+
+          const SizedBox(height: 20),
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen())),
             child: Container(
@@ -736,28 +910,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  Future<void> _loadDefaultCategories() async {
-    setState(() => _isLoadingCategories = true);
-    try {
-      final categories = await CategoryService.getPublicCategories();
-      final systemCategories = categories.where((cat) => cat.isSystem).toList();
-      if (mounted) {
-        setState(() {
-          _defaultCategories = systemCategories;
-          _isLoadingCategories = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isLoadingCategories = false);
-      debugPrint('❌ Error loading default categories: $e');
-    }
-  }
 }
 
-
 // ==================== LIBRARY TAB WIDGET ====================
-/// ✅ Library Tab - Tách riêng để có thể giữ state trong IndexedStack
 class _LibraryTab extends StatefulWidget {
   final UserModel? currentUser;
   final VoidCallback? onRefreshNeeded;
@@ -884,7 +1039,6 @@ class _LibraryTabState extends State<_LibraryTab> with SingleTickerProviderState
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Header
         Container(
           color: Colors.white,
           child: Column(
@@ -916,7 +1070,6 @@ class _LibraryTabState extends State<_LibraryTab> with SingleTickerProviderState
             ],
           ),
         ),
-        // Body
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: AppColors.primary))

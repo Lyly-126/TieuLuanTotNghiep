@@ -81,6 +81,17 @@ public class JwtUtil {
         }
     }
 
+    /**
+     * ✅ NEW: Helper method for backward compatibility
+     * Một số controller cũ có thể gọi extractUserId() thay vì getUserIdFromToken()
+     *
+     * @param token JWT token
+     * @return userId as Integer
+     */
+    public Integer extractUserId(String token) {
+        return getUserIdFromToken(token).intValue();
+    }
+
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }

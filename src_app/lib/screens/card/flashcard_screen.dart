@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flip_card/flip_card.dart';
 import '../../config/app_colors.dart';
-import '../../config/app_text_styles.dart';
+import '../../services/study_progress_service.dart';
 import '../../models/flashcard_model.dart';
 import '../../services/flash_card_service.dart';
 import '../../services/tts_service.dart';
@@ -256,21 +256,44 @@ class _FlashcardScreenState extends State<FlashcardScreen>
 
   void _handleKnown() {
     final card = _currentCard;
-    if (card?.id != null) {
+    if (card?.id != null && widget.categoryId != null) {
       setState(() {
         _knownCards.add(card!.id!);
         _learningCards.remove(card.id!);
+      });
+
+      // ✅ GỌI API để cập nhật progress + streak
+      StudyProgressService.updateProgress(
+        flashcardId: card!.id!,
+        categoryId: widget.categoryId!,
+        isCorrect: true,  // "Đã thuộc" = đúng
+      ).then((_) {
+        debugPrint('✅ Progress updated for card ${card.id}');
+      }).catchError((e) {
+        debugPrint('❌ Failed to update progress: $e');
       });
     }
     _nextCard();
   }
 
+
   void _handleLearning() {
     final card = _currentCard;
-    if (card?.id != null) {
+    if (card?.id != null && widget.categoryId != null) {
       setState(() {
         _learningCards.add(card!.id!);
         _knownCards.remove(card.id!);
+      });
+
+      // ✅ GỌI API để cập nhật progress + streak
+      StudyProgressService.updateProgress(
+        flashcardId: card!.id!,
+        categoryId: widget.categoryId!,
+        isCorrect: false,  // "Đang học" = chưa thuộc
+      ).then((_) {
+        debugPrint('✅ Progress updated for card ${card.id}');
+      }).catchError((e) {
+        debugPrint('❌ Failed to update progress: $e');
       });
     }
     _nextCard();

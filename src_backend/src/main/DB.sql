@@ -379,6 +379,259 @@ INSERT INTO flashcards ("userId", word, "partOfSpeech", "partOfSpeechVi", phonet
 (2, 'dog', 'noun', 'danh từ', '/dɒɡ/', 'con chó', 10, 'https://images.unsplash.com/photo-1543466835-00a7907e9de1'),
 (2, 'bird', 'noun', 'danh từ', '/bɜːrd/', 'con chim', 10, 'https://images.unsplash.com/photo-1444464666168-49d633b86797');
 
+-- ===========================
+-- STUDY PROGRESS (Tiến trình học từng thẻ)
+-- ===========================
+CREATE TABLE "studyProgress" (
+    id SERIAL PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "flashcardId" INTEGER NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
+    "categoryId" INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    
+    -- Trạng thái học: NOT_STARTED, LEARNING, MASTERED
+    status VARCHAR(20) NOT NULL DEFAULT 'NOT_STARTED'
+        CHECK (status IN ('NOT_STARTED', 'LEARNING', 'MASTERED')),
+    
+    -- Đếm số lần học đúng/sai
+    "correctCount" INTEGER NOT NULL DEFAULT 0,
+    "incorrectCount" INTEGER NOT NULL DEFAULT 0,
+    
+    -- Lần học cuối
+    "lastStudiedAt" TIMESTAMPTZ,
+    
+    -- Spaced repetition: lần ôn tập tiếp theo
+    "nextReviewAt" TIMESTAMPTZ,
+    
+    -- Độ khó (1-5, tính từ số lần sai)
+    difficulty INTEGER NOT NULL DEFAULT 3 CHECK (difficulty BETWEEN 1 AND 5),
+    
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    UNIQUE("userId", "flashcardId")
+);
+
+CREATE INDEX "idx_studyProgress_user" ON "studyProgress"("userId");
+CREATE INDEX "idx_studyProgress_category" ON "studyProgress"("categoryId");
+CREATE INDEX "idx_studyProgress_status" ON "studyProgress"(status);
+CREATE INDEX "idx_studyProgress_nextReview" ON "studyProgress"("nextReviewAt");
+
+-- ===========================
+-- STUDY SESSIONS (Phiên học)
+-- ===========================
+CREATE TABLE "studySessions" (
+    id SERIAL PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "categoryId" INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+    
+    -- Thời gian phiên học
+    "startedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "endedAt" TIMESTAMPTZ,
+    "durationMinutes" INTEGER,
+    
+    -- Kết quả phiên học
+    "cardsStudied" INTEGER NOT NULL DEFAULT 0,
+    "correctAnswers" INTEGER NOT NULL DEFAULT 0,
+    "incorrectAnswers" INTEGER NOT NULL DEFAULT 0,
+    
+    -- Loại phiên học: FLASHCARD, QUIZ, REVIEW
+    "sessionType" VARCHAR(30) NOT NULL DEFAULT 'FLASHCARD'
+        CHECK ("sessionType" IN ('FLASHCARD', 'QUIZ', 'REVIEW'))
+);
+
+CREATE INDEX "idx_studySessions_user" ON "studySessions"("userId");
+CREATE INDEX "idx_studySessions_started" ON "studySessions"("startedAt");
+CREATE INDEX "idx_studySessions_category" ON "studySessions"("categoryId");
+
+-- ===========================
+-- STUDY STREAKS (Chuỗi ngày học)
+-- ===========================
+CREATE TABLE "studyStreaks" (
+    id SERIAL PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+    
+    -- Streak hiện tại
+    "currentStreak" INTEGER NOT NULL DEFAULT 0,
+    
+    -- Streak dài nhất
+    "longestStreak" INTEGER NOT NULL DEFAULT 0,
+    
+    -- Ngày học gần nhất (để tính streak)
+    "lastStudyDate" DATE,
+    
+    -- Tổng số ngày đã học
+    "totalStudyDays" INTEGER NOT NULL DEFAULT 0,
+    
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX "idx_studyStreaks_user" ON "studyStreaks"("userId");
+CREATE INDEX "idx_studyStreaks_current" ON "studyStreaks"("currentStreak" DESC);
+
+-- ===========================
+-- STUDY REMINDERS (Nhắc nhở học tập)
+-- ===========================
+CREATE TABLE "studyReminders" (
+    id SERIAL PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Thời gian nhắc nhở
+    "reminderTime" TIME NOT NULL DEFAULT '20:00:00',
+    
+    -- Các ngày trong tuần (string 7 ký tự: 0=CN, 1=T2..., '1'=bật, '0'=tắt)
+    "daysOfWeek" VARCHAR(20) NOT NULL DEFAULT '1111111',
+    
+    -- Trạng thái
+    "isEnabled" BOOLEAN NOT NULL DEFAULT TRUE,
+    
+    -- FCM Token cho push notification
+    "fcmToken" TEXT,
+    
+    -- Thông báo tùy chỉnh
+    "customMessage" VARCHAR(255),
+    
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX "idx_studyReminders_user" ON "studyReminders"("userId");
+CREATE INDEX "idx_studyReminders_enabled" ON "studyReminders"("isEnabled");
+
+-- ===========================
+-- DAILY STUDY LOGS (Log học hàng ngày - để tính streak)
+-- ===========================
+CREATE TABLE "dailyStudyLogs" (
+    id SERIAL PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "studyDate" DATE NOT NULL,
+    
+    -- Thống kê ngày
+    "cardsStudied" INTEGER NOT NULL DEFAULT 0,
+    "minutesSpent" INTEGER NOT NULL DEFAULT 0,
+    "sessionsCount" INTEGER NOT NULL DEFAULT 0,
+    
+    UNIQUE("userId", "studyDate")
+);
+
+CREATE INDEX "idx_dailyStudyLogs_userDate" ON "dailyStudyLogs"("userId", "studyDate" DESC);
+
+-- ===========================
+-- SAMPLE DATA
+-- ===========================
+
+-- Study reminders mẫu
+INSERT INTO "studyReminders" ("userId", "reminderTime", "daysOfWeek", "isEnabled") VALUES
+(2, '20:00:00', '1111111', TRUE),
+(5, '19:30:00', '0111110', TRUE),
+(6, '21:00:00', '1111111', TRUE);
+
+-- Study streaks mẫu
+INSERT INTO "studyStreaks" ("userId", "currentStreak", "longestStreak", "lastStudyDate", "totalStudyDays") VALUES
+(2, 5, 12, CURRENT_DATE, 45),
+(5, 15, 30, CURRENT_DATE, 120),
+(6, 0, 7, CURRENT_DATE - 3, 20);
+
+-- Daily study logs mẫu (7 ngày gần đây cho user 2)
+INSERT INTO "dailyStudyLogs" ("userId", "studyDate", "cardsStudied", "minutesSpent", "sessionsCount")
+SELECT 2, CURRENT_DATE - i, 
+       floor(random() * 30 + 10)::int,
+       floor(random() * 30 + 5)::int,
+       floor(random() * 3 + 1)::int
+FROM generate_series(0, 6) AS i;
+
+-- Study progress mẫu (cho category 3 - TOEIC Basic, user 2)
+INSERT INTO "studyProgress" ("userId", "flashcardId", "categoryId", status, "correctCount", "incorrectCount", "lastStudiedAt")
+SELECT 2, f.id, 3,
+       CASE 
+           WHEN random() < 0.3 THEN 'MASTERED'
+           WHEN random() < 0.6 THEN 'LEARNING'
+           ELSE 'NOT_STARTED'
+       END,
+       floor(random() * 5)::int,
+       floor(random() * 2)::int,
+       NOW() - (random() * INTERVAL '7 days')
+FROM flashcards f
+WHERE f."categoryId" = 3;
+
+-- Create quizResults table
+CREATE TABLE quizResults (
+    id SERIAL PRIMARY KEY,
+    userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    categoryId INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    
+    -- Quiz info
+    quizType VARCHAR(30) NOT NULL DEFAULT 'MIXED'
+        CHECK (quizType IN (
+            'MIXED',
+            'MULTIPLE_CHOICE',
+            'FILL_BLANK',
+            'LISTENING',
+            'READING',
+            'WRITING',
+            'MATCHING',
+            'TRUE_FALSE',
+            'IMAGE_WORD'
+        )),
+    difficultyLevel VARCHAR(20) NOT NULL DEFAULT 'AUTO'
+        CHECK (difficultyLevel IN ('KIDS', 'TEEN', 'ADULT', 'AUTO')),
+    
+    -- Results
+    totalQuestions INTEGER NOT NULL CHECK (totalQuestions > 0),
+    correctAnswers INTEGER NOT NULL DEFAULT 0 CHECK (correctAnswers >= 0),
+    wrongAnswers INTEGER NOT NULL DEFAULT 0 CHECK (wrongAnswers >= 0),
+    skippedQuestions INTEGER DEFAULT 0 CHECK (skippedQuestions >= 0),
+    score DECIMAL(5,2) NOT NULL CHECK (score >= 0 AND score <= 100),
+    timeSpentSeconds INTEGER,
+    
+    -- Skill breakdown scores (0-100)
+    listeningScore DECIMAL(5,2)
+        CHECK (listeningScore IS NULL OR (listeningScore >= 0 AND listeningScore <= 100)),
+    readingScore DECIMAL(5,2)
+        CHECK (readingScore IS NULL OR (readingScore >= 0 AND readingScore <= 100)),
+    writingScore DECIMAL(5,2)
+        CHECK (writingScore IS NULL OR (writingScore >= 0 AND writingScore <= 100)),
+    
+    -- Details (JSON)
+    detailsJson TEXT,
+    
+    -- Timestamps
+    completedAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    createdAt TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for performance
+CREATE INDEX idxQuizResultsUser ON quizResults(userId);
+CREATE INDEX idxQuizResultsCategory ON quizResults(categoryId);
+CREATE INDEX idxQuizResultsUserCategory ON quizResults(userId, categoryId);
+CREATE INDEX idxQuizResultsCompleted ON quizResults(completedAt DESC);
+CREATE INDEX idxQuizResultsScore ON quizResults(score);
+CREATE INDEX idxQuizResultsQuizType ON quizResults(quizType);
+
+
+-- ===========================
+-- SAMPLE DATA (Optional)
+-- ===========================
+
+-- Sample quiz results for testing
+INSERT INTO quiz_results (user_id, category_id, quiz_type, difficulty_level, total_questions, correct_answers, wrong_answers, skipped_questions, score, time_spent_seconds, listening_score, reading_score, writing_score, completed_at) VALUES
+-- User 2 (Ly) - Category 3 (TOEIC Basic Vocabulary)
+(2, 3, 'MIXED', 'TEEN', 10, 7, 2, 1, 70.00, 180, 80.00, 66.67, 60.00, NOW() - INTERVAL '5 days'),
+(2, 3, 'MULTIPLE_CHOICE', 'TEEN', 10, 8, 2, 0, 80.00, 150, NULL, 80.00, NULL, NOW() - INTERVAL '3 days'),
+(2, 3, 'LISTENING', 'TEEN', 10, 9, 1, 0, 90.00, 200, 90.00, NULL, NULL, NOW() - INTERVAL '1 day'),
+
+-- User 5 (Premium) - Category 8 (100 Common Verbs)
+(5, 8, 'MIXED', 'ADULT', 15, 12, 3, 0, 80.00, 300, 75.00, 85.00, 80.00, NOW() - INTERVAL '7 days'),
+(5, 8, 'WRITING', 'ADULT', 10, 8, 2, 0, 80.00, 400, NULL, NULL, 80.00, NOW() - INTERVAL '4 days'),
+
+-- User 6 (Student1) - Category 3
+(6, 3, 'MIXED', 'TEEN', 10, 5, 4, 1, 50.00, 250, 40.00, 60.00, 50.00, NOW() - INTERVAL '6 days'),
+(6, 3, 'FILL_BLANK', 'TEEN', 10, 7, 3, 0, 70.00, 220, NULL, NULL, 70.00, NOW() - INTERVAL '2 days'),
+
+-- User 7 (Student2) - Category 10 (Animals For Kids)
+(7, 10, 'IMAGE_WORD', 'KIDS', 5, 4, 1, 0, 80.00, 60, NULL, 80.00, NULL, NOW() - INTERVAL '4 days'),
+(7, 10, 'MIXED', 'KIDS', 5, 5, 0, 0, 100.00, 50, 100.00, 100.00, 100.00, NOW() - INTERVAL '1 day');
+
+
 SELECT * FROM dictionary limit 100;
 
 SELECT * FROM flashcards;

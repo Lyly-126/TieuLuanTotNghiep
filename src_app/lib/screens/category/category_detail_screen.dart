@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math' as math;
 import '../../config/app_colors.dart';
-import '../../config/app_text_styles.dart';
+import '../../screens/quiz/quiz_setup_screen.dart';
 import '../../models/category_model.dart';
 import '../../models/flashcard_model.dart';
 import '../../models/user_model.dart';
@@ -15,6 +15,9 @@ import '../card/flashcard_creation_screen.dart';
 import '../card/flashcard_screen.dart';
 import '../card/flashcard_edit_screen.dart';
 import '../payment/upgrade_premium_screen.dart';
+import '../../widgets/study_progress_widgets.dart';
+import '../../models/study_progress_model.dart';
+import '../../services/study_progress_service.dart';
 
 /// 🎨 Màn hình chi tiết chủ đề - Unified Screen
 /// ✅ CẬP NHẬT: Thêm search, cải thiện typography, bỏ định nghĩa EN
@@ -42,6 +45,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   String? _errorMessage;
   CategoryModel? _category;
   UserModel? _currentUser;
+  CategoryProgressModel? _progress;
+  StudyReminderModel? _reminder;
+  StudyStreakModel? _streak;
+  bool _isLoadingProgress = true;
 
   // ✅ Search
   bool _isSearching = false;
@@ -55,9 +62,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   late AnimationController _fabController;
   late Animation<double> _fabAnimation;
 
-  // Preview card
-  int _previewIndex = 0;
-  late PageController _previewController;
+  // // Preview card
+  // int _previewIndex = 0;
+  // late PageController _previewController;
 
   // Permissions
   bool get _isOwner => widget.isOwner || (_category?.ownerUserId == _currentUser?.userId);
@@ -73,10 +80,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     super.initState();
     _category = widget.category;
     _isSaved = widget.category.isSaved;
-
+    _loadStudyProgress();
     _fabController = AnimationController(duration: const Duration(milliseconds: 300), vsync: this);
     _fabAnimation = CurvedAnimation(parent: _fabController, curve: Curves.easeOut);
-    _previewController = PageController(viewportFraction: 0.85);
+    // _previewController = PageController(viewportFraction: 0.85);
     _searchController.addListener(_onSearchChanged);
 
     print('📱 [SCREEN] $runtimeType');
@@ -87,7 +94,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   @override
   void dispose() {
     _fabController.dispose();
-    _previewController.dispose();
+    // _previewController.dispose();
     _searchController.dispose();
     _ttsService.stop();
     super.dispose();
@@ -184,8 +191,14 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       _showSnackBar('Chưa có thẻ nào để kiểm tra', Icons.warning, isError: true);
       return;
     }
-    // ✅ TẤT CẢ người dùng đều có thể kiểm tra
-    _showSnackBar('Tính năng kiểm tra đang phát triển', Icons.quiz);
+
+    // ✅ Navigate đến QuizSetupScreen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuizSetupScreen(category: _category!),
+      ),
+    );
   }
 
   Future<void> _shareCategory() async {
@@ -488,6 +501,29 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     }
   }
 
+  Future<void> _loadStudyProgress() async {
+    setState(() => _isLoadingProgress = true);
+    try {
+      final results = await Future.wait([
+        StudyProgressService.getCategoryProgress(_category!.id),
+        StudyProgressService.getStreakInfo(),
+        StudyProgressService.getReminderSettings(),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _progress = results[0] as CategoryProgressModel;
+          _streak = results[1] as StudyStreakModel;
+          _reminder = results[2] as StudyReminderModel;
+          _isLoadingProgress = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading progress: $e');
+      if (mounted) setState(() => _isLoadingProgress = false);
+    }
+  }
+
   void _showLoadingDialog() => showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator(color: AppColors.primary)));
 
   void _showSnackBar(String message, IconData icon, {bool isError = false}) {
@@ -536,16 +572,93 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   Widget _buildErrorState() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.error_outline, size: 64, color: AppColors.error), const SizedBox(height: 16), const Text('Có lỗi xảy ra', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), const SizedBox(height: 8), Text(_errorMessage ?? '', style: TextStyle(color: AppColors.textGray)), const SizedBox(height: 24), ElevatedButton(onPressed: _loadCategoryDetails, child: const Text('Thử lại'))]));
 
   Widget _buildContent() {
-    return CustomScrollView(slivers: [
-      _buildAppBar(),
-      SliverToBoxAdapter(child: Column(children: [
-        _buildPreviewCards(),  // ✅ GIỮ NGUYÊN
-        _buildActionButtons(),
-        _buildStudyModes(),
-        _buildFlashcardSection(),
-        const SizedBox(height: 100),
-      ])),
-    ]);
+    return CustomScrollView(
+      slivers: [
+        _buildAppBar(),
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              // ✅ NEW: Progress Card
+              if (_progress != null && !_isLoadingProgress)
+                StudyProgressCard(
+                  progress: _progress!,
+                  onResetProgress: _showResetProgressDialog,
+                ),
+
+              // ✅ NEW: Reminder Card
+              if (_reminder != null && !_isLoadingProgress)
+                StudyReminderCard(
+                  reminder: _reminder!,
+                  onUpdate: _updateReminder,
+                ),
+
+              // Existing widgets
+              // _buildPreviewCards(),
+              _buildActionButtons(),
+              _buildStudyModes(),
+              _buildFlashcardSection(),
+              const SizedBox(height: 100),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _updateReminder(StudyReminderModel newReminder) async {
+    setState(() => _reminder = newReminder);
+
+    // Gọi API cập nhật
+    final updated = await StudyProgressService.updateReminderSettings(newReminder);
+    if (updated != null && mounted) {
+      setState(() => _reminder = updated);
+    }
+  }
+
+  void _showResetProgressDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.refresh, color: AppColors.warning),
+            ),
+            const SizedBox(width: 12),
+            const Text('Reset tiến trình?'),
+          ],
+        ),
+        content: const Text(
+          'Bạn có chắc muốn xóa toàn bộ tiến trình học của học phần này?\n\n'
+              'Hành động này không thể hoàn tác.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await StudyProgressService.resetCategoryProgress(_category!.id);
+              _loadStudyProgress();
+              _showSnackBar('Đã reset tiến trình', Icons.check_circle);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.warning,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildAppBar() {
@@ -553,13 +666,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       expandedHeight: 180, pinned: true, backgroundColor: AppColors.primary,
       leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-          onPressed: () {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/home',
-                  (route) => route.isFirst,
-            );
-          }
+          onPressed: () => Navigator.pop(context),
       ),
       actions: [
         if (_canSave) IconButton(icon: Icon(_isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white), onPressed: _toggleSave),
@@ -587,95 +694,95 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     );
   }
 
-  // ✅ PREVIEW CARDS - Kích thước đồng nhất
-  Widget _buildPreviewCards() {
-    if (_flashcards.isEmpty) return const SizedBox.shrink();
-    return Container(
-      height: 220, margin: const EdgeInsets.only(top: 20),
-      child: PageView.builder(
-        controller: _previewController,
-        itemCount: math.min(_flashcards.length, 5),
-        onPageChanged: (index) => setState(() => _previewIndex = index),
-        itemBuilder: (context, index) {
-          return AnimatedBuilder(animation: _previewController, builder: (context, child) {
-            double value = 1.0;
-            if (_previewController.position.haveDimensions) { value = _previewController.page! - index; value = (1 - (value.abs() * 0.15)).clamp(0.85, 1.0); }
-            return Center(child: Transform.scale(scale: value, child: _buildPreviewCard(_flashcards[index])));
-          });
-        },
-      ),
-    );
-  }
-
-  Widget _buildPreviewCard(FlashcardModel card) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      // ✅ Fixed width & height cho tất cả cards
-      width: double.infinity,
-      height: 200,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8))],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _startStudy,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // ✅ Từ vựng - Fixed height area
-                  SizedBox(
-                    height: 56,
-                    child: Center(
-                      child: Text(
-                        card.word,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primaryDark, height: 1.2),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Divider
-                  Container(height: 2, width: 40, decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.3), borderRadius: BorderRadius.circular(1))),
-                  const SizedBox(height: 12),
-                  // ✅ Nghĩa - Fixed height area
-                  SizedBox(
-                    height: 48,
-                    child: Center(
-                      child: Text(
-                        _getMainMeaning(card.meaning),
-                        style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.4),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  // ✅ Phiên âm (nếu có)
-                  if (card.phonetic != null && card.phonetic!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        card.phonetic!,
-                        style: TextStyle(fontSize: 13, color: AppColors.textGray, fontStyle: FontStyle.italic),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // // ✅ PREVIEW CARDS - Kích thước đồng nhất
+  // Widget _buildPreviewCards() {
+  //   if (_flashcards.isEmpty) return const SizedBox.shrink();
+  //   return Container(
+  //     height: 220, margin: const EdgeInsets.only(top: 20),
+  //     child: PageView.builder(
+  //       controller: _previewController,
+  //       itemCount: math.min(_flashcards.length, 5),
+  //       onPageChanged: (index) => setState(() => _previewIndex = index),
+  //       itemBuilder: (context, index) {
+  //         return AnimatedBuilder(animation: _previewController, builder: (context, child) {
+  //           double value = 1.0;
+  //           if (_previewController.position.haveDimensions) { value = _previewController.page! - index; value = (1 - (value.abs() * 0.15)).clamp(0.85, 1.0); }
+  //           return Center(child: Transform.scale(scale: value, child: _buildPreviewCard(_flashcards[index])));
+  //         });
+  //       },
+  //     ),
+  //   );
+  // }
+  //
+  // Widget _buildPreviewCard(FlashcardModel card) {
+  //   return Container(
+  //     margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+  //     // ✅ Fixed width & height cho tất cả cards
+  //     width: double.infinity,
+  //     height: 200,
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(20),
+  //       boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8))],
+  //     ),
+  //     child: ClipRRect(
+  //       borderRadius: BorderRadius.circular(20),
+  //       child: Material(
+  //         color: Colors.transparent,
+  //         child: InkWell(
+  //           onTap: _startStudy,
+  //           child: Padding(
+  //             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+  //             child: Column(
+  //               mainAxisAlignment: MainAxisAlignment.center,
+  //               children: [
+  //                 // ✅ Từ vựng - Fixed height area
+  //                 SizedBox(
+  //                   height: 56,
+  //                   child: Center(
+  //                     child: Text(
+  //                       card.word,
+  //                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primaryDark, height: 1.2),
+  //                       textAlign: TextAlign.center,
+  //                       maxLines: 2,
+  //                       overflow: TextOverflow.ellipsis,
+  //                     ),
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 12),
+  //                 // Divider
+  //                 Container(height: 2, width: 40, decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.3), borderRadius: BorderRadius.circular(1))),
+  //                 const SizedBox(height: 12),
+  //                 // ✅ Nghĩa - Fixed height area
+  //                 SizedBox(
+  //                   height: 48,
+  //                   child: Center(
+  //                     child: Text(
+  //                       _getMainMeaning(card.meaning),
+  //                       style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.4),
+  //                       textAlign: TextAlign.center,
+  //                       maxLines: 2,
+  //                       overflow: TextOverflow.ellipsis,
+  //                     ),
+  //                   ),
+  //                 ),
+  //                 // ✅ Phiên âm (nếu có)
+  //                 if (card.phonetic != null && card.phonetic!.isNotEmpty)
+  //                   Padding(
+  //                     padding: const EdgeInsets.only(top: 8),
+  //                     child: Text(
+  //                       card.phonetic!,
+  //                       style: TextStyle(fontSize: 13, color: AppColors.textGray, fontStyle: FontStyle.italic),
+  //                     ),
+  //                   ),
+  //               ],
+  //             ),
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildActionButtons() {
     return Padding(padding: const EdgeInsets.fromLTRB(20, 24, 20, 0), child: Row(children: [
@@ -815,4 +922,621 @@ class AnimatedBuilder2 extends AnimatedWidget {
   const AnimatedBuilder2({Key? key, required Listenable animation, required this.builder, this.child}) : super(key: key, listenable: animation);
   @override
   Widget build(BuildContext context) => builder(context, child);
+}
+// ==================== PROGRESS CARD ====================
+
+/// Widget hiển thị phần trăm đã học
+class StudyProgressCard extends StatelessWidget {
+  final CategoryProgressModel progress;
+  final VoidCallback? onResetProgress;
+
+  const StudyProgressCard({
+    Key? key,
+    required this.progress,
+    this.onResetProgress,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.trending_up_rounded,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Tiến trình học',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+              ),
+              if (onResetProgress != null && progress.studiedCards > 0)
+                IconButton(
+                  icon: Icon(Icons.refresh, color: AppColors.textGray, size: 20),
+                  onPressed: onResetProgress,
+                  tooltip: 'Reset tiến trình',
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Progress Bar
+          _buildProgressBar(),
+          const SizedBox(height: 16),
+
+          // Stats Grid
+          _buildStatsGrid(),
+
+          // Last studied
+          if (progress.lastStudiedAt != null) ...[
+            const SizedBox(height: 16),
+            _buildLastStudied(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    final percent = progress.progressPercent / 100;
+    final masteryPercent = progress.masteryPercent / 100;
+
+    return Column(
+      children: [
+        // Percentage Text
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '${progress.progressPercent.toStringAsFixed(0)}% đã học',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryDark,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: _getProgressColor(progress.progressPercent).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${progress.studiedCards}/${progress.totalCards} thẻ',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _getProgressColor(progress.progressPercent),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Progress Bar with gradient
+        // ✅ FIX: Progress Bar căn trái bằng LayoutBuilder
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = constraints.maxWidth;
+            final progressWidth = maxWidth * percent.clamp(0.0, 1.0);
+
+            return Container(
+              height: 12,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Stack(
+                children: [
+                  // ✅ Progress bar căn trái
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: progressWidth,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppColors.primary, AppColors.accent],
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+
+        // Legend
+        Row(
+          children: [
+            _buildLegendItem(AppColors.primary, 'Đang học'),
+            const SizedBox(width: 16),
+            _buildLegendItem(AppColors.background, 'Chưa học'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: AppColors.textGray),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsGrid() {
+    return Row(
+      children: [
+        Expanded(child: _buildStatItem(
+          icon: Icons.pending,
+          color: AppColors.warning,
+          value: '${progress.learningCards}',
+          label: 'Đang học',
+        )),
+        Expanded(child: _buildStatItem(
+          icon: Icons.schedule,
+          color: AppColors.textGray,
+          value: '${progress.notStartedCards}',
+          label: 'Chưa học',
+        )),
+        Expanded(child: _buildStatItem(
+          icon: Icons.track_changes,
+          color: progress.accuracyRate >= 70 ? AppColors.success : AppColors.warning,
+          value: '${progress.accuracyRate.toStringAsFixed(0)}%',
+          label: 'Độ chính xác',
+        )),
+      ],
+    );
+  }
+
+  Widget _buildStatItem({
+    required IconData icon,
+    required Color color,
+    required String value,
+    required String label,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primaryDark,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 10, color: AppColors.textGray),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLastStudied() {
+    final lastStudied = progress.lastStudiedAt!;
+    final now = DateTime.now();
+    final diff = now.difference(lastStudied);
+
+    String timeAgo;
+    if (diff.inMinutes < 1) {
+      timeAgo = 'Vừa xong';
+    } else if (diff.inMinutes < 60) {
+      timeAgo = '${diff.inMinutes} phút trước';
+    } else if (diff.inHours < 24) {
+      timeAgo = '${diff.inHours} giờ trước';
+    } else if (diff.inDays < 7) {
+      timeAgo = '${diff.inDays} ngày trước';
+    } else {
+      timeAgo = '${lastStudied.day}/${lastStudied.month}/${lastStudied.year}';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.access_time, size: 14, color: AppColors.textGray),
+          const SizedBox(width: 6),
+          Text(
+            'Học lần cuối: $timeAgo',
+            style: TextStyle(fontSize: 12, color: AppColors.textGray),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getProgressColor(double percent) {
+    if (percent >= 80) return AppColors.success;
+    if (percent >= 50) return AppColors.primary;
+    if (percent >= 25) return AppColors.warning;
+    return AppColors.textGray;
+  }
+}
+
+
+// ==================== STUDY REMINDER CARD ====================
+
+/// Widget cài đặt thời gian học tập
+class StudyReminderCard extends StatelessWidget {
+  final StudyReminderModel reminder;
+  final Function(StudyReminderModel) onUpdate;
+  final VoidCallback? onPickTime;
+
+  const StudyReminderCard({
+    Key? key,
+    required this.reminder,
+    required this.onUpdate,
+    this.onPickTime,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with toggle
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),  // ✅ Đổi thành success
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.notifications_active,
+                  color: reminder.isEnabled ? AppColors.success : AppColors.textGray,  // ✅ Đổi thành success
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Nhắc nhở học tập',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                    Text(
+                      'Duy trì thói quen học mỗi ngày',
+                      style: TextStyle(fontSize: 12, color: AppColors.textGray),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: reminder.isEnabled,
+                onChanged: (value) {
+                  onUpdate(reminder.copyWith(isEnabled: value));
+                },
+                activeColor: AppColors.success,  // ✅ Đổi thành success
+              ),
+            ],
+          ),
+
+          if (reminder.isEnabled) ...[
+            const SizedBox(height: 20),
+            const Divider(height: 1),
+            const SizedBox(height: 20),
+
+            // Time Picker
+            _buildTimePicker(context),
+            const SizedBox(height: 16),
+
+            // Days of week
+            _buildDaysSelector(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimePicker(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showTimePicker(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.access_time, color: AppColors.success, size: 22),  // ✅ Đổi thành success
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Thời gian nhắc nhở',
+                  style: TextStyle(fontSize: 12, color: AppColors.textGray),
+                ),
+                Text(
+                  reminder.displayTime,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Icon(Icons.edit, color: AppColors.textGray, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showTimePicker(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: reminder.hour, minute: reminder.minute),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.success,  // ✅ Đổi thành success
+              secondary: AppColors.success,  // ✅ Đổi thành success
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      onUpdate(reminder.copyWith(hour: picked.hour, minute: picked.minute));
+    }
+  }
+
+  Widget _buildDaysSelector() {
+    const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Nhắc nhở vào các ngày',
+          style: TextStyle(fontSize: 13, color: AppColors.textGray),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(7, (index) {
+            final isEnabled = reminder.isDayEnabled(index);
+            return GestureDetector(
+              onTap: () => onUpdate(reminder.toggleDay(index)),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isEnabled ? AppColors.success : Colors.transparent,  // ✅ Đổi thành success
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isEnabled ? AppColors.success : AppColors.border,  // ✅ Đổi thành success
+                    width: 1.5,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    dayLabels[index],
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isEnabled ? Colors.white : AppColors.textGray,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+// ==================== STREAK MINI CARD ====================
+
+/// Widget hiển thị streak nhỏ gọn
+class StreakMiniCard extends StatelessWidget {
+  final StudyStreakModel streak;
+  final VoidCallback? onTap;
+
+  const StreakMiniCard({
+    Key? key,
+    required this.streak,
+    this.onTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: streak.hasStudiedToday
+                ? [AppColors.success, AppColors.success.withOpacity(0.8)]
+                : streak.isStreakAtRisk
+                ? [AppColors.warning, AppColors.warning.withOpacity(0.8)]
+                : [AppColors.primary, AppColors.accent],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (streak.hasStudiedToday ? AppColors.success : AppColors
+                  .primary)
+                  .withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Streak fire icon
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '🔥',
+                style: TextStyle(fontSize: 24),
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Streak info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '${streak.currentStreak}',
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'ngày streak',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    streak.hasStudiedToday
+                        ? '✓ Đã học hôm nay'
+                        : streak.isStreakAtRisk
+                        ? '⚠ Học ngay để giữ streak!'
+                        : 'Kỷ lục: ${streak.longestStreak} ngày',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Weekly dots
+            _buildWeeklyDots(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeeklyDots() {
+    return Row(
+      children: streak.weeklyData.take(7).map((day) {
+        return Container(
+          width: 8,
+          height: 8,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            color: day.isStudied ? Colors.white : Colors.white.withOpacity(0.3),
+            shape: BoxShape.circle,
+          ),
+        );
+      }).toList(),
+    );
+  }
 }
