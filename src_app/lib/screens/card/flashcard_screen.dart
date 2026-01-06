@@ -8,12 +8,13 @@ import '../../services/flash_card_service.dart';
 import '../../services/tts_service.dart';
 
 /// 🎨 Màn hình học Flashcard
-/// ✅ UPDATED v2:
+/// ✅ UPDATED v3:
 /// - Mặt trước & mặt sau BẰNG NHAU về kích thước
 /// - Tiêu đề hiện TÊN CHỦ ĐỀ
 /// - Hệ thống PHIÊN HỌC: mỗi phiên 20 từ
 /// - Mặt sau màu xanh lá cây
 /// - Nút phát âm góc trên trái cả 2 mặt
+/// - ✅ FIX: Trả về kết quả khi thoát để refresh màn hình trước
 class FlashcardScreen extends StatefulWidget {
   final int? categoryId;
   final String? categoryName;
@@ -40,8 +41,8 @@ class _FlashcardScreenState extends State<FlashcardScreen>
   bool _isLoading = true;
 
   // Data
-  List<FlashcardModel> _allFlashcards = [];  // Tất cả flashcards
-  List<FlashcardModel> _sessionFlashcards = [];  // Flashcards của phiên hiện tại
+  List<FlashcardModel> _allFlashcards = [];
+  List<FlashcardModel> _sessionFlashcards = [];
   int _currentIndex = 0;
   String? _errorMessage;
 
@@ -58,6 +59,9 @@ class _FlashcardScreenState extends State<FlashcardScreen>
   late AnimationController _transitionController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+
+  // ✅ Kiểm tra đã học chưa
+  bool get _hasStudied => _knownCards.isNotEmpty || _learningCards.isNotEmpty;
 
   @override
   void initState() {
@@ -163,7 +167,6 @@ class _FlashcardScreenState extends State<FlashcardScreen>
       _loadSession(_currentSession + 1);
       _showSnackBar('Phiên ${_currentSession + 1}/$_totalSessions');
     } else {
-      // Hoàn thành tất cả
       _showCompletionDialog();
     }
   }
@@ -232,6 +235,17 @@ class _FlashcardScreenState extends State<FlashcardScreen>
 
   // ==================== NAVIGATION ====================
 
+  /// ✅ Xử lý thoát màn hình - trả về kết quả
+  void _exitScreen() {
+    Navigator.pop(context, _hasStudied);
+  }
+
+  /// ✅ Xử lý nút back hệ thống
+  Future<bool> _onWillPop() async {
+    Navigator.pop(context, _hasStudied);
+    return false; // Đã xử lý rồi
+  }
+
   Future<void> _nextCard() async {
     if (_sessionFlashcards.isEmpty) return;
 
@@ -240,7 +254,6 @@ class _FlashcardScreenState extends State<FlashcardScreen>
 
     // Kiểm tra hết phiên chưa
     if (_currentIndex >= _sessionFlashcards.length - 1) {
-      // Hết phiên này
       _showSessionCompleteDialog();
       return;
     }
@@ -266,7 +279,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
       StudyProgressService.updateProgress(
         flashcardId: card!.id!,
         categoryId: widget.categoryId!,
-        isCorrect: true,  // "Đã thuộc" = đúng
+        isCorrect: true,
       ).then((_) {
         debugPrint('✅ Progress updated for card ${card.id}');
       }).catchError((e) {
@@ -275,7 +288,6 @@ class _FlashcardScreenState extends State<FlashcardScreen>
     }
     _nextCard();
   }
-
 
   void _handleLearning() {
     final card = _currentCard;
@@ -289,7 +301,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
       StudyProgressService.updateProgress(
         flashcardId: card!.id!,
         categoryId: widget.categoryId!,
-        isCorrect: false,  // "Đang học" = chưa thuộc
+        isCorrect: false,
       ).then((_) {
         debugPrint('✅ Progress updated for card ${card.id}');
       }).catchError((e) {
@@ -401,8 +413,8 @@ class _FlashcardScreenState extends State<FlashcardScreen>
           if (_currentSession < _totalSessions - 1) ...[
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
+                Navigator.pop(context); // Đóng dialog
+                _exitScreen(); // ✅ Thoát và trả về kết quả
               },
               child: const Text('Thoát'),
             ),
@@ -469,8 +481,8 @@ class _FlashcardScreenState extends State<FlashcardScreen>
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.pop(context); // Đóng dialog
+              _exitScreen(); // ✅ Thoát và trả về kết quả
             },
             child: const Text('Thoát'),
           ),
@@ -531,14 +543,18 @@ class _FlashcardScreenState extends State<FlashcardScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: _isLoading
-            ? _buildLoadingState()
-            : _errorMessage != null
-            ? _buildErrorState()
-            : _buildMainContent(),
+    // ✅ Wrap với WillPopScope để xử lý nút back hệ thống
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: SafeArea(
+          child: _isLoading
+              ? _buildLoadingState()
+              : _errorMessage != null
+              ? _buildErrorState()
+              : _buildMainContent(),
+        ),
       ),
     );
   }
@@ -658,9 +674,9 @@ class _FlashcardScreenState extends State<FlashcardScreen>
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
       child: Row(
         children: [
-          // Close button
+          // ✅ Close button - gọi _exitScreen()
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: _exitScreen,
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -689,7 +705,6 @@ class _FlashcardScreenState extends State<FlashcardScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                // ✅ Hiện phiên và số thẻ
                 Text(
                   _totalSessions > 1
                       ? 'Phiên ${_currentSession + 1}/$_totalSessions • ${_currentIndex + 1}/${_sessionFlashcards.length}'
@@ -983,13 +998,12 @@ class _FlashcardScreenState extends State<FlashcardScreen>
 
     return Container(
       decoration: BoxDecoration(
-        // ✅ GRADIENT XANH LÁ CÂY
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF10B981),  // Emerald 500
-            Color(0xFF059669),  // Emerald 600
+            Color(0xFF10B981),
+            Color(0xFF059669),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
@@ -1111,7 +1125,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
             ),
           ),
 
-          // ✅ Speaker button (top-left) - ĐỒNG BỘ VỊ TRÍ với mặt trước
+          // ✅ Speaker button (top-left)
           Positioned(
             top: 16,
             left: 16,
@@ -1128,7 +1142,7 @@ class _FlashcardScreenState extends State<FlashcardScreen>
     );
   }
 
-  // ✅ SPEAKER BUTTON - Đồng bộ style
+  // ✅ SPEAKER BUTTON
   Widget _buildSpeakerButton({
     required bool isPlaying,
     required VoidCallback onTap,

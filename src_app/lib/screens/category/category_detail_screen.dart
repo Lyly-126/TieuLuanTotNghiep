@@ -183,9 +183,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       _showSnackBar('Chưa có thẻ nào để học', Icons.warning, isError: true);
       return;
     }
-    Navigator.push(context, MaterialPageRoute(builder: (context) => FlashcardScreen(categoryId: _category!.id, categoryName: _category!.name)));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlashcardScreen(
+          categoryId: _category!.id,
+          categoryName: _category!.name,
+        ),
+      ),
+    ).then((_) {
+      // ✅ REFRESH sau khi học xong
+      _loadCategoryDetails();
+      _loadStudyProgress();
+    });
   }
-
   void _startQuiz() {
     if (_flashcards.isEmpty) {
       _showSnackBar('Chưa có thẻ nào để kiểm tra', Icons.warning, isError: true);
@@ -209,7 +220,18 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
 
   void _addFlashcard() {
     if (!_canEdit) return;
-    Navigator.push(context, MaterialPageRoute(builder: (context) => FlashcardCreationScreen(initialCategoryId: _category!.id, initialCategoryName: _category!.name))).then((created) { if (created != null) _loadCategoryDetails(); });
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlashcardCreationScreen(
+          initialCategoryId: _category!.id,
+          initialCategoryName: _category!.name,
+        ),
+      ),
+    ).then((created) {
+      _loadCategoryDetails();
+      _loadStudyProgress();
+    });
   }
 
   void _editFlashcard(FlashcardModel flashcard) {
@@ -515,7 +537,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
           _progress = results[0] as CategoryProgressModel;
           _streak = results[1] as StudyStreakModel;
           _reminder = results[2] as StudyReminderModel;
-          _isLoadingProgress = false;
+          _isLoadingProgress = true;
         });
       }
     } catch (e) {

@@ -1,12 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import '../../config/app_colors.dart';
 import '../../config/app_text_styles.dart';
 import '../../models/quiz_model.dart';
+import '../../services/quiz_service.dart';
+import 'quiz_screen.dart';
+import '../../services/quiz_service.dart';
+import '../../screens/quiz/quiz_screen.dart';
 
 /// 🏆 Màn hình kết quả bài kiểm tra
 /// ✅ UI IMPROVED: Better animations, gradient cards, confetti
+/// ✅ FIX: Retry button now works properly
 class QuizResultScreen extends StatefulWidget {
   final QuizResultModel result;
 
@@ -26,6 +32,8 @@ class _QuizResultScreenState extends State<QuizResultScreen>
   late AnimationController _confettiController;
   late AnimationController _bounceController;
   late Animation<double> _bounceAnimation;
+
+  bool _isRetrying = false;  // ✅ NEW: Loading state cho retry
 
   @override
   void initState() {
@@ -61,8 +69,10 @@ class _QuizResultScreenState extends State<QuizResultScreen>
 
     // Start animations
     Future.delayed(const Duration(milliseconds: 300), () {
-      _scoreController.forward();
-      _bounceController.forward();
+      if (mounted) {
+        _scoreController.forward();
+        _bounceController.forward();
+      }
     });
 
     if (widget.result.passed) {
@@ -79,103 +89,203 @@ class _QuizResultScreenState extends State<QuizResultScreen>
     super.dispose();
   }
 
+  /// ✅ FIX: Hàm retry quiz - tạo quiz mới và navigate
+  Future<void> _retryQuiz() async {
+    if (_isRetrying) return;
+
+    setState(() => _isRetrying = true);
+    HapticFeedback.mediumImpact();
+
+    try {
+      // Tạo request với cùng cấu hình
+      final request = CreateQuizRequest(
+        categoryId: widget.result.categoryId,
+        quizType: widget.result.quizType,
+        // difficulty: widget.result.difficulty,
+      );
+
+      // Gọi API tạo quiz mới
+      final session = await QuizService.createQuiz(request);
+
+      if (mounted) {
+        // Replace màn hình hiện tại bằng QuizScreen mới
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => QuizScreen(session: session),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Retry quiz error: $e');
+      if (mounted) {
+        setState(() => _isRetrying = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Không thể bắt đầu lại: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // Background gradient
-          _buildBackground(),
+    return WillPopScope(
+      onWillPop: () async {
+        if (_isRetrying) return false;  // Không cho back khi đang loading
+        Navigator.pop(context);
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: Stack(
+          children: [
+            // Background gradient
+            _buildBackground(),
 
-          // Confetti
-          if (widget.result.passed) _buildConfetti(),
+            // Confetti
+            if (widget.result.passed) _buildConfetti(),
 
-          // Main content
-          SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
+            // Main content
+            SafeArea(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
 
-                  // Close button
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                            ),
-                          ],
+                    // Close button
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: GestureDetector(
+                        onTap: _isRetrying ? null : () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Icon(Icons.close, color: AppColors.textGray, size: 20),
                         ),
-                        child: Icon(Icons.close, color: AppColors.textGray, size: 20),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-                  // Result icon with bounce animation
-                  _buildResultIcon(),
+                    // Result icon with bounce animation
+                    _buildResultIcon(),
 
-                  const SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
-                  // Score circle
-                  _buildScoreCircle(),
+                    // Score circle
+                    _buildScoreCircle(),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  // Grade badge
-                  _buildGradeBadge(),
+                    // Grade badge
+                    _buildGradeBadge(),
 
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  // Message
-                  Text(
-                    widget.result.scoreMessage,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textSecondary,
-                      height: 1.4,
+                    // Message
+                    Text(
+                      widget.result.scoreMessage,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
 
-                  const SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
-                  // Stats cards
-                  _buildStatsCards(),
+                    // Stats cards
+                    _buildStatsCards(),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  // Improvement card
-                  if (widget.result.previousScore != null) _buildImprovementCard(),
+                    // Improvement card
+                    if (widget.result.previousScore != null) _buildImprovementCard(),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  // Category info
-                  _buildCategoryInfo(),
+                    // Category info
+                    _buildCategoryInfo(),
 
-                  const SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
-                  // Action buttons
-                  _buildActionButtons(),
+                    // Action buttons
+                    _buildActionButtons(),
 
-                  const SizedBox(height: 32),
-                ],
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+
+            // ✅ NEW: Loading overlay khi retry
+            if (_isRetrying)
+              Container(
+                color: Colors.black.withOpacity(0.5),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 20,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 50,
+                          height: 50,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 4,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Đang tạo bài kiểm tra mới...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primaryDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -470,7 +580,7 @@ class _QuizResultScreenState extends State<QuizResultScreen>
           const SizedBox(height: 12),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: AppColors.primaryDark,
@@ -648,7 +758,7 @@ class _QuizResultScreenState extends State<QuizResultScreen>
   Widget _buildActionButtons() {
     return Column(
       children: [
-        // Retry button
+        // ✅ FIX: Retry button - giờ gọi _retryQuiz()
         Container(
           width: double.infinity,
           height: 60,
@@ -666,7 +776,7 @@ class _QuizResultScreenState extends State<QuizResultScreen>
             ],
           ),
           child: ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context, 'retry'),
+            onPressed: _isRetrying ? null : _retryQuiz,  // ✅ FIX: Gọi _retryQuiz
             icon: const Icon(Icons.refresh_rounded, size: 24),
             label: const Text(
               'Làm lại bài kiểm tra',
@@ -681,37 +791,12 @@ class _QuizResultScreenState extends State<QuizResultScreen>
           ),
         ),
 
-        // Review wrong answers button
-        if (widget.result.incorrectAnswers > 0) ...[
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.pop(context, 'review'),
-              icon: Icon(Icons.menu_book_rounded, color: Colors.orange.shade700),
-              label: Text(
-                'Ôn lại ${widget.result.incorrectAnswers} từ sai',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.orange.shade700,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.orange.shade400, width: 2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              ),
-            ),
-          ),
-        ],
-
         // Back button
         const SizedBox(height: 14),
         SizedBox(
           width: double.infinity,
           child: TextButton.icon(
-            onPressed: () => Navigator.pop(context),
+            onPressed: _isRetrying ? null : () => Navigator.pop(context),
             icon: Icon(Icons.arrow_back_rounded, color: AppColors.textGray),
             label: Text(
               'Quay lại chủ đề',

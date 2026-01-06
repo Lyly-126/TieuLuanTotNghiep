@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
 import '../../services/flashcard_creation_service.dart';
 import '../../models/category_model.dart';
+import '../category/category_detail_screen.dart';
 import 'text_extraction_screen.dart';
 
 /// Màn hình hiển thị kết quả tạo flashcard hàng loạt
 ///
-/// Hiển thị:
-/// - Số thẻ tạo thành công / thất bại
-/// - Chi tiết từng thẻ
-/// - Nút chuyển đến chủ đề hoặc tạo thêm
+/// ✅ FIX: Sửa navigation để có thể quay về Home
+/// - "Xem chủ đề": Pop về Home rồi push CategoryDetailScreen
+/// - "Tạo thêm": Thay thế màn hình hiện tại bằng TextExtractionScreen
 class BatchCreationResultScreen extends StatelessWidget {
   final BatchCreateResult result;
   final int categoryId;
@@ -109,7 +109,7 @@ class BatchCreationResultScreen extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // ✅ Success rate card - Căn giữa đẹp hơn
+          // Success rate card
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: BoxDecoration(
@@ -162,7 +162,7 @@ class BatchCreationResultScreen extends StatelessWidget {
 
                   const SizedBox(width: 24),
 
-                  // Stats text - căn chỉnh đẹp
+                  // Stats text
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -455,28 +455,10 @@ class BatchCreationResultScreen extends StatelessWidget {
           ),
           const SizedBox(width: 12),
 
-          // ✅ Nút "Xem chủ đề" - Navigate đến CategoryDetailScreen
+          // ✅ FIX: Nút "Xem chủ đề" - Pop tất cả màn hình OCR và đến CategoryDetailScreen
           Expanded(
             child: ElevatedButton(
-              onPressed: () {
-                // Tạo CategoryModel từ thông tin có sẵn
-                final category = CategoryModel(
-                  id: categoryId,
-                  name: categoryName,
-                  isUserCategory: true,
-                );
-
-                // Pop tất cả màn hình OCR và push CategoryDetailScreen
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/category_detail',  // ✅ Đúng route name (underscore)
-                      (route) => route.isFirst,
-                  arguments: {
-                    'category': category,
-                    'isOwner': true,  // User vừa tạo thẻ vào category này
-                  },
-                );
-              },
+              onPressed: () => _navigateToCategoryDetail(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -502,6 +484,30 @@ class BatchCreationResultScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// ✅ FIX: Navigation đúng cách để có thể quay về Home
+  void _navigateToCategoryDetail(BuildContext context) {
+    // Tạo CategoryModel từ thông tin có sẵn
+    final category = CategoryModel(
+      id: categoryId,
+      name: categoryName,
+      isUserCategory: true,
+    );
+
+    // ✅ CÁCH 1: Pop về màn hình đầu tiên (Home) rồi push CategoryDetail
+    // Điều này đảm bảo stack: Home → CategoryDetail
+    Navigator.of(context).popUntil((route) => route.isFirst);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CategoryDetailScreen(
+          category: category,
+          isOwner: true,
+        ),
       ),
     );
   }

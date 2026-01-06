@@ -181,7 +181,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.push(context, MaterialPageRoute(
                   builder: (context) => const FlashcardCreationScreen(),
                 )).then((_) {
+                  // ✅ REFRESH sau khi tạo thẻ
                   _loadDefaultCategories();
+                  _refreshLibraryTab();
                 });
               },
             ),
@@ -198,8 +200,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   context,
                   AppRoutes.categoryCreate,
                   arguments: {'classId': null, 'className': null},
-                ).then((_) {
+                ).then((result) {
+                  // ✅ REFRESH sau khi tạo chủ đề
                   _loadDefaultCategories();
+                  _refreshLibraryTab();
                 });
               },
             ),
@@ -208,6 +212,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  void _refreshLibraryTab() {
+    _libraryTabKey.currentState?._loadAllData();
   }
 
   void _showUpgradeDialog() {
@@ -768,7 +776,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 category: category,
                 isOwner: category.ownerUserId == _currentUser?.userId,
               ),
-            )).then((_) => _loadDefaultCategories());
+            )).then((_) {
+              _loadDefaultCategories();
+            });
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(

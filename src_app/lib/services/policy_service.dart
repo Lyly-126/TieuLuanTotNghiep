@@ -6,11 +6,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 class PolicyService {
-  // ✅ Đổi URL phù hợp với môi trường
-  // static const String baseUrl = 'http://localhost:8080/api/policies';
+  // ================== COMMON HEADERS ==================
 
-  // Nếu dùng Android Emulator: 'http://10.0.2.2:8080/api/policies'
-  // Nếu dùng thiết bị thật: 'http://YOUR_IP:8080/api/policies'
+  /// Headers chung cho tất cả requests (bypass ngrok warning)
+  static Map<String, String> get _commonHeaders => {
+    'ngrok-skip-browser-warning': 'true',
+  };
+
+  /// Headers cho requests cần auth
+  static Future<Map<String, String>> _getAuthHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    if (token == null) {
+      throw Exception('Vui lòng đăng nhập lại');
+    }
+
+    return {
+      ..._commonHeaders,
+      'Authorization': 'Bearer $token',
+    };
+  }
+
+  /// Headers cho requests có body JSON
+  static Future<Map<String, String>> _getAuthJsonHeaders() async {
+    final headers = await _getAuthHeaders();
+    return {
+      ...headers,
+      'Content-Type': 'application/json',
+    };
+  }
 
   // ================== USER METHODS ==================
 
@@ -18,7 +43,10 @@ class PolicyService {
   static Future<List<Map<String, dynamic>>> getActivePolicies() async {
     try {
       final uri = Uri.parse(ApiConfig.policyBase);
-      final response = await http.get(uri);
+      final response = await http.get(
+        uri,
+        headers: _commonHeaders, // ✅ Thêm header bypass ngrok
+      );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -35,7 +63,10 @@ class PolicyService {
   static Future<Map<String, dynamic>> getActivePolicyById(int id) async {
     try {
       final uri = Uri.parse('${ApiConfig.policyBase}/$id');
-      final response = await http.get(uri);
+      final response = await http.get(
+        uri,
+        headers: _commonHeaders, // ✅ Thêm header bypass ngrok
+      );
 
       if (response.statusCode == 200) {
         return jsonDecode(utf8.decode(response.bodyBytes));
@@ -54,21 +85,9 @@ class PolicyService {
   /// Admin: Lấy tất cả policies (cần token)
   static Future<List<Map<String, dynamic>>> getAllPolicies() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      if (token == null) {
-        throw Exception('Vui lòng đăng nhập lại');
-      }
-
+      final headers = await _getAuthHeaders();
       final uri = Uri.parse('${ApiConfig.policyBase}/admin/all');
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
-        },
-      );
+      final response = await http.get(uri, headers: headers);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -86,20 +105,9 @@ class PolicyService {
   /// Admin: Lấy một policy theo ID (cần token)
   static Future<Map<String, dynamic>> getPolicyById(int id) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      if (token == null) {
-        throw Exception('Vui lòng đăng nhập lại');
-      }
-
+      final headers = await _getAuthHeaders();
       final uri = Uri.parse('${ApiConfig.policyBase}/admin/$id');
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await http.get(uri, headers: headers);
 
       if (response.statusCode == 200) {
         return jsonDecode(utf8.decode(response.bodyBytes));
@@ -120,20 +128,11 @@ class PolicyService {
     String status = 'ACTIVE',
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      if (token == null) {
-        throw Exception('Vui lòng đăng nhập lại');
-      }
-
+      final headers = await _getAuthJsonHeaders();
       final uri = Uri.parse('${ApiConfig.policyBase}/admin');
       final response = await http.post(
         uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: headers,
         body: jsonEncode({
           'title': title,
           'body': body,
@@ -160,13 +159,7 @@ class PolicyService {
     String? status,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      if (token == null) {
-        throw Exception('Vui lòng đăng nhập lại');
-      }
-
+      final headers = await _getAuthJsonHeaders();
       final uri = Uri.parse('${ApiConfig.policyBase}/admin/$id');
 
       // Chỉ gửi các field không null
@@ -177,10 +170,7 @@ class PolicyService {
 
       final response = await http.put(
         uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: headers,
         body: jsonEncode(requestBody),
       );
 
@@ -198,20 +188,9 @@ class PolicyService {
   /// Admin: Xóa policy
   static Future<void> deletePolicy(int id) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      if (token == null) {
-        throw Exception('Vui lòng đăng nhập lại');
-      }
-
+      final headers = await _getAuthHeaders();
       final uri = Uri.parse('${ApiConfig.policyBase}/admin/$id');
-      final response = await http.delete(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await http.delete(uri, headers: headers);
 
       if (response.statusCode != 200) {
         final error = jsonDecode(utf8.decode(response.bodyBytes));
@@ -228,20 +207,9 @@ class PolicyService {
     required String status,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      if (token == null) {
-        throw Exception('Vui lòng đăng nhập lại');
-      }
-
+      final headers = await _getAuthHeaders();
       final uri = Uri.parse('${ApiConfig.policyBase}/admin/$id/status?status=$status');
-      final response = await http.patch(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await http.patch(uri, headers: headers);
 
       if (response.statusCode == 200) {
         return jsonDecode(utf8.decode(response.bodyBytes));
