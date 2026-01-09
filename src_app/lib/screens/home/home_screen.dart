@@ -9,6 +9,7 @@ import '../../widgets/custom_button.dart';
 import '../class/class_detail_screen.dart';
 import '../profile/profile_screen.dart';
 import '../card/flashcard_creation_screen.dart';
+import '../card/flashcard_screen.dart';
 import '../class/teacher_class_management_screen.dart';
 import '../library/library_screen.dart';
 import '../../services/user_service.dart';
@@ -21,7 +22,9 @@ import '../payment/upgrade_premium_screen.dart';
 import '../../services/study_progress_service.dart';
 import '../../models/study_progress_model.dart';
 
-/// ✅ HOME SCREEN - FIX NAVIGATION
+/// ✅ HOME SCREEN - CẢI TIẾN TAB TRANG CHỦ
+/// - Bộ thẻ đang học: Hiển thị categories có progress, swipe ngang
+/// - Gợi ý cho bạn: Gợi ý thông minh dựa trên streak và review cards
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -36,11 +39,22 @@ class _HomeScreenState extends State<HomeScreen> {
   List<CategoryModel> _defaultCategories = [];
   bool _isLoadingCategories = true;
 
-  // ✅ Streak variables - PHẢI ở trong _HomeScreenState
+  // ✅ Streak variables
   StudyStreakModel? _streakInfo;
   bool _isLoadingStreak = true;
 
+  // ✅ NEW: Learning categories (có progress)
+  List<LearningCategoryModel> _learningCategories = [];
+  bool _isLoadingLearning = true;
+
+  // ✅ NEW: Review cards count
+  int _reviewCardsCount = 0;
+
   final GlobalKey<_LibraryTabState> _libraryTabKey = GlobalKey<_LibraryTabState>();
+
+  // Page controller cho swipe
+  final PageController _learningPageController = PageController(viewportFraction: 0.85);
+  int _currentLearningPage = 0;
 
   @override
   void initState() {
@@ -48,6 +62,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadCurrentUser();
     _loadDefaultCategories();
     _loadStreakInfo();
+    _loadLearningCategories();
+    _loadReviewCards();
+  }
+
+  @override
+  void dispose() {
+    _learningPageController.dispose();
+    super.dispose();
   }
 
   List<Color> _getGradientColors(int index) {
@@ -125,6 +147,78 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// ✅ NEW: Load categories đang học (có progress)
+  Future<void> _loadLearningCategories() async {
+    setState(() => _isLoadingLearning = true);
+    try {
+      // Lấy tất cả categories của user
+      final categories = await CategoryService.getUserCategories();
+
+      // Lấy progress cho từng category
+      List<LearningCategoryModel> learningList = [];
+
+      for (var category in categories) {
+        try {
+          final progress = await StudyProgressService.getCategoryProgress(category.id);
+
+          // Chỉ thêm vào nếu đã học ít nhất 1 thẻ
+          if (progress.studiedCards > 0) {
+            learningList.add(LearningCategoryModel(
+              category: category,
+              progress: progress,
+            ));
+          }
+        } catch (e) {
+          // Skip nếu lỗi
+          debugPrint('Error loading progress for category ${category.id}: $e');
+        }
+      }
+
+      // Sort theo lastStudiedAt (gần nhất trước)
+      learningList.sort((a, b) {
+        final aTime = a.progress.lastStudiedAt ?? DateTime(2000);
+        final bTime = b.progress.lastStudiedAt ?? DateTime(2000);
+        return bTime.compareTo(aTime);
+      });
+
+      // Giới hạn 5 categories
+      if (learningList.length > 5) {
+        learningList = learningList.sublist(0, 5);
+      }
+
+      if (mounted) {
+        setState(() {
+          _learningCategories = learningList;
+          _isLoadingLearning = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingLearning = false);
+      debugPrint('❌ Error loading learning categories: $e');
+    }
+  }
+
+  /// ✅ NEW: Load số thẻ cần ôn tập
+  Future<void> _loadReviewCards() async {
+    try {
+      final cards = await StudyProgressService.getCardsToReview();
+      if (mounted) {
+        setState(() => _reviewCardsCount = cards.length);
+      }
+    } catch (e) {
+      debugPrint('Error loading review cards: $e');
+    }
+  }
+
+  /// ✅ Refresh tất cả data của Home tab
+  Future<void> _refreshHomeData() async {
+    await Future.wait([
+      _loadStreakInfo(),
+      _loadLearningCategories(),
+      _loadReviewCards(),
+    ]);
+  }
+
   void _onItemTapped(int index) {
     if (index == 1) {
       _showCreateBottomSheet();
@@ -181,8 +275,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.push(context, MaterialPageRoute(
                   builder: (context) => const FlashcardCreationScreen(),
                 )).then((_) {
-                  // ✅ REFRESH sau khi tạo thẻ
                   _loadDefaultCategories();
+                  _loadLearningCategories();
                   _refreshLibraryTab();
                 });
               },
@@ -201,8 +295,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   AppRoutes.categoryCreate,
                   arguments: {'classId': null, 'className': null},
                 ).then((result) {
-                  // ✅ REFRESH sau khi tạo chủ đề
                   _loadDefaultCategories();
+                  _loadLearningCategories();
                   _refreshLibraryTab();
                 });
               },
@@ -335,7 +429,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ _buildStreakSection PHẢI ở trong _HomeScreenState
+  // ==================== STREAK SECTION ====================
+
   Widget _buildStreakSection() {
     if (_isLoadingStreak) {
       return Container(
@@ -391,7 +486,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
-          // Fire icon
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -401,8 +495,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Text('🔥', style: TextStyle(fontSize: 28)),
           ),
           const SizedBox(width: 16),
-
-          // Streak info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,10 +515,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: EdgeInsets.only(bottom: 4),
                       child: Text(
                         'ngày streak',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.white70),
                       ),
                     ),
                   ],
@@ -446,8 +535,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
-          // Weekly dots
           Column(
             children: [
               Row(
@@ -469,10 +556,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 4),
               Text(
                 '7 ngày qua',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.white.withOpacity(0.7),
-                ),
+                style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.7)),
               ),
             ],
           ),
@@ -480,6 +564,557 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  // ==================== ✅ NEW: BỘ THẺ ĐANG HỌC ====================
+
+  Widget _buildLearningSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Bộ thẻ đang học',
+              style: AppTextStyles.heading3.copyWith(
+                color: AppColors.primaryDark,
+                fontWeight: FontWeight.w700,
+                fontSize: 17,
+              ),
+            ),
+            if (_learningCategories.isNotEmpty)
+              TextButton(
+                onPressed: () => setState(() => _selectedIndex = 3), // Go to Library
+                child: Text(
+                  'Xem tất cả',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (_isLoadingLearning)
+          _buildLearningLoading()
+        else if (_learningCategories.isEmpty)
+          _buildLearningEmpty()
+        else
+          _buildLearningCards(),
+      ],
+    );
+  }
+
+  Widget _buildLearningLoading() {
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+    );
+  }
+
+  Widget _buildLearningEmpty() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.style_outlined,
+              size: 40,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Chưa có bộ thẻ nào',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primaryDark,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Bắt đầu học một chủ đề để theo dõi tiến trình!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => setState(() => _selectedIndex = 2), // Go to Courses
+            icon: const Icon(Icons.school_outlined, size: 18),
+            label: const Text('Khám phá khóa học'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: BorderSide(color: AppColors.primary),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLearningCards() {
+    return Column(
+      children: [
+        // Swipeable cards
+        SizedBox(
+          height: 180,
+          child: PageView.builder(
+            controller: _learningPageController,
+            onPageChanged: (index) {
+              setState(() => _currentLearningPage = index);
+            },
+            itemCount: _learningCategories.length,
+            itemBuilder: (context, index) {
+              return _buildLearningCard(_learningCategories[index], index);
+            },
+          ),
+        ),
+
+        // Page indicators
+        if (_learningCategories.length > 1) ...[
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_learningCategories.length, (index) {
+              final isActive = index == _currentLearningPage;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: isActive ? 24 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: isActive ? AppColors.primary : AppColors.border,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              );
+            }),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLearningCard(LearningCategoryModel item, int index) {
+    final gradientColors = _getGradientColors(index);
+    final progress = item.progress;
+    final progressPercent = progress.progressPercent / 100;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors[0].withOpacity(0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: () => _navigateToCategoryDetail(item.category),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row
+                Row(
+                  children: [
+                    // Icon
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: gradientColors),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        _getCategoryIcon(index),
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Title & subtitle
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.category.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Đã học ${progress.studiedCards}/${progress.totalCards} thẻ',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Percentage badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: gradientColors[0].withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${progress.progressPercent.toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: gradientColors[0],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Progress bar
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: progressPercent.clamp(0.0, 1.0),
+                    minHeight: 8,
+                    backgroundColor: AppColors.border,
+                    valueColor: AlwaysStoppedAnimation(gradientColors[0]),
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // Action button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => _startStudy(item.category),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: gradientColors[0],
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Học tiếp',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== ✅ NEW: GỢI Ý CHO BẠN ====================
+
+  Widget _buildSuggestionsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Gợi ý cho bạn',
+          style: AppTextStyles.heading3.copyWith(
+            color: AppColors.primaryDark,
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Suggestion cards
+        _buildSuggestionCards(),
+      ],
+    );
+  }
+
+  Widget _buildSuggestionCards() {
+    final suggestions = _generateSuggestions();
+
+    return Column(
+      children: suggestions.map((suggestion) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildSuggestionCard(suggestion),
+        );
+      }).toList(),
+    );
+  }
+
+  List<SuggestionItem> _generateSuggestions() {
+    List<SuggestionItem> suggestions = [];
+
+    // 1. Gợi ý dựa trên streak
+    if (_streakInfo != null && !_streakInfo!.hasStudiedToday) {
+      suggestions.add(SuggestionItem(
+        icon: Icons.local_fire_department_rounded,
+        iconColor: Colors.orange,
+        title: 'Giữ streak của bạn!',
+        subtitle: _streakInfo!.currentStreak > 0
+            ? 'Học ngay để giữ chuỗi ${_streakInfo!.currentStreak} ngày'
+            : 'Bắt đầu streak mới hôm nay!',
+        actionText: 'Học ngay',
+        onTap: _onStartLearningFromSuggestion,
+        priority: 1,
+      ));
+    }
+
+    // 2. Gợi ý ôn tập
+    if (_reviewCardsCount > 0) {
+      suggestions.add(SuggestionItem(
+        icon: Icons.replay_rounded,
+        iconColor: AppColors.secondary,
+        title: 'Ôn tập $_reviewCardsCount thẻ',
+        subtitle: 'Các thẻ cần ôn lại để nhớ lâu hơn',
+        actionText: 'Ôn tập',
+        onTap: _onStartReview,
+        priority: 2,
+      ));
+    }
+
+    // 3. Gợi ý học thẻ mới
+    if (_learningCategories.isNotEmpty) {
+      final topCategory = _learningCategories.first;
+      final remaining = topCategory.progress.totalCards - topCategory.progress.studiedCards;
+      if (remaining > 0) {
+        suggestions.add(SuggestionItem(
+          icon: Icons.auto_awesome_rounded,
+          iconColor: AppColors.primary,
+          title: 'Học ${remaining > 5 ? 5 : remaining} thẻ mới',
+          subtitle: 'Tiếp tục với "${topCategory.category.name}"',
+          actionText: 'Bắt đầu',
+          onTap: () => _startStudy(topCategory.category),
+          priority: 3,
+        ));
+      }
+    }
+
+    // 4. Gợi ý khám phá nếu chưa có gì
+    if (suggestions.isEmpty) {
+      suggestions.add(SuggestionItem(
+        icon: Icons.explore_rounded,
+        iconColor: AppColors.info,
+        title: 'Khám phá khóa học',
+        subtitle: 'Tìm chủ đề phù hợp với bạn',
+        actionText: 'Khám phá',
+        onTap: () => setState(() => _selectedIndex = 2),
+        priority: 4,
+      ));
+    }
+
+    // Sort by priority và giới hạn 2 suggestions
+    suggestions.sort((a, b) => a.priority.compareTo(b.priority));
+    if (suggestions.length > 2) {
+      suggestions = suggestions.sublist(0, 2);
+    }
+
+    return suggestions;
+  }
+
+  Widget _buildSuggestionCard(SuggestionItem suggestion) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: suggestion.onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Icon
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: suggestion.iconColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    suggestion.icon,
+                    color: suggestion.iconColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Text content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        suggestion.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        suggestion.subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Action button
+                ElevatedButton(
+                  onPressed: suggestion.onTap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: suggestion.iconColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    suggestion.actionText,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== NAVIGATION HELPERS ====================
+
+  void _navigateToCategoryDetail(CategoryModel category) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CategoryDetailScreen(
+          category: category,
+          isOwner: category.ownerUserId == _currentUser?.userId,
+        ),
+      ),
+    ).then((_) {
+      _refreshHomeData();
+    });
+  }
+
+  void _startStudy(CategoryModel category) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlashcardScreen(
+          categoryId: category.id,
+          categoryName: category.name,
+        ),
+      ),
+    ).then((_) {
+      _refreshHomeData();
+    });
+  }
+
+  void _onStartLearningFromSuggestion() {
+    if (_learningCategories.isNotEmpty) {
+      _startStudy(_learningCategories.first.category);
+    } else {
+      // Go to courses
+      setState(() => _selectedIndex = 2);
+    }
+  }
+
+  void _onStartReview() {
+    if (_learningCategories.isNotEmpty) {
+      _startStudy(_learningCategories.first.category);
+    }
+  }
+
+  // ==================== BUILD UI ====================
 
   @override
   Widget build(BuildContext context) {
@@ -543,165 +1178,104 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHomeTab() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: AppConstants.screenPadding.copyWith(top: 20, bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Chào nhé!',
-                    style: AppTextStyles.heading2.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Hôm nay học gì cùng Flai nhỉ?',
-                    style: AppTextStyles.hint.copyWith(color: AppColors.textSecondary, fontSize: 14),
-                  ),
-                ],
-              ),
-              InkWell(
-                borderRadius: BorderRadius.circular(50),
-                onTap: () => Navigator.of(context).push(PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) => const ProfileScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    var tween = Tween(begin: const Offset(1.0, 0.0), end: Offset.zero).chain(CurveTween(curve: Curves.easeInOut));
-                    return SlideTransition(position: animation.drive(tween), child: child);
-                  },
-                )),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.inputBackground,
-                    border: Border.all(color: AppColors.primary.withOpacity(0.4), width: 1),
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/avatar.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 26),
+    return RefreshIndicator(
+      onRefresh: _refreshHomeData,
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: AppConstants.screenPadding.copyWith(top: 20, bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Chào nhé!',
+                      style: AppTextStyles.heading2.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Hôm nay học gì cùng Flai nhỉ?',
+                      style: AppTextStyles.hint.copyWith(color: AppColors.textSecondary, fontSize: 14),
+                    ),
+                  ],
+                ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(50),
+                  onTap: () => Navigator.of(context).push(PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => const ProfileScreen(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      var tween = Tween(begin: const Offset(1.0, 0.0), end: Offset.zero).chain(CurveTween(curve: Curves.easeInOut));
+                      return SlideTransition(position: animation.drive(tween), child: child);
+                    },
+                  )),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.inputBackground,
+                      border: Border.all(color: AppColors.primary.withOpacity(0.4), width: 1),
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/avatar.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.person_outline_rounded, color: AppColors.primary, size: 26),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+              ],
+            ),
+            const SizedBox(height: 20),
 
-          // ✅ STREAK WIDGET
-          _buildStreakSection(),
+            // ✅ STREAK WIDGET
+            _buildStreakSection(),
 
-          const SizedBox(height: 20),
-          GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen())),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.inputBackground,
-                borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.search_outlined, color: AppColors.textGray, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Tìm chủ đề, lớp học, mã lớp...',
-                      style: AppTextStyles.hint.copyWith(color: AppColors.textGray, fontSize: 14),
+            const SizedBox(height: 20),
+
+            // Search bar
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen())),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.inputBackground,
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search_outlined, color: AppColors.textGray, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Tìm chủ đề, lớp học, mã lớp...',
+                        style: AppTextStyles.hint.copyWith(color: AppColors.textGray, fontSize: 14),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 36),
-          Text(
-            'Bộ thẻ đang học',
-            style: AppTextStyles.heading3.copyWith(color: AppColors.primaryDark, fontWeight: FontWeight.w700, fontSize: 17),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 6))],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'TOEIC 600+',
-                  style: AppTextStyles.heading3.copyWith(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Đã học 36/120 thẻ',
-                  style: AppTextStyles.hint.copyWith(color: AppColors.textSecondary, fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: 36 / 120,
-                    minHeight: 8,
-                    backgroundColor: AppColors.textGray.withOpacity(0.15),
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                CustomButton(text: 'Học tiếp', onPressed: () {}, height: 46),
-              ],
-            ),
-          ),
-          const SizedBox(height: 40),
-          Text(
-            'Gợi ý cho bạn',
-            style: AppTextStyles.heading3.copyWith(color: AppColors.primaryDark, fontWeight: FontWeight.w700, fontSize: 17),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Học 5 thẻ mới hôm nay',
-                        style: AppTextStyles.label.copyWith(fontWeight: FontWeight.w700, color: AppColors.textPrimary, fontSize: 15),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Giúp bạn ghi nhớ từ vựng nhanh hơn',
-                        style: AppTextStyles.hint.copyWith(color: AppColors.textSecondary, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                CustomButton(text: 'Học ngay', width: 110, height: 42, onPressed: () {}),
-              ],
-            ),
-          ),
-          const SizedBox(height: 90),
-        ],
+            const SizedBox(height: 28),
+
+            // ✅ BỘ THẺ ĐANG HỌC
+            _buildLearningSection(),
+
+            const SizedBox(height: 28),
+
+            // ✅ GỢI Ý CHO BẠN
+            _buildSuggestionsSection(),
+
+            const SizedBox(height: 90),
+          ],
+        ),
       ),
     );
   }
@@ -770,16 +1344,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (context) => CategoryDetailScreen(
-                category: category,
-                isOwner: category.ownerUserId == _currentUser?.userId,
-              ),
-            )).then((_) {
-              _loadDefaultCategories();
-            });
-          },
+          onTap: () => _navigateToCategoryDetail(category),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -920,6 +1485,40 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+// ==================== MODELS ====================
+
+/// Model cho category đang học kèm progress
+class LearningCategoryModel {
+  final CategoryModel category;
+  final CategoryProgressModel progress;
+
+  LearningCategoryModel({
+    required this.category,
+    required this.progress,
+  });
+}
+
+/// Model cho suggestion item
+class SuggestionItem {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final String actionText;
+  final VoidCallback onTap;
+  final int priority;
+
+  SuggestionItem({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.actionText,
+    required this.onTap,
+    required this.priority,
+  });
 }
 
 // ==================== LIBRARY TAB WIDGET ====================

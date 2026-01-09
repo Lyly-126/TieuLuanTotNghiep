@@ -631,7 +631,40 @@ INSERT INTO quiz_results (user_id, category_id, quiz_type, difficulty_level, tot
 (7, 10, 'IMAGE_WORD', 'KIDS', 5, 4, 1, 0, 80.00, 60, NULL, 80.00, NULL, NOW() - INTERVAL '4 days'),
 (7, 10, 'MIXED', 'KIDS', 5, 5, 0, 0, 100.00, 50, 100.00, 100.00, 100.00, NOW() - INTERVAL '1 day');
 
+CREATE TABLE IF NOT EXISTS "categoryReminders" (
+    id SERIAL PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "categoryId" INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    
+    -- Thời gian nhắc nhở
+    "reminderTime" TIME NOT NULL DEFAULT '20:00:00',
+    
+    -- Ngày trong tuần: 7 ký tự, index 0=CN, 1=T2..6=T7
+    -- '1'=bật, '0'=tắt. Ví dụ: '0111110' = T2-T6
+    "daysOfWeek" VARCHAR(7) NOT NULL DEFAULT '1111111',
+    
+    -- Trạng thái bật/tắt
+    "isEnabled" BOOLEAN NOT NULL DEFAULT TRUE,
+    
+    -- Tin nhắn tùy chỉnh
+    "customMessage" VARCHAR(255),
+    
+    -- FCM Token để gửi notification
+    "fcmToken" TEXT,
+    
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    UNIQUE("userId", "categoryId")
+);
 
-SELECT * FROM dictionary limit 100;
+-- Indexes
+CREATE INDEX IF NOT EXISTS "idx_catReminders_user" ON "categoryReminders"("userId");
+CREATE INDEX IF NOT EXISTS "idx_catReminders_enabled" ON "categoryReminders"("isEnabled") WHERE "isEnabled" = TRUE;
+CREATE INDEX IF NOT EXISTS "idx_catReminders_time" ON "categoryReminders"("reminderTime");
+
+SELECT * FROM dictionary;
+
+SELECT COUNT(*) AS total_prep FROM dictionary;
 
 SELECT * FROM flashcards;
