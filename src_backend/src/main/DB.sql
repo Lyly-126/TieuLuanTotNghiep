@@ -663,8 +663,13 @@ CREATE INDEX IF NOT EXISTS "idx_catReminders_user" ON "categoryReminders"("userI
 CREATE INDEX IF NOT EXISTS "idx_catReminders_enabled" ON "categoryReminders"("isEnabled") WHERE "isEnabled" = TRUE;
 CREATE INDEX IF NOT EXISTS "idx_catReminders_time" ON "categoryReminders"("reminderTime");
 
-SELECT * FROM dictionary;
+SELECT * FROM "categoryReminders";
 
 SELECT COUNT(*) AS total_prep FROM dictionary;
+
+SELECT word, COUNT(*) 
+FROM dictionary 
+GROUP BY word 
+HAVING COUNT(*) > 1;
 
 SELECT * FROM flashcards;

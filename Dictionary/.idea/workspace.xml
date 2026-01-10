@@ -5,27 +5,42 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="142d9db8-935b-4a66-97b1-4c256839aa7c" name="Changes" comment="crawl Dictionary">
-      <change afterPath="$PROJECT_DIR$/../src_app/android/app/src/main/res/xml/file_paths.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/batch_category_selection_screen.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/batch_creation_result_screen.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/text_extraction_screen.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/word_selection_screen.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/services/text_extraction_service.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/TextExtractionController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/TextExtractionService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crawl.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crawl_failed_word.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/recrawl.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_app/android/app/src/main/res/values/color.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_app/ios/Runner/GoogleService-Info.plist" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_app/lib/models/category_reminder_model.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_app/lib/services/category_reminder_service.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_app/lib/services/notification_service.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_app/lib/widgets/category_reminder_settings_widget.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_app/lib/widgets/weekly_schedule_widget.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/config/FirebaseConfig.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/CategoryReminderController.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/dto/CategoryReminderDTO.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/model/CategoryReminder.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/repository/CategoryReminderRepository.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/CategoryReminderService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/FirebaseNotificationService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/merge_and_import.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/android/app/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/android/app/build.gradle" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../src_app/android/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/android/app/src/main/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/android/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/android/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/ios/Runner/Info.plist" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/ios/Runner/Info.plist" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/main.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../src_app/lib/routes/app_routes.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/routes/app_routes.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_creation_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_creation_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/linux/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/linux/flutter/generated_plugin_registrant.cc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/linux/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/linux/flutter/generated_plugins.cmake" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/card/batch_creation_result_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/batch_creation_result_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/category/category_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/category/category_detail_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/home/home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/home/home_screen.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../src_app/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../src_app/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/pubspec.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../src_app/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/pubspec.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../src_app/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../src_app/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/windows/flutter/generated_plugins.cmake" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../src_backend/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/SrcBackendApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/SrcBackendApplication.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/DebugController.java" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../src_backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/resources/application.properties" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -59,31 +74,40 @@
   &quot;associatedIndex&quot;: 4
 }</component>
   <component name="ProjectId" id="37TS1Edjjvge0VhENEd4Pqtt19Q" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.merge_and_import.executor&quot;: &quot;Run&quot;,
-    &quot;Python.merge_en_vi.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;ai.playground.ignore.import.keys.banner.in.settings&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;E:/Code/Dictionary&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.crawl.executor": "Run",
+    "Python.crawl_demo.executor": "Run",
+    "Python.crawl_failed_word.executor": "Run",
+    "Python.crawl_full.executor": "Run",
+    "Python.merge_and_import.executor": "Run",
+    "Python.merge_en_vi.executor": "Run",
+    "Python.recrawl.executor": "Run",
+    "Python.viwiki_xml_to_jsonl.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "ai.playground.ignore.import.keys.banner.in.settings": "true",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "E:/Code/Dictionary",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="E:\Code\Dictionary" />
@@ -150,6 +174,9 @@
       <workItem from="1767019142274" duration="5455000" />
       <workItem from="1767258211727" duration="1818000" />
       <workItem from="1767330602211" duration="1294000" />
+      <workItem from="1767717596258" duration="9750000" />
+      <workItem from="1767769356684" duration="8722000" />
+      <workItem from="1767966201758" duration="21054000" />
     </task>
     <task id="LOCAL-00001" summary="crawl Dictionary">
       <option name="closed" value="true" />
@@ -189,7 +216,13 @@
     <option name="LAST_COMMIT_MESSAGE" value="crawl Dictionary" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Dictionary$merge_and_import.coverage" NAME="merge_and_import Coverage Results" MODIFIED="1767026296977" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Dictionary$viwiki_xml_to_jsonl.coverage" NAME="viwiki_xml_to_jsonl Coverage Results" MODIFIED="1767726810472" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Dictionary$crawl_failed_word.coverage" NAME="crawl_failed_word Coverage Results" MODIFIED="1767988029344" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Dictionary$crawl_demo.coverage" NAME="crawl_demo Coverage Results" MODIFIED="1767966722578" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Dictionary$merge_and_import.coverage" NAME="merge_and_import Coverage Results" MODIFIED="1767727942695" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Dictionary$crawl.coverage" NAME="crawl Coverage Results" MODIFIED="1767989199116" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Dictionary$merge_en_vi.coverage" NAME="merge_en_vi Coverage Results" MODIFIED="1767001720038" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Dictionary$crawl_full.coverage" NAME="crawl_full Coverage Results" MODIFIED="1767972340988" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Dictionary$recrawl.coverage" NAME="recrawl Coverage Results" MODIFIED="1767975405478" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

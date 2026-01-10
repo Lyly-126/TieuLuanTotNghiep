@@ -6,9 +6,15 @@ import '../config/api_config.dart';
 import '../models/order_model.dart';
 
 class PaymentService {
-  // static const String baseUrl = 'http://localhost:8080/api/payment';
-  // Android Emulator: 'http://10.0.2.2:8080/api/payment'
-  // Production: 'https://yourdomain.com/api/payment'
+  // ✅ Header chung cho tất cả requests (bao gồm ngrok bypass)
+  static Future<Map<String, String>> _getHeaders() async {
+    final token = await _getToken();
+    return {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+    };
+  }
 
   /// Lấy token từ SharedPreferences
   static Future<String> _getToken() async {
@@ -66,17 +72,14 @@ class PaymentService {
   /// Tạo order mới
   static Future<Map<String, dynamic>> createOrder(int packId) async {
     try {
-      final token = await _getToken();
+      final headers = await _getHeaders(); // ✅ Sử dụng header chung
       final uri = Uri.parse('${ApiConfig.paymentBase}/create-order');
 
       print('📡 Creating order for pack $packId');
 
       final response = await http.post(
         uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: jsonEncode({'packId': packId}),
       );
 
@@ -98,17 +101,14 @@ class PaymentService {
   /// Tạo VNPay payment URL
   static Future<Map<String, dynamic>> createVNPayPayment(int orderId) async {
     try {
-      final token = await _getToken();
+      final headers = await _getHeaders(); // ✅ Sử dụng header chung
       final uri = Uri.parse('${ApiConfig.paymentVnpay}/create?orderId=$orderId');
 
       print('📡 Creating VNPay payment for order $orderId');
 
       final response = await http.post(
         uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
       );
 
       print('📡 VNPay payment status: ${response.statusCode}');
@@ -130,19 +130,12 @@ class PaymentService {
   /// ✅ Tự động sync premium status sau khi load orders
   static Future<List<OrderModel>> getMyOrders() async {
     try {
-      final token = await _getToken();
+      final headers = await _getHeaders(); // ✅ Sử dụng header chung
       final uri = Uri.parse('${ApiConfig.paymentBase}/my-orders');
 
       print('📡 Fetching my orders');
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
-        },
-      );
+      final response = await http.get(uri, headers: headers);
 
       print('📡 Get orders status: ${response.statusCode}');
       print('📦 Response body: ${response.body}');

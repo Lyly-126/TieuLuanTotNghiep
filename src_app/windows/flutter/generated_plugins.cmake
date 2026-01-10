@@ -3,8 +3,10 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  app_links
   audioplayers_windows
   file_selector_windows
+  firebase_core
   printing
   share_plus
   url_launcher_windows

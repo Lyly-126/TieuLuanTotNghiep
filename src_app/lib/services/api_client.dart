@@ -10,7 +10,19 @@ import '../utils/token_utils.dart';
 /// - Xử lý 401 Unauthorized (token hết hạn)
 /// - Logging chi tiết cho debugging
 /// - Error handling thống nhất
+/// - ✅ Bypass ngrok browser warning
 class ApiClient {
+
+  // ✅ Header chung cho tất cả requests (bao gồm ngrok bypass)
+  static Map<String, String> _getBaseHeaders(String token, {Map<String, String>? additionalHeaders}) {
+    return {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json; charset=utf-8',
+      'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+      ...?additionalHeaders,
+    };
+  }
+
   /// 📤 GET request với authentication
   ///
   /// Parameters:
@@ -35,17 +47,12 @@ class ApiClient {
       throw Exception('Token not found. Please login again.');
     }
 
-    final headers = {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json; charset=utf-8',
-      'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
-
-      ...?additionalHeaders,
-    };
+    final headers = _getBaseHeaders(token, additionalHeaders: additionalHeaders);
 
     print('📋 Headers:');
     print('   Authorization: Bearer ${token.substring(0, 20)}...');
     print('   Content-Type: application/json; charset=utf-8');
+    print('   ngrok-skip-browser-warning: true');
     if (additionalHeaders != null) {
       additionalHeaders.forEach((key, value) {
         print('   $key: $value');
@@ -108,15 +115,12 @@ class ApiClient {
       throw Exception('Token not found. Please login again.');
     }
 
-    final headers = {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json; charset=utf-8',
-      ...?additionalHeaders,
-    };
+    final headers = _getBaseHeaders(token, additionalHeaders: additionalHeaders);
 
     print('📋 Headers:');
     print('   Authorization: Bearer ${token.substring(0, 20)}...');
     print('   Content-Type: application/json; charset=utf-8');
+    print('   ngrok-skip-browser-warning: true');
 
     // Convert body to JSON if needed
     final String jsonBody = body is String ? body : json.encode(body);
@@ -182,11 +186,7 @@ class ApiClient {
       throw Exception('Token not found. Please login again.');
     }
 
-    final headers = {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json; charset=utf-8',
-      ...?additionalHeaders,
-    };
+    final headers = _getBaseHeaders(token, additionalHeaders: additionalHeaders);
 
     final String jsonBody = body is String ? body : json.encode(body);
     print('📦 Request Body: $jsonBody');
@@ -245,11 +245,7 @@ class ApiClient {
       throw Exception('Token not found. Please login again.');
     }
 
-    final headers = {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json; charset=utf-8',
-      ...?additionalHeaders,
-    };
+    final headers = _getBaseHeaders(token, additionalHeaders: additionalHeaders);
 
     try {
       final response = await http.delete(url, headers: headers);

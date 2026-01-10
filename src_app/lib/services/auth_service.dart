@@ -5,16 +5,18 @@ import '../models/user_model.dart';
 import '../config/api_config.dart';
 
 class AuthService {
-  // static const String baseUrl = 'http://localhost:8080/api/users';
+  // ✅ Header chung cho tất cả requests (bao gồm ngrok bypass)
+  static const Map<String, String> _baseHeaders = {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
+  };
 
   /// ✅ Login và lưu token + user info
-  static Future<Map<String, dynamic>> login( String email, String password) async {
+  static Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await http.post(
         Uri.parse(ApiConfig.authLogin),
-        headers: {'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true', // ✅ Bypass ngrok warning
-        },
+        headers: _baseHeaders,
         body: jsonEncode({
           'email': email,
           'password': password,
@@ -77,7 +79,7 @@ class AuthService {
 
       final response = await http.post(
         Uri.parse(ApiConfig.authRegister),
-        headers: {'Content-Type': 'application/json'},
+        headers: _baseHeaders, // ✅ Sử dụng header chung có ngrok bypass
         body: jsonEncode(body),
       );
 
