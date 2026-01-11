@@ -64,17 +64,27 @@ public class CategoryReminder {
     }
 
     public boolean isDayEnabled(int dayIndex) {
-        if (dayIndex < 0 || dayIndex >= 7 || daysOfWeek == null) return false;
+        if (dayIndex < 0 || dayIndex >= daysOfWeek.length()) return false;
         return daysOfWeek.charAt(dayIndex) == '1';
     }
 
     public List<String> getEnabledDaysVietnamese() {
+        List<String> days = new ArrayList<>();
         String[] dayNames = {"CN", "T2", "T3", "T4", "T5", "T6", "T7"};
-        List<String> result = new ArrayList<>();
-        for (int i = 0; i < 7; i++) {
-            if (isDayEnabled(i)) result.add(dayNames[i]);
+        for (int i = 0; i < daysOfWeek.length() && i < 7; i++) {
+            if (daysOfWeek.charAt(i) == '1') {
+                days.add(dayNames[i]);
+            }
         }
-        return result;
+        return days;
+    }
+
+    public int getEnabledDaysCount() {
+        int count = 0;
+        for (char c : daysOfWeek.toCharArray()) {
+            if (c == '1') count++;
+        }
+        return count;
     }
 
     public String getTimeDisplay() {

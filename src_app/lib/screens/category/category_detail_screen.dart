@@ -3,19 +3,20 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math' as math;
 import '../../config/app_colors.dart';
+import '../../models/category_study_schedule_model.dart';
 import '../../screens/quiz/quiz_setup_screen.dart';
 import '../../models/category_model.dart';
 import '../../models/flashcard_model.dart';
 import '../../models/user_model.dart';
 import '../../services/category_service.dart';
+import '../../services/category_study_schedule_service.dart';
 import '../../services/flash_card_service.dart';
 import '../../services/user_service.dart';
 import '../../services/tts_service.dart';
+import '../../widgets/study_schedule_widgets.dart';
 import '../card/flashcard_creation_screen.dart';
 import '../card/flashcard_screen.dart';
 import '../card/flashcard_edit_screen.dart';
-import '../payment/upgrade_premium_screen.dart';
-import '../../widgets/study_progress_widgets.dart';
 import '../../models/study_progress_model.dart';
 import '../../services/study_progress_service.dart';
 
@@ -50,6 +51,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   StudyStreakModel? _streak;
   bool _isLoadingProgress = true;
 
+  CategoryStudyScheduleModel? _schedule;
+  List<ScheduleConflict>? _conflicts;
+  bool _isLoadingSchedule = false;
+
   // ✅ Search
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
@@ -61,10 +66,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   // Animation
   late AnimationController _fabController;
   late Animation<double> _fabAnimation;
-
-  // // Preview card
-  // int _previewIndex = 0;
-  // late PageController _previewController;
 
   // Permissions
   bool get _isOwner => widget.isOwner || (_category?.ownerUserId == _currentUser?.userId);
@@ -83,18 +84,17 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     _loadStudyProgress();
     _fabController = AnimationController(duration: const Duration(milliseconds: 300), vsync: this);
     _fabAnimation = CurvedAnimation(parent: _fabController, curve: Curves.easeOut);
-    // _previewController = PageController(viewportFraction: 0.85);
     _searchController.addListener(_onSearchChanged);
 
     print('📱 [SCREEN] $runtimeType');
     _loadCurrentUser();
     _loadCategoryDetails();
+    _loadSchedule();  // ✅ THÊM DÒNG NÀY!
   }
 
   @override
   void dispose() {
     _fabController.dispose();
-    // _previewController.dispose();
     _searchController.dispose();
     _ttsService.stop();
     super.dispose();
@@ -216,6 +216,106 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     await Share.share('📚 ${_category!.name}\n${_flashcards.length} thuật ngữ\n\nHọc cùng tôi trên FlashLearn!\nhttps://flashlearn.vn/set/${_category!.id}', subject: _category!.name);
   }
 
+  Future<void> _loadSchedule() async {
+    if (!mounted) return;
+
+    setState(() => _isLoadingSchedule = true);
+
+    try {
+      // Lấy schedule của category này
+      final schedule = await CategoryStudyScheduleService.getSchedule(widget.category.id);
+
+      if (schedule != null && mounted) {
+        // Kiểm tra xung đột
+        final conflicts = await CategoryStudyScheduleService.checkNewScheduleConflicts(
+          schedule,
+          null, // Sẽ tự lấy existing schedules
+        );
+
+        setState(() {
+          _schedule = schedule.copyWith(categoryName: widget.category.name);
+          _conflicts = conflicts.where((c) =>
+              c.categories.any((cat) => cat.categoryId == widget.category.id)
+          ).toList();
+          _isLoadingSchedule = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ [CategoryDetail] _loadSchedule error: $e');
+      setState(() => _isLoadingSchedule = false);
+    }
+  }
+
+// --- Update Schedule ---
+  Future<void> _updateSchedule(CategoryStudyScheduleModel newSchedule) async {
+    // Cập nhật UI ngay lập tức
+    setState(() => _schedule = newSchedule);
+
+    // Kiểm tra xung đột
+    final conflicts = await CategoryStudyScheduleService.checkNewScheduleConflicts(
+      newSchedule,
+      null,
+    );
+
+    if (mounted) {
+      setState(() {
+        _conflicts = conflicts.where((c) =>
+          c.categories.any((cat) => cat.categoryId == widget.category.id)
+        ).toList();
+      });
+    }
+
+    // Gọi API cập nhật
+    final updated = await CategoryStudyScheduleService.updateSchedule(newSchedule);
+
+    if (updated != null && mounted) {
+      setState(() => _schedule = updated);
+
+      // Hiện thông báo nếu có xung đột
+      if (_conflicts != null && _conflicts!.isNotEmpty) {
+        _showConflictSnackBar();
+      }
+    }
+  }
+
+// --- Show Conflict Dialog ---
+  void _showConflictDialog() {
+    if (_conflicts == null || _conflicts!.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => ScheduleConflictDialog(
+        conflicts: _conflicts!,
+        onGoToCategory: (categoryId) {
+          // Navigate to conflicting category
+          // Implement navigation logic here
+        },
+      ),
+    );
+  }
+
+  void _showConflictSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('Phát hiện ${_conflicts!.length} xung đột lịch học'),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.warning,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Xem',
+          textColor: Colors.white,
+          onPressed: _showConflictDialog,
+        ),
+      ),
+    );
+  }
   // ==================== OWNER ACTIONS ====================
 
   void _addFlashcard() {
@@ -600,22 +700,21 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
         SliverToBoxAdapter(
           child: Column(
             children: [
-              // ✅ NEW: Progress Card
-              if (_progress != null && !_isLoadingProgress)
+              // if (_progress != null && !_isLoadingProgress)
                 StudyProgressCard(
                   progress: _progress!,
                   onResetProgress: _showResetProgressDialog,
                 ),
 
-              // ✅ NEW: Reminder Card
-              if (_reminder != null && !_isLoadingProgress)
-                StudyReminderCard(
-                  reminder: _reminder!,
-                  onUpdate: _updateReminder,
+              // ✅ MỚI: Schedule Setting Card
+              if (_schedule != null && !_isLoadingSchedule)
+                CategoryScheduleSettingCard(
+                  schedule: _schedule!,
+                  onUpdate: _updateSchedule,
+                  conflicts: _conflicts,
+                  onShowConflictDetail: _showConflictDialog,
                 ),
 
-              // Existing widgets
-              // _buildPreviewCards(),
               _buildActionButtons(),
               _buildStudyModes(),
               _buildFlashcardSection(),
@@ -716,95 +815,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     );
   }
 
-  // // ✅ PREVIEW CARDS - Kích thước đồng nhất
-  // Widget _buildPreviewCards() {
-  //   if (_flashcards.isEmpty) return const SizedBox.shrink();
-  //   return Container(
-  //     height: 220, margin: const EdgeInsets.only(top: 20),
-  //     child: PageView.builder(
-  //       controller: _previewController,
-  //       itemCount: math.min(_flashcards.length, 5),
-  //       onPageChanged: (index) => setState(() => _previewIndex = index),
-  //       itemBuilder: (context, index) {
-  //         return AnimatedBuilder(animation: _previewController, builder: (context, child) {
-  //           double value = 1.0;
-  //           if (_previewController.position.haveDimensions) { value = _previewController.page! - index; value = (1 - (value.abs() * 0.15)).clamp(0.85, 1.0); }
-  //           return Center(child: Transform.scale(scale: value, child: _buildPreviewCard(_flashcards[index])));
-  //         });
-  //       },
-  //     ),
-  //   );
-  // }
-  //
-  // Widget _buildPreviewCard(FlashcardModel card) {
-  //   return Container(
-  //     margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-  //     // ✅ Fixed width & height cho tất cả cards
-  //     width: double.infinity,
-  //     height: 200,
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(20),
-  //       boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8))],
-  //     ),
-  //     child: ClipRRect(
-  //       borderRadius: BorderRadius.circular(20),
-  //       child: Material(
-  //         color: Colors.transparent,
-  //         child: InkWell(
-  //           onTap: _startStudy,
-  //           child: Padding(
-  //             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-  //             child: Column(
-  //               mainAxisAlignment: MainAxisAlignment.center,
-  //               children: [
-  //                 // ✅ Từ vựng - Fixed height area
-  //                 SizedBox(
-  //                   height: 56,
-  //                   child: Center(
-  //                     child: Text(
-  //                       card.word,
-  //                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primaryDark, height: 1.2),
-  //                       textAlign: TextAlign.center,
-  //                       maxLines: 2,
-  //                       overflow: TextOverflow.ellipsis,
-  //                     ),
-  //                   ),
-  //                 ),
-  //                 const SizedBox(height: 12),
-  //                 // Divider
-  //                 Container(height: 2, width: 40, decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.3), borderRadius: BorderRadius.circular(1))),
-  //                 const SizedBox(height: 12),
-  //                 // ✅ Nghĩa - Fixed height area
-  //                 SizedBox(
-  //                   height: 48,
-  //                   child: Center(
-  //                     child: Text(
-  //                       _getMainMeaning(card.meaning),
-  //                       style: TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.4),
-  //                       textAlign: TextAlign.center,
-  //                       maxLines: 2,
-  //                       overflow: TextOverflow.ellipsis,
-  //                     ),
-  //                   ),
-  //                 ),
-  //                 // ✅ Phiên âm (nếu có)
-  //                 if (card.phonetic != null && card.phonetic!.isNotEmpty)
-  //                   Padding(
-  //                     padding: const EdgeInsets.only(top: 8),
-  //                     child: Text(
-  //                       card.phonetic!,
-  //                       style: TextStyle(fontSize: 13, color: AppColors.textGray, fontStyle: FontStyle.italic),
-  //                     ),
-  //                   ),
-  //               ],
-  //             ),
-  //           ),
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
 
   Widget _buildActionButtons() {
     return Padding(padding: const EdgeInsets.fromLTRB(20, 24, 20, 0), child: Row(children: [

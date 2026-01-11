@@ -172,6 +172,7 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/text-extraction/**").authenticated()
 
+                        .requestMatchers("/api/category-reminder/**").authenticated()
 
                         // All other requests require authentication
                         .anyRequest().authenticated()

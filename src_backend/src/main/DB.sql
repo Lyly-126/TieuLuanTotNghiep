@@ -672,4 +672,4 @@ FROM dictionary
 GROUP BY word 
 HAVING COUNT(*) > 1;
 
-SELECT * FROM flashcards;
+SELECT * FROM categories;

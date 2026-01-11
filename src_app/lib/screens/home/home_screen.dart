@@ -5,6 +5,7 @@ import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
 import '../../models/class_model.dart';
 import '../../services/class_service.dart';
+import '../../widgets/visual_study_calendar_widget.dart';
 import '../../widgets/custom_button.dart';
 import '../class/class_detail_screen.dart';
 import '../profile/profile_screen.dart';
@@ -20,10 +21,14 @@ import '../category/category_detail_screen.dart';
 import '../payment/upgrade_premium_screen.dart';
 import '../../services/study_progress_service.dart';
 import '../../models/study_progress_model.dart';
+import '../../models/category_study_schedule_model.dart';
+import '../../services/category_study_schedule_service.dart';
+import '../../widgets/study_schedule_widgets.dart';
 
 /// ✅ HOME SCREEN - CẢI TIẾN TAB TRANG CHỦ
 /// - Bộ thẻ đang học: Hiển thị categories có progress, swipe ngang
 /// - Gợi ý cho bạn: Gợi ý thông minh dựa trên streak và review cards
+/// - Lịch học trực quan: Hiển thị lịch nhắc nhở học tập theo tuần
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -38,15 +43,19 @@ class _HomeScreenState extends State<HomeScreen> {
   List<CategoryModel> _defaultCategories = [];
   bool _isLoadingCategories = true;
 
+  // ✅ Schedule variables
+  StudyScheduleOverview? _scheduleOverview;
+  bool _isLoadingSchedule = false;
+
   // ✅ Streak variables
   StudyStreakModel? _streakInfo;
   bool _isLoadingStreak = true;
 
-  // ✅ NEW: Learning categories (có progress)
+  // ✅ Learning categories (có progress)
   List<LearningCategoryModel> _learningCategories = [];
   bool _isLoadingLearning = true;
 
-  // ✅ NEW: Review cards count
+  // ✅ Review cards count
   int _reviewCardsCount = 0;
 
   final GlobalKey<_LibraryTabState> _libraryTabKey = GlobalKey<_LibraryTabState>();
@@ -63,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadStreakInfo();
     _loadLearningCategories();
     _loadReviewCards();
+    _loadScheduleOverview();
   }
 
   @override
@@ -146,21 +156,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// ✅ NEW: Load categories đang học (có progress)
+  /// ✅ Load categories đang học (có progress)
   Future<void> _loadLearningCategories() async {
     setState(() => _isLoadingLearning = true);
     try {
-      // Lấy tất cả categories của user
       final categories = await CategoryService.getUserCategories();
-
-      // Lấy progress cho từng category
       List<LearningCategoryModel> learningList = [];
 
       for (var category in categories) {
         try {
           final progress = await StudyProgressService.getCategoryProgress(category.id);
-
-          // Chỉ thêm vào nếu đã học ít nhất 1 thẻ
           if (progress.studiedCards > 0) {
             learningList.add(LearningCategoryModel(
               category: category,
@@ -168,19 +173,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ));
           }
         } catch (e) {
-          // Skip nếu lỗi
           debugPrint('Error loading progress for category ${category.id}: $e');
         }
       }
 
-      // Sort theo lastStudiedAt (gần nhất trước)
       learningList.sort((a, b) {
         final aTime = a.progress.lastStudiedAt ?? DateTime(2000);
         final bTime = b.progress.lastStudiedAt ?? DateTime(2000);
         return bTime.compareTo(aTime);
       });
 
-      // Giới hạn 5 categories
       if (learningList.length > 5) {
         learningList = learningList.sublist(0, 5);
       }
@@ -197,7 +199,90 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// ✅ NEW: Load số thẻ cần ôn tập
+  /// ✅ Load schedule overview cho calendar widget
+  Future<void> _loadScheduleOverview() async {
+    if (!mounted) return;
+    setState(() => _isLoadingSchedule = true);
+
+    try {
+      final overview = await CategoryStudyScheduleService.getScheduleOverview();
+
+      debugPrint('📅 [Home] Schedule Overview:');
+      debugPrint('   - Total active: ${overview.totalActiveSchedules}');
+      debugPrint('   - Today schedules: ${overview.todaySchedules.length}');
+      debugPrint('   - Upcoming: ${overview.upcomingSchedules.length}');
+
+      if (mounted) {
+        setState(() {
+          _scheduleOverview = overview;
+          _isLoadingSchedule = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ [HomeScreen] _loadScheduleOverview error: $e');
+      if (mounted) {
+        setState(() => _isLoadingSchedule = false);
+      }
+    }
+  }
+
+  void _navigateToCategoryFromSchedule(ScheduleItem item) {
+    final category = _learningCategories
+        .cast<LearningCategoryModel?>()
+        .firstWhere(
+          (c) => c?.category.id == item.categoryId,
+      orElse: () => null,
+    );
+
+    if (category != null) {
+      _navigateToCategoryDetail(category.category);
+    } else {
+      // Nếu không tìm thấy trong learning categories, thử load trực tiếp
+      _navigateToCategoryById(item.categoryId, item.categoryName);
+    }
+  }
+
+  void _navigateToCategoryById(int categoryId, String categoryName) async {
+    try {
+      final categories = await CategoryService.getUserCategories();
+      final category = categories.cast<CategoryModel?>().firstWhere(
+            (c) => c?.id == categoryId,
+        orElse: () => null,
+      );
+
+      if (category != null && mounted) {
+        _navigateToCategoryDetail(category);
+      }
+    } catch (e) {
+      debugPrint('Error navigating to category: $e');
+    }
+  }
+
+  void _showConflictResolutionDialog() {
+    if (_scheduleOverview?.conflicts == null ||
+        _scheduleOverview!.conflicts.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => ScheduleConflictDialog(
+        conflicts: _scheduleOverview!.conflicts,
+        onGoToCategory: (categoryId) {
+          final category = _learningCategories
+              .cast<LearningCategoryModel?>()
+              .firstWhere(
+                (c) => c?.category.id == categoryId,
+            orElse: () => null,
+          );
+
+          if (category != null) {
+            _navigateToCategoryDetail(category.category);
+          }
+        },
+      ),
+    );
+  }
+
+  /// ✅ Load số thẻ cần ôn tập
   Future<void> _loadReviewCards() async {
     try {
       final cards = await StudyProgressService.getCardsToReview();
@@ -215,6 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadStreakInfo(),
       _loadLearningCategories(),
       _loadReviewCards(),
+      _loadScheduleOverview()
     ]);
   }
 
@@ -564,7 +650,534 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ==================== ✅ NEW: BỘ THẺ ĐANG HỌC ====================
+  // ==================== ✅ STUDY CALENDAR SECTION ====================
+
+  Widget _buildStudyCalendarSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Lịch học tuần này',
+                style: AppTextStyles.heading3.copyWith(
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                ),
+              ),
+              if (_scheduleOverview != null && _scheduleOverview!.hasConflicts)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 14, color: AppColors.warning),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${_scheduleOverview!.conflicts.length} xung đột',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.warning,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Calendar Widget
+        if (_isLoadingSchedule)
+          _buildScheduleLoadingWidget()
+        else if (_scheduleOverview != null)
+          VisualStudyCalendarWidget(
+            overview: _scheduleOverview!,
+            onTapItem: _navigateToCategoryFromSchedule,
+            onTapAddSchedule: _navigateToAddSchedule,
+            onTapViewAll: _showFullScheduleBottomSheet,
+          )
+        else
+          _buildEmptyCalendarWidget(),
+      ],
+    );
+  }
+
+  Widget _buildScheduleLoadingWidget() {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCalendarWidget() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.calendar_today_rounded,
+              color: AppColors.primary,
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Chưa có lịch học',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primaryDark,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Đặt lịch nhắc nhở để học đều đặn hơn nhé!',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _navigateToAddSchedule,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Tạo lịch học'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToAddSchedule() {
+    if (_learningCategories.isNotEmpty) {
+      _navigateToCategoryDetail(_learningCategories.first.category);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Cuộn xuống để đặt lịch nhắc nhở cho học phần này'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.lightbulb_outline, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
+              const Text('Gợi ý'),
+            ],
+          ),
+          content: const Text(
+            'Bạn cần học ít nhất một chủ đề trước khi đặt lịch nhắc nhở.\n\n'
+                'Hãy khám phá và bắt đầu học một chủ đề nhé!',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Để sau'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() => _selectedIndex = 2);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Khám phá ngay'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _showFullScheduleBottomSheet() {
+    if (_scheduleOverview == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [AppColors.primary, AppColors.accent],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.calendar_month, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Lịch học đầy đủ',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryDark,
+                            ),
+                          ),
+                          Text(
+                            '${_scheduleOverview!.totalActiveSchedules} học phần đang theo dõi',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    if (_scheduleOverview!.todaySchedules.isNotEmpty) ...[
+                      _buildScheduleSectionHeader('Hôm nay', AppColors.success),
+                      const SizedBox(height: 12),
+                      ..._scheduleOverview!.todaySchedules.map((item) =>
+                          _buildScheduleListItem(item, isToday: true)
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                    if (_scheduleOverview!.upcomingSchedules.isNotEmpty) ...[
+                      _buildScheduleSectionHeader('Sắp tới', AppColors.primary),
+                      const SizedBox(height: 12),
+                      ..._buildGroupedUpcomingSchedules(),
+                    ],
+                    if (_scheduleOverview!.hasConflicts) ...[
+                      const SizedBox(height: 24),
+                      _buildConflictsSection(),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScheduleSectionHeader(String title, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScheduleListItem(ScheduleItem item, {bool isToday = false}) {
+    final now = DateTime.now();
+    final isPast = isToday && item.scheduledDateTime != null &&
+        item.scheduledDateTime!.isBefore(now);
+    final isUpcoming = isToday && item.scheduledDateTime != null &&
+        item.scheduledDateTime!.isAfter(now) &&
+        item.scheduledDateTime!.difference(now).inMinutes <= 60;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.pop(context);
+            _navigateToCategoryFromSchedule(item);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isPast
+                  ? AppColors.success.withOpacity(0.05)
+                  : isUpcoming
+                  ? AppColors.primary.withOpacity(0.08)
+                  : AppColors.background,
+              borderRadius: BorderRadius.circular(12),
+              border: isUpcoming
+                  ? Border.all(color: AppColors.primary.withOpacity(0.3))
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isPast
+                        ? AppColors.success
+                        : isUpcoming
+                        ? AppColors.primary
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: isPast || isUpcoming
+                        ? null
+                        : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    item.displayTime,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isPast || isUpcoming
+                          ? Colors.white
+                          : AppColors.primaryDark,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.categoryName,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isPast ? AppColors.textSecondary : AppColors.primaryDark,
+                          decoration: isPast ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      if (isUpcoming)
+                        Text(
+                          'Sắp đến giờ học!',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (isPast)
+                  const Icon(Icons.check_circle, color: AppColors.success, size: 22)
+                else if (isUpcoming)
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 16),
+                  )
+                else
+                  const Icon(Icons.chevron_right, color: AppColors.textGray),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildGroupedUpcomingSchedules() {
+    Map<int, List<ScheduleItem>> grouped = {};
+    for (var item in _scheduleOverview!.upcomingSchedules) {
+      grouped.putIfAbsent(item.dayOfWeek, () => []);
+      grouped[item.dayOfWeek]!.add(item);
+    }
+
+    List<Widget> widgets = [];
+    const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+    for (var entry in grouped.entries) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 8),
+          child: Text(
+            dayNames[entry.key],
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+      );
+
+      for (var item in entry.value) {
+        widgets.add(_buildScheduleListItem(item));
+      }
+    }
+
+    return widgets;
+  }
+
+  Widget _buildConflictsSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+              const SizedBox(width: 10),
+              Text(
+                'Phát hiện xung đột lịch học',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Có ${_scheduleOverview!.conflicts.length} thời điểm bị trùng lịch. '
+                'Hãy điều chỉnh để tránh bỏ lỡ buổi học.',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showConflictResolutionDialog();
+            },
+            child: const Text('Xem chi tiết xung đột'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== BỘ THẺ ĐANG HỌC ====================
 
   Widget _buildLearningSection() {
     return Column(
@@ -583,7 +1196,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             if (_learningCategories.isNotEmpty)
               TextButton(
-                onPressed: () => setState(() => _selectedIndex = 3), // Go to Library
+                onPressed: () => setState(() => _selectedIndex = 3),
                 child: Text(
                   'Xem tất cả',
                   style: TextStyle(
@@ -676,7 +1289,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: () => setState(() => _selectedIndex = 2), // Go to Courses
+            onPressed: () => setState(() => _selectedIndex = 2),
             icon: const Icon(Icons.school_outlined, size: 18),
             label: const Text('Khám phá khóa học'),
             style: OutlinedButton.styleFrom(
@@ -695,7 +1308,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildLearningCards() {
     return Column(
       children: [
-        // Swipeable cards
         SizedBox(
           height: 180,
           child: PageView.builder(
@@ -709,8 +1321,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
-
-        // Page indicators
         if (_learningCategories.length > 1) ...[
           const SizedBox(height: 12),
           Row(
@@ -763,10 +1373,8 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header row
                 Row(
                   children: [
-                    // Icon
                     Container(
                       width: 48,
                       height: 48,
@@ -781,8 +1389,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(width: 14),
-
-                    // Title & subtitle
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -808,8 +1414,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
-
-                    // Percentage badge
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
@@ -827,10 +1431,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 16),
-
-                // Progress bar
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: LinearProgressIndicator(
@@ -840,10 +1441,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     valueColor: AlwaysStoppedAnimation(gradientColors[0]),
                   ),
                 ),
-
                 const SizedBox(height: 14),
-
-                // Action button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -871,7 +1469,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ==================== ✅ NEW: GỢI Ý CHO BẠN ====================
+  // ==================== GỢI Ý CHO BẠN ====================
 
   Widget _buildSuggestionsSection() {
     return Column(
@@ -886,8 +1484,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 12),
-
-        // Suggestion cards
         _buildSuggestionCards(),
       ],
     );
@@ -909,7 +1505,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<SuggestionItem> _generateSuggestions() {
     List<SuggestionItem> suggestions = [];
 
-    // 1. Gợi ý dựa trên streak
     if (_streakInfo != null && !_streakInfo!.hasStudiedToday) {
       suggestions.add(SuggestionItem(
         icon: Icons.local_fire_department_rounded,
@@ -924,7 +1519,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
-    // 2. Gợi ý ôn tập
     if (_reviewCardsCount > 0) {
       suggestions.add(SuggestionItem(
         icon: Icons.replay_rounded,
@@ -937,7 +1531,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
-    // 3. Gợi ý học thẻ mới
     if (_learningCategories.isNotEmpty) {
       final topCategory = _learningCategories.first;
       final remaining = topCategory.progress.totalCards - topCategory.progress.studiedCards;
@@ -954,7 +1547,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    // 4. Gợi ý khám phá nếu chưa có gì
     if (suggestions.isEmpty) {
       suggestions.add(SuggestionItem(
         icon: Icons.explore_rounded,
@@ -967,7 +1559,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
-    // Sort by priority và giới hạn 2 suggestions
     suggestions.sort((a, b) => a.priority.compareTo(b.priority));
     if (suggestions.length > 2) {
       suggestions = suggestions.sublist(0, 2);
@@ -999,7 +1590,6 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Icon
                 Container(
                   width: 48,
                   height: 48,
@@ -1014,8 +1604,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 14),
-
-                // Text content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1039,8 +1627,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-
-                // Action button
                 ElevatedButton(
                   onPressed: suggestion.onTap,
                   style: ElevatedButton.styleFrom(
@@ -1102,7 +1688,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_learningCategories.isNotEmpty) {
       _startStudy(_learningCategories.first.category);
     } else {
-      // Go to courses
       setState(() => _selectedIndex = 2);
     }
   }
@@ -1236,7 +1821,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // ✅ STREAK WIDGET
             _buildStreakSection(),
-
             const SizedBox(height: 20),
 
             // Search bar
@@ -1264,9 +1848,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 28),
 
-            // ✅ BỘ THẺ ĐANG HỌC
-            _buildLearningSection(),
+            // ✅ VISUAL STUDY CALENDAR
+            _buildStudyCalendarSection(),
+            const SizedBox(height: 28),
 
+            _buildLearningSection(),
             const SizedBox(height: 28),
 
             // ✅ GỢI Ý CHO BẠN
@@ -1488,7 +2074,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
 // ==================== MODELS ====================
 
-/// Model cho category đang học kèm progress
 class LearningCategoryModel {
   final CategoryModel category;
   final CategoryProgressModel progress;
@@ -1499,7 +2084,6 @@ class LearningCategoryModel {
   });
 }
 
-/// Model cho suggestion item
 class SuggestionItem {
   final IconData icon;
   final Color iconColor;
@@ -1521,6 +2105,7 @@ class SuggestionItem {
 }
 
 // ==================== LIBRARY TAB WIDGET ====================
+
 class _LibraryTab extends StatefulWidget {
   final UserModel? currentUser;
   final VoidCallback? onRefreshNeeded;
