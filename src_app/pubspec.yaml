@@ -21,6 +21,7 @@ dependencies:
   just_audio: ^0.9.36
   intl: ^0.19.0
   share_plus: ^10.0.3
+
   app_links: ^6.3.3               # Thay thế uni_links
   url_launcher: ^6.3.1
   flutter_riverpod: ^2.0.0
@@ -32,10 +33,21 @@ dependencies:
   printing: ^5.11.1
   firebase_core: ^3.8.1
   firebase_messaging: ^15.1.6
+  flutter_local_notifications: ^17.2.4
+  timezone: ^0.9.4
+
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.3
+
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#4CAF50"
 
 flutter:
   uses-material-design: true

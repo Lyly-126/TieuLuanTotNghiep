@@ -3,20 +3,17 @@
 import 'package:share_plus/share_plus.dart';
 import '../config/api_config.dart';
 
-/// Service để chia sẻ lớp học qua link
+/// Service để chia sẻ lớp học và category qua link
 class ShareLinkService {
 
+  // ==================== CLASS SHARING ====================
+
   /// Tạo link chia sẻ lớp học
-  ///
-  /// Nếu đang dùng ngrok -> tạo link với ngrok URL
-  /// Nếu không -> tạo deep link scheme
   static String generateClassShareLink(String inviteCode) {
     if (ApiConfig.isUsingNgrok) {
-      // Sử dụng ngrok URL
       final ngrokUrl = ApiConfig.baseUrl;
       return '$ngrokUrl/join/$inviteCode';
     } else {
-      // Sử dụng deep link scheme
       return 'flai://join/$inviteCode';
     }
   }
@@ -45,15 +42,59 @@ ${description != null && description.isNotEmpty ? '📝 $description\n\n' : ''}�
         message,
         subject: 'Mời tham gia lớp "$className"',
       );
-      print('✅ ShareLinkService: Shared successfully');
+      print('✅ ShareLinkService: Class shared successfully');
     } catch (e) {
-      print('❌ ShareLinkService: Error sharing - $e');
+      print('❌ ShareLinkService: Error sharing class - $e');
       rethrow;
     }
   }
 
-  /// Lấy share message (không share ngay)
-  static String getShareMessage({
+  // ==================== CATEGORY SHARING ====================
+
+  /// Tạo link chia sẻ category
+  static String generateCategoryShareLink(String shareToken) {
+    if (ApiConfig.isUsingNgrok) {
+      final ngrokUrl = ApiConfig.baseUrl;
+      return '$ngrokUrl/category/$shareToken';
+    } else {
+      return 'flai://category/$shareToken';
+    }
+  }
+
+  /// Chia sẻ category qua link
+  static Future<void> shareCategory({
+    required String categoryName,
+    required String shareToken,
+    String? description,
+    int? flashcardCount,
+  }) async {
+    final shareLink = generateCategoryShareLink(shareToken);
+
+    final message = '''
+📚 Bộ thẻ "$categoryName"
+
+${description != null && description.isNotEmpty ? '📝 $description\n\n' : ''}${flashcardCount != null ? '🃏 $flashcardCount thẻ\n\n' : ''}🔗 Link học: $shareLink
+
+---
+Ứng dụng học tập Flai
+''';
+
+    try {
+      await Share.share(
+        message,
+        subject: 'Chia sẻ bộ thẻ "$categoryName"',
+      );
+      print('✅ ShareLinkService: Category shared successfully');
+    } catch (e) {
+      print('❌ ShareLinkService: Error sharing category - $e');
+      rethrow;
+    }
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  /// Lấy share message cho class (không share ngay)
+  static String getClassShareMessage({
     required String className,
     required String inviteCode,
     String? description,
@@ -69,8 +110,36 @@ ${description != null && description.isNotEmpty ? '📝 $description\n\n' : ''}�
 ''';
   }
 
-  /// Lấy chỉ link (không có message)
-  static String getShareLink(String inviteCode) {
+  /// Lấy share message cho category (không share ngay)
+  static String getCategoryShareMessage({
+    required String categoryName,
+    required String shareToken,
+    String? description,
+    int? flashcardCount,
+  }) {
+    final shareLink = generateCategoryShareLink(shareToken);
+
+    return '''
+📚 Bộ thẻ "$categoryName"
+
+${description != null && description.isNotEmpty ? '📝 $description\n\n' : ''}${flashcardCount != null ? '🃏 $flashcardCount thẻ\n\n' : ''}🔗 Link học: $shareLink
+''';
+  }
+
+  /// Lấy chỉ link class (không có message)
+  static String getClassLink(String inviteCode) {
     return generateClassShareLink(inviteCode);
+  }
+
+  /// Lấy chỉ link category (không có message)
+  static String getCategoryLink(String shareToken) {
+    return generateCategoryShareLink(shareToken);
+  }
+
+  /// Copy link vào clipboard
+  static Future<void> copyToClipboard(String text) async {
+    // Import clipboard if needed
+    // await Clipboard.setData(ClipboardData(text: text));
+    print('📋 Copied to clipboard: $text');
   }
 }

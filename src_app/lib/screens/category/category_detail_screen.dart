@@ -11,6 +11,7 @@ import '../../models/user_model.dart';
 import '../../services/category_service.dart';
 import '../../services/category_study_schedule_service.dart';
 import '../../services/flash_card_service.dart';
+import '../../services/share_link_service.dart';
 import '../../services/user_service.dart';
 import '../../services/tts_service.dart';
 import '../../widgets/study_schedule_widgets.dart';
@@ -791,7 +792,33 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       ),
       actions: [
         if (_canSave) IconButton(icon: Icon(_isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white), onPressed: _toggleSave),
-        IconButton(icon: const Icon(Icons.share_outlined, color: Colors.white), onPressed: _shareCategory),
+
+        IconButton(
+          onPressed: () async {
+            if (category.shareToken == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Không thể chia sẻ bộ thẻ này')),
+              );
+              return;
+            }
+
+            try {
+              await ShareLinkService.shareCategory(
+                categoryName: category.name,
+                shareToken: category.shareToken!,
+                description: category.description,
+                flashcardCount: category.flashcardCount,
+              );
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Lỗi: $e')),
+              );
+            }
+          },
+          icon: const Icon(Icons.share_rounded),
+          tooltip: 'Chia sẻ',
+        ),
+
         if (_canEdit) PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert, color: Colors.white),
           onSelected: (value) { if (value == 'edit') _showEditCategoryDialog(); if (value == 'delete') _showDeleteCategoryConfirmation(); },

@@ -8,6 +8,7 @@ import com.tieuluan.backend.repository.UserRepository;
 import com.tieuluan.backend.service.CategoryService;
 import com.tieuluan.backend.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;  // ✅ THÊM IMPORT NÀY
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 /**
  * ✅ FINAL CLEAN VERSION - With flashcardCount fix
  */
+@Slf4j  // ✅ THÊM ANNOTATION NÀY
 @RestController
 @RequestMapping("/api/categories")
 @RequiredArgsConstructor
@@ -34,7 +37,7 @@ public class CategoryController {
     private final CategoryService categoryService;
     private final UserRepository userRepository;
     private final UserService userService;
-    private final CategoryRepository categoryRepository;  // ✅ THÊM
+    private final CategoryRepository categoryRepository;
 
     // ==================== PUBLIC/USER ENDPOINTS ====================
 
@@ -53,8 +56,6 @@ public class CategoryController {
         }
     }
 
-    // Thêm vào CategoryController.java, sau method getMyCategories()
-
     /**
      * ✅ GET MY OWNED CATEGORIES (Chỉ category do user tạo, không có system/public)
      * Dùng cho OCR/PDF khi chọn category để tạo thẻ
@@ -65,18 +66,16 @@ public class CategoryController {
         try {
             Long userId = getCurrentUserId();
 
-            // ✅ SỬA: Gọi method mới để chỉ lấy categories của user (không có system)
             List<Category> categories = categoryService.getMyOwnedCategoriesOnly(userId);
 
-            // Convert với flashcardCount
             List<CategoryDTO> dtos = categories.stream()
                     .map(cat -> convertToDTOWithFlashcardCount(cat, userId))
                     .collect(Collectors.toList());
 
-//            log.info("✅ Returning {} owned categories for user {}", dtos.size(), userId);
+            log.info("✅ Returning {} owned categories for user {}", dtos.size(), userId);
             return ResponseEntity.ok(dtos);
         } catch (Exception e) {
-//            log.error("❌ Error getting owned categories: {}", e.getMessage());
+            log.error("❌ Error getting owned categories: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ArrayList<>());
         }
     }
@@ -143,7 +142,6 @@ public class CategoryController {
             Long userId = getCurrentUserId();
             List<Category> categories = categoryService.getPublicCategories();
 
-            // ✅ FIXED: Convert với flashcardCount
             List<CategoryDTO> dtos = categories.stream()
                     .map(cat -> convertToDTOWithFlashcardCount(cat, userId))
                     .collect(Collectors.toList());
@@ -166,8 +164,8 @@ public class CategoryController {
         dto.setClassId(category.getClassId());
         dto.setVisibility(category.getVisibility());
         dto.setIsSystem(category.isSystemCategory());
+        dto.setShareToken(category.getShareToken());  // ✅ THÊM shareToken
 
-        // ✅ Đếm flashcard count
         try {
             long flashcardCount = categoryRepository.countFlashcardsInCategory(category.getId());
             dto.setFlashcardCount((int) flashcardCount);
@@ -175,11 +173,9 @@ public class CategoryController {
             dto.setFlashcardCount(0);
         }
 
-        // Check saved status
         boolean isSaved = userId != null && categoryService.isCategorySaved(userId, category.getId());
         dto.setIsSaved(isSaved);
 
-        // Set flags
         dto.setIsUserCategory(category.getOwnerUserId() != null && category.getClassId() == null);
         dto.setIsClassCategory(category.getClassId() != null);
 
@@ -198,7 +194,6 @@ public class CategoryController {
 
             Category category = categoryService.getCategoryById(id, userId, isAdmin);
 
-            // ✅ FIXED: Sử dụng helper method để có flashcardCount
             CategoryDTO dto = convertToDTOWithFlashcardCount(category, userId);
             return ResponseEntity.ok(dto);
         } catch (RuntimeException e) {
@@ -316,7 +311,6 @@ public class CategoryController {
             Long userId = getCurrentUserId();
             List<Category> categories = categoryService.getCategoriesForClass(classId);
 
-            // ✅ FIXED: Convert với flashcardCount
             List<CategoryDTO> dtos = categories.stream()
                     .map(cat -> convertToDTOWithFlashcardCount(cat, userId))
                     .collect(Collectors.toList());
@@ -362,7 +356,6 @@ public class CategoryController {
             Long teacherId = getCurrentUserId();
             List<Category> categories = categoryService.getUserOwnedCategories(teacherId);
 
-            // ✅ FIXED: Convert với flashcardCount
             List<CategoryDTO> dtos = categories.stream()
                     .map(cat -> convertToDTOWithFlashcardCount(cat, teacherId))
                     .collect(Collectors.toList());
@@ -402,7 +395,6 @@ public class CategoryController {
             Long userId = getCurrentUserId();
             List<Category> categories = categoryService.getSystemCategories();
 
-            // ✅ FIXED: Convert với flashcardCount
             List<CategoryDTO> dtos = categories.stream()
                     .map(cat -> convertToDTOWithFlashcardCount(cat, userId))
                     .collect(Collectors.toList());
@@ -485,6 +477,103 @@ public class CategoryController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ArrayList<>());
+        }
+    }
+
+    // ==================== SHARE BY TOKEN ====================
+
+    /**
+     * Lấy category bằng shareToken (public endpoint - không cần auth)
+     * URL: GET /api/categories/share/{shareToken}
+     */
+    @GetMapping("/share/{shareToken}")
+    public ResponseEntity<?> getCategoryByShareToken(@PathVariable String shareToken) {
+        try {
+            log.info("🔗 Getting category by shareToken: {}", shareToken);
+
+            Category category = categoryService.getCategoryByShareToken(shareToken);
+
+            if (category == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // Kiểm tra visibility - chỉ cho phép PUBLIC hoặc SYSTEM
+            if (!category.isPublic() && !category.isSystemCategory()) {
+                log.warn("⚠️ Attempted to access non-public category via shareToken");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("message", "Bộ thẻ này không được chia sẻ công khai"));
+            }
+
+            CategoryDTO dto = categoryService.convertToDTO(category, null);
+            return ResponseEntity.ok(dto);
+
+        } catch (Exception e) {
+            log.error("❌ Error getting category by token: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Lưu category từ shareToken vào danh sách của user
+     * URL: POST /api/categories/share/{shareToken}/save
+     */
+    @PostMapping("/share/{shareToken}/save")
+    @PreAuthorize("isAuthenticated()")  // ✅ THÊM để đảm bảo user đã login
+    public ResponseEntity<?> saveCategoryByShareToken(@PathVariable String shareToken) {
+        try {
+            Long userId = getCurrentUserId();  // ✅ SỬA: Dùng method có sẵn
+            log.info("💾 User {} saving category by shareToken: {}", userId, shareToken);
+
+            CategoryDTO savedCategory = categoryService.saveCategoryByShareToken(shareToken, userId);
+            return ResponseEntity.ok(savedCategory);
+
+        } catch (RuntimeException e) {
+            log.warn("⚠️ Save category by token failed: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("❌ Error saving category by token: {}", e.getMessage());
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("message", "Lỗi server"));
+        }
+    }
+
+    /**
+     * Lấy thông tin public của category (cho preview trước khi save)
+     * URL: GET /api/categories/share/{shareToken}/preview
+     */
+    @GetMapping("/share/{shareToken}/preview")
+    public ResponseEntity<?> previewCategoryByShareToken(@PathVariable String shareToken) {
+        try {
+            log.info("👁️ Preview category by shareToken: {}", shareToken);
+
+            Category category = categoryService.getCategoryByShareToken(shareToken);
+
+            if (category == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            if (!category.isPublic() && !category.isSystemCategory()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("message", "Bộ thẻ này không được chia sẻ công khai"));
+            }
+
+            // Trả về thông tin cơ bản (không bao gồm flashcards)
+            Map<String, Object> preview = new HashMap<>();
+            preview.put("id", category.getId());
+            preview.put("name", category.getName());
+            preview.put("description", category.getDescription());
+            preview.put("visibility", category.getVisibility());
+            preview.put("isSystem", category.isSystemCategory());
+            preview.put("flashcardCount", categoryService.countFlashcardsInCategory(category.getId()));
+
+            return ResponseEntity.ok(preview);
+
+        } catch (Exception e) {
+            log.error("❌ Error previewing category: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
         }
     }
 

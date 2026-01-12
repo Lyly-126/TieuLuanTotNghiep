@@ -55,7 +55,7 @@ public class CategoryService {
         category.setOwnerUserId(null);
         category.setClassId(null);
         category.setVisibility("PUBLIC");
-        category.setShareToken(generateShareToken());  // ✅ Có shareToken
+        category.setShareToken(generateShareToken());
 
         log.info("✅ Created system category: {}", name);
         return categoryRepository.save(category);
@@ -63,7 +63,6 @@ public class CategoryService {
 
     /**
      * ✅ FIXED: Thêm shareToken cho user category độc lập
-     * Trước đây hàm này KHÔNG có setShareToken()
      */
     @Transactional
     public Category createUserCategory(String name, Long userId, String description) {
@@ -87,7 +86,7 @@ public class CategoryService {
         category.setOwnerUserId(userId);
         category.setClassId(null);
         category.setVisibility("PRIVATE");
-        category.setShareToken(generateShareToken());  // ✅ THÊM DÒNG NÀY - ĐÂY LÀ FIX CHÍNH
+        category.setShareToken(generateShareToken());
 
         log.info("✅ User {} created personal category: {} with shareToken", user.getEmail(), name);
         return categoryRepository.save(category);
@@ -112,7 +111,7 @@ public class CategoryService {
         category.setOwnerUserId(userId);
         category.setClassId(null);
         category.setVisibility(visibility);
-        category.setShareToken(generateShareToken());  // ✅ Có shareToken
+        category.setShareToken(generateShareToken());
 
         log.info("✅ User {} created shareable category: {} (visibility={})",
                 user.getEmail(), name, visibility);
@@ -137,7 +136,7 @@ public class CategoryService {
         category.setOwnerUserId(teacherId);
         category.setClassId(classId);
         category.setVisibility("PUBLIC");
-        category.setShareToken(generateShareToken());  // ✅ Có shareToken
+        category.setShareToken(generateShareToken());
 
         log.info("✅ Created class category: classId={}, name={}", classId, name);
         return categoryRepository.save(category);
@@ -169,7 +168,7 @@ public class CategoryService {
             category.setVisibility(visibility);
         }
 
-        // ✅ THÊM: Tự động tạo shareToken nếu chưa có
+        // ✅ Tự động tạo shareToken nếu chưa có
         if (category.getShareToken() == null || category.getShareToken().isEmpty()) {
             category.setShareToken(generateShareToken());
             log.info("✅ Generated missing shareToken for category: {}", categoryId);
@@ -282,6 +281,7 @@ public class CategoryService {
             throw new RuntimeException("Chỉ có thể lưu category PUBLIC");
         }
 
+        // ✅ SỬA: Sử dụng constructor với 2 tham số (userId, categoryId)
         UserSavedCategory saved = new UserSavedCategory(userId, categoryId);
         userSavedCategoryRepository.save(saved);
 
@@ -338,7 +338,7 @@ public class CategoryService {
         dto.setClassId(category.getClassId());
         dto.setVisibility(category.getVisibility());
         dto.setIsSystem(category.isSystemCategory());
-        dto.setShareToken(category.getShareToken());  // ✅ QUAN TRỌNG: Đảm bảo trả về shareToken
+        dto.setShareToken(category.getShareToken());
 
         try {
             long flashcardCount = categoryRepository.countFlashcardsInCategory(category.getId());
@@ -414,10 +414,6 @@ public class CategoryService {
 
     // ==================== CLASS CATEGORY MANAGEMENT ====================
 
-    /**
-     * ✅ FIXED: Giữ nguyên signature gốc (3 tham số) để tương thích với Controller
-     * Trả về Category thay vì void
-     */
     @Transactional
     public Category addCategoryToClass(Long categoryId, Long classId, Long userId) {
         Category category = categoryRepository.findById(categoryId)
@@ -443,9 +439,6 @@ public class CategoryService {
         return saved;
     }
 
-    /**
-     * ✅ FIXED: Giữ nguyên signature gốc (4 tham số với isAdmin)
-     */
     @Transactional
     public void removeCategoryFromClass(Long categoryId, Long classId, Long userId, boolean isAdmin) {
         Category category = categoryRepository.findById(categoryId)
@@ -465,5 +458,73 @@ public class CategoryService {
         category.setClassId(null);
         categoryRepository.save(category);
         log.info("✅ Removed category {} from class {}", categoryId, classId);
+    }
+
+    // ==================== SHARE BY TOKEN ====================
+
+    /**
+     * Lấy category bằng shareToken
+     */
+    public Category getCategoryByShareToken(String shareToken) {
+        if (shareToken == null || shareToken.isEmpty()) {
+            return null;
+        }
+        return categoryRepository.findByShareToken(shareToken).orElse(null);
+    }
+
+    /**
+     * Lưu category từ shareToken vào danh sách của user
+     */
+    @Transactional
+    public CategoryDTO saveCategoryByShareToken(String shareToken, Long userId) {
+        // Tìm category
+        Category category = categoryRepository.findByShareToken(shareToken)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy bộ thẻ"));
+
+        // Kiểm tra visibility
+        if (!category.isPublic() && !category.isSystemCategory()) {
+            throw new RuntimeException("Bộ thẻ này không được chia sẻ công khai");
+        }
+
+        // Kiểm tra xem đã lưu chưa
+        UserSavedCategoryId savedId = new UserSavedCategoryId(userId, category.getId());
+        if (userSavedCategoryRepository.existsById(savedId)) {
+            throw new RuntimeException("Bạn đã lưu bộ thẻ này rồi");
+        }
+
+        // Kiểm tra xem có phải owner không
+        if (category.isOwnedBy(userId)) {
+            throw new RuntimeException("Bạn đã sở hữu bộ thẻ này");
+        }
+
+        // ✅ SỬA: Sử dụng constructor đúng
+        UserSavedCategory saved = new UserSavedCategory(userId, category.getId());
+        userSavedCategoryRepository.save(saved);
+
+        log.info("✅ User {} saved category {} via shareToken", userId, category.getId());
+
+        return convertToDTOWithSavedStatus(category, userId, true);
+    }
+
+    /**
+     * Đếm số flashcards trong category
+     */
+    public long countFlashcardsInCategory(Long categoryId) {
+        try {
+            return categoryRepository.countFlashcardsInCategory(categoryId);
+        } catch (Exception e) {
+            log.warn("Error counting flashcards for category {}: {}", categoryId, e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Convert Category to DTO (public method for controller)
+     */
+    public CategoryDTO convertToDTO(Category category, Long currentUserId) {
+        if (category == null) return null;
+
+        boolean isSaved = currentUserId != null && isCategorySaved(currentUserId, category.getId());
+        return convertToDTOWithSavedStatus(category, currentUserId, isSaved);
     }
 }

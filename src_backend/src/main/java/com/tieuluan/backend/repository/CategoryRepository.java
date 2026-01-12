@@ -107,4 +107,7 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
             "OR c.visibility = 'PUBLIC' " +
             "OR (c.classId IS NOT NULL AND cm.status = 'APPROVED')")
     List<Category> findAllAccessibleByUserId(@Param("userId") Long userId);
+
+    Optional<Category> findByShareToken(String shareToken);
+
 }
