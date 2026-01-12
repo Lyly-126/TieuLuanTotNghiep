@@ -1,5 +1,6 @@
 // File: lib/screens/admin/admin_study_packs_screen.dart
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/app_colors.dart';
 import '../../../config/app_constants.dart';
 import '../../../config/app_text_styles.dart';
@@ -46,6 +47,74 @@ class _AdminStudyPacksScreenState extends State<AdminStudyPacksScreen> {
     }
   }
 
+  // ✅ Hàm đăng xuất
+  Future<void> _logout() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.logout_rounded, color: Colors.red, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('Đăng xuất'),
+          ],
+        ),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản Admin?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Hủy',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/login',
+                (Route<dynamic> route) => false,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi đăng xuất: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,21 +148,25 @@ class _AdminStudyPacksScreenState extends State<AdminStudyPacksScreen> {
                       ),
                     ],
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.25),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const CircleAvatar(
-                      radius: 23,
-                      backgroundImage: AssetImage('assets/images/avatar.png'),
-                      backgroundColor: AppColors.inputBackground,
+                  // ✅ Avatar với chức năng đăng xuất
+                  GestureDetector(
+                    onTap: _logout,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.25),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const CircleAvatar(
+                        radius: 23,
+                        backgroundImage: AssetImage('assets/images/avatar.png'),
+                        backgroundColor: AppColors.inputBackground,
+                      ),
                     ),
                   ),
                 ],
@@ -138,7 +211,7 @@ class _AdminStudyPacksScreenState extends State<AdminStudyPacksScreen> {
                       borderRadius: BorderRadius.circular(AppConstants.borderRadius),
                     ),
                     elevation: 2,
-                    shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                    shadowColor: AppColors.primary.withOpacity(0.3),
                   ),
                   icon: const Icon(Icons.add_rounded, color: Colors.white),
                   label: Text(
@@ -167,13 +240,13 @@ class _AdminStudyPacksScreenState extends State<AdminStudyPacksScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
+                          color: AppColors.primary.withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.inventory_2_outlined,
                           size: 64,
-                          color: AppColors.primary.withValues(alpha: 0.6),
+                          color: AppColors.primary.withOpacity(0.6),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -265,7 +338,7 @@ class _AdminStudyPacksScreenState extends State<AdminStudyPacksScreen> {
         border: Border.all(color: const Color(0xFFE6E8EC)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -276,7 +349,7 @@ class _AdminStudyPacksScreenState extends State<AdminStudyPacksScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
+              color: color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -318,7 +391,7 @@ class _AdminStudyPacksScreenState extends State<AdminStudyPacksScreen> {
         border: Border.all(color: const Color(0xFFE6E8EC)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -332,7 +405,7 @@ class _AdminStudyPacksScreenState extends State<AdminStudyPacksScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppColors.primary.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(

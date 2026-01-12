@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../config/app_colors.dart';
 import '../../../../config/app_constants.dart';
 import '../../../../config/app_text_styles.dart';
@@ -32,7 +33,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with TickerProviderSt
   void initState() {
     super.initState();
     _initAnimations();
-    _loadAllStats();
+    _loadAllStats(); // ✅ Tự động load khi mở màn hình
   }
 
   void _initAnimations() {
@@ -166,6 +167,80 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with TickerProviderSt
     } catch (e) {
       debugPrint('Error loading category stats: $e');
       return CategoryStats.empty();
+    }
+  }
+
+  // ✅ Hàm đăng xuất
+  Future<void> _logout() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.logout_rounded, color: Colors.red, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('Đăng xuất'),
+          ],
+        ),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản Admin?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Hủy',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        // Xóa token và thông tin đăng nhập
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('auth_token');
+        await prefs.remove('user_id');
+        await prefs.remove('user_role');
+        await prefs.remove('user_email');
+        await prefs.clear(); // Xóa tất cả dữ liệu
+
+        if (mounted) {
+          // Chuyển về màn hình login và xóa tất cả các route trước đó
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/login',
+                (Route<dynamic> route) => false,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi đăng xuất: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -331,6 +406,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with TickerProviderSt
     );
   }
 
+  // ✅ Header mới với Avatar thay vì nút Refresh
   Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -339,10 +415,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with TickerProviderSt
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Xin chào, Admin! 👋',
+              'Quản lý hệ thống Flai',
               style: AppTextStyles.heading2.copyWith(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 4),
@@ -355,24 +431,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with TickerProviderSt
             ),
           ],
         ),
-        // Refresh button
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: IconButton(
-            onPressed: _loadAllStats,
-            icon: const Icon(Icons.refresh_rounded),
-            color: AppColors.primary,
-            tooltip: 'Làm mới dữ liệu',
+        // ✅ Avatar với chức năng đăng xuất
+        GestureDetector(
+          onTap: _logout,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const CircleAvatar(
+              radius: 23,
+              backgroundImage: AssetImage('assets/images/avatar.png'),
+              backgroundColor: AppColors.inputBackground,
+            ),
           ),
         ),
       ],
@@ -404,7 +481,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> with TickerProviderSt
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 1.1, // Giảm để card cao hơn
+          childAspectRatio: 1.1,
           children: [
             _buildStatCard(
               title: 'Tổng người dùng',

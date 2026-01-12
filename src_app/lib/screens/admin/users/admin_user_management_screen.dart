@@ -1,10 +1,13 @@
 // File: lib/screens/admin/admin_user_management_screen.dart
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/app_colors.dart';
 import '../../../config/app_constants.dart';
 import '../../../config/app_text_styles.dart';
 import '../../../models/user_model.dart';
+import '../../../models/study_pack_model.dart';
 import '../../../services/admin_user_service.dart';
+import '../../../services/study_pack_service.dart';
 
 class AdminUserManagementScreen extends StatefulWidget {
   const AdminUserManagementScreen({super.key});
@@ -122,6 +125,74 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     }
   }
 
+  // ✅ Hàm đăng xuất
+  Future<void> _logout() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.logout_rounded, color: Colors.red, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('Đăng xuất'),
+          ],
+        ),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản Admin?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Hủy',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/login',
+                (Route<dynamic> route) => false,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi đăng xuất: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -143,21 +214,25 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.25),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const CircleAvatar(
-                      radius: 23,
-                      backgroundImage: AssetImage('assets/images/avatar.png'),
-                      backgroundColor: AppColors.inputBackground,
+                  // ✅ Avatar với chức năng đăng xuất
+                  GestureDetector(
+                    onTap: _logout,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.25),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const CircleAvatar(
+                        radius: 23,
+                        backgroundImage: AssetImage('assets/images/avatar.png'),
+                        backgroundColor: AppColors.inputBackground,
+                      ),
                     ),
                   ),
                 ],
@@ -570,9 +645,33 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   const SizedBox(height: 24),
 
                   // Action buttons
-                  if (user.role == 'NORMAL_USER' || user.role == 'PREMIUM_USER') ...[
+                  if (user.role == 'NORMAL_USER' || user.role == 'PREMIUM_USER' || user.role == 'TEACHER') ...[
                     Column(
                       children: [
+                        // Info cho Teacher
+                        if (user.role == 'TEACHER') ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE3F2FD),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.school_rounded, color: Color(0xFF2196F3)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Tài khoản giáo viên - Có quyền quản lý lớp học',
+                                    style: AppTextStyles.hint.copyWith(color: const Color(0xFF2196F3)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
                         // Lock/Unlock Button
                         SizedBox(
                           width: double.infinity,
@@ -597,67 +696,49 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
 
-                        // Premium Toggle Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: user.role == 'PREMIUM_USER'
-                              ? OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _confirmRevoke(user);
-                            },
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.borderRadius)),
-                              side: const BorderSide(color: Colors.redAccent, width: 1.5),
-                            ),
-                            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                            label: Text(
-                              'Hạ xuống Normal User',
-                              style: AppTextStyles.button.copyWith(color: Colors.redAccent, fontWeight: FontWeight.w600),
-                            ),
-                          )
-                              : ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _confirmGrant(user);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.borderRadius)),
-                              elevation: 0,
-                            ),
-                            icon: const Icon(Icons.workspace_premium_rounded, color: Colors.white),
-                            label: Text(
-                              'Nâng lên Premium User',
-                              style: AppTextStyles.button.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else if (user.role == 'TEACHER') ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE3F2FD),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info_outline, color: Color(0xFF2196F3)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Tài khoản giáo viên - Có quyền quản lý lớp học',
-                              style: AppTextStyles.hint.copyWith(color: const Color(0xFF2196F3)),
+                        // Premium Toggle Button (cho NORMAL_USER, PREMIUM_USER và TEACHER)
+                        if (user.role == 'NORMAL_USER' || user.role == 'PREMIUM_USER' || user.role == 'TEACHER') ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: user.role == 'PREMIUM_USER' && user.role == 'TEACHER'
+                                ? OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _confirmRevoke(user);
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.borderRadius)),
+                                side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                              ),
+                              icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                              label: Text(
+                                'Hạ xuống Normal User',
+                                style: AppTextStyles.button.copyWith(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                              ),
+                            )
+                                : ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _confirmGrant(user);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.borderRadius)),
+                                elevation: 0,
+                              ),
+                              icon: const Icon(Icons.workspace_premium_rounded, color: Colors.white),
+                              label: Text(
+                                'Nâng lên Premium User',
+                                style: AppTextStyles.button.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                              ),
                             ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
                   ] else ...[
                     Container(
@@ -737,7 +818,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               Navigator.pop(context);
               try {
                 await AdminUserService.blockUser(user.userId);
-                // ✅ FIXED: Chỉ reload, không set state
                 await _loadUsers();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -782,7 +862,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               Navigator.pop(context);
               try {
                 await AdminUserService.unblockUser(user.userId);
-                // ✅ FIXED: Chỉ reload, không set state
                 await _loadUsers();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -808,43 +887,206 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   }
 
   void _confirmGrant(UserModel user) async {
+    // Load danh sách gói Premium trước
+    List<StudyPackModel> packs = [];
+    bool isLoading = true;
+    String? errorMessage;
+
+    try {
+      packs = await StudyPackService.getAllPacks();
+      isLoading = false;
+    } catch (e) {
+      isLoading = false;
+      errorMessage = e.toString();
+    }
+
+    if (!mounted) return;
+
+    // Nếu không có gói nào
+    if (packs.isEmpty && errorMessage == null) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Không có gói Premium', style: AppTextStyles.heading3),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 48),
+              const SizedBox(height: 12),
+              Text(
+                'Chưa có gói Premium nào.\nVui lòng tạo gói trước.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Đóng', style: AppTextStyles.button.copyWith(color: AppColors.primary)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Nếu có lỗi
+    if (errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi tải gói: $errorMessage'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    // Hiển thị dialog chọn gói
+    int selectedPackIndex = 0;
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Nâng lên Premium', style: AppTextStyles.heading3),
-        content: Text(
-          'Xác nhận nâng cấp "${user.displayName}" lên Premium User?',
-          style: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Hủy', style: AppTextStyles.button.copyWith(color: AppColors.textGray)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await AdminUserService.grantPremium(user.userId);
-                // ✅ FIXED: Chỉ reload, không set state
-                await _loadUsers();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đã nâng lên Premium User thành công')),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.redAccent),
-                  );
-                }
-              }
-            },
-            child: Text('Xác nhận', style: AppTextStyles.button.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
-          ),
-        ],
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final selectedPack = packs[selectedPackIndex];
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text('Nâng lên Premium', style: AppTextStyles.heading3),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Chọn gói Premium cho "${user.displayName}":',
+                    style: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Danh sách gói dạng Radio buttons
+                  ...packs.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final pack = entry.value;
+                    final isSelected = index == selectedPackIndex;
+
+                    return GestureDetector(
+                      onTap: () {
+                        setDialogState(() {
+                          selectedPackIndex = index;
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+                          border: Border.all(
+                            color: isSelected ? AppColors.primary : Colors.grey.withOpacity(0.3),
+                            width: isSelected ? 2 : 1,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                              color: isSelected ? AppColors.primary : Colors.grey,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    pack.name,
+                                    style: AppTextStyles.label.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${pack.formattedPrice} - ${pack.durationLabel}',
+                                    style: AppTextStyles.hint.copyWith(
+                                      fontSize: 12,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+
+                  const SizedBox(height: 8),
+
+                  // Mô tả gói đã chọn
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.inputBackground,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline, color: AppColors.primary, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            selectedPack.description,
+                            style: AppTextStyles.hint.copyWith(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Hủy', style: AppTextStyles.button.copyWith(color: AppColors.textGray)),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  try {
+                    await AdminUserService.grantPremium(user.userId, selectedPack.id);
+                    await _loadUsers();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Đã nâng "${user.displayName}" lên Premium với gói ${selectedPack.name}'),
+                          backgroundColor: const Color(0xFF4CAF50),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.redAccent),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Xác nhận', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -869,7 +1111,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               Navigator.pop(context);
               try {
                 await AdminUserService.revokePremium(user.userId);
-                // ✅ FIXED: Chỉ reload, không set state
                 await _loadUsers();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

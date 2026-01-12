@@ -563,12 +563,11 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
               ),
             ),
             ListTile(
-              leading:
-              const Icon(Icons.edit_rounded, color: AppColors.primary),
+              leading: const Icon(Icons.edit_rounded, color: AppColors.primary),
               title: const Text('Chỉnh sửa'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement edit
+                _showEditClassDialog();  // ✅ Gọi hàm edit
               },
             ),
             ListTile(
@@ -640,6 +639,214 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
       ),
     );
   }
+
+  void _showEditClassDialog() {
+    if (_classDetail == null) return;
+
+    final nameController = TextEditingController(text: _classDetail!.name);
+    final descriptionController = TextEditingController(text: _classDetail!.description ?? '');
+    bool isPublic = _classDetail!.isPublic ?? false;
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Chỉnh sửa lớp',
+                      style: AppTextStyles.heading2.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Tên lớp
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: 'Tên lớp *',
+                  hintText: 'Nhập tên lớp học',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Mô tả
+              TextField(
+                controller: descriptionController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Mô tả',
+                  hintText: 'Nhập mô tả về lớp học',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Switch công khai
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SwitchListTile(
+                  value: isPublic,
+                  onChanged: (value) {
+                    setModalState(() {
+                      isPublic = value;
+                    });
+                  },
+                  title: Text('Công khai', style: AppTextStyles.body),
+                  subtitle: Text(
+                    isPublic
+                        ? 'Mọi người có thể tìm kiếm và tham gia'
+                        : 'Chỉ tham gia bằng mã mời',
+                    style: AppTextStyles.hint,
+                  ),
+                  activeColor: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Button Lưu
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                    // Validate
+                    if (nameController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Vui lòng nhập tên lớp'),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Set loading
+                    setModalState(() {
+                      isLoading = true;
+                    });
+
+                    try {
+                      print('🔄 Đang cập nhật lớp ${widget.classId}...');
+
+                      await ClassService.updateClass(
+                        classId: widget.classId,
+                        name: nameController.text.trim(),
+                        description: descriptionController.text.trim(),
+                        isPublic: isPublic,
+                      );
+
+                      print('✅ Cập nhật thành công!');
+
+                      if (mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('✅ Cập nhật thành công'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                        _loadClassDetail(); // Refresh data
+                      }
+                    } catch (e) {
+                      print('❌ Lỗi cập nhật: $e');
+
+                      setModalState(() {
+                        isLoading = false;
+                      });
+
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('❌ Lỗi: $e'),
+                            backgroundColor: AppColors.error,
+                            duration: const Duration(seconds: 5),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                      AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                      : const Text(
+                    'Lưu thay đổi',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
 }
 
 // ==================== MEMBERS TAB ====================

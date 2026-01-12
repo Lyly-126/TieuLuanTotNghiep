@@ -17,7 +17,7 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/forgot_otp_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/card/flashcard_creation_screen.dart';
-import '../screens/card/flashcard_creation_screen.dart';  // ✅ THÊM import
+import '../screens/card/flashcard_creation_screen.dart';
 import '../screens/card/text_extraction_screen.dart';
 import '../screens/class/join_class_via_link_screen.dart';
 import '../screens/home/search_screen.dart';
@@ -33,7 +33,7 @@ import '../screens/auth/terms_privacy_screen.dart';
 import '../screens/class/teacher_class_management_screen.dart';
 import '../screens/class/class_detail_screen.dart';
 
-// ✅ NEW IMPORTS - Category Screens
+// Category Screens
 import '../screens/category/category_create_screen.dart';
 import '../screens/category/category_detail_screen.dart';
 import '../screens/card/flashcard_edit_screen.dart';
@@ -61,7 +61,7 @@ class AppRoutes {
   static const String terms_privacy = '/terms_privacy';
   static const String flashcard = '/flashcard';
   static const String flashcard_creation = '/flashcard_creation';
-  static const String flashcard_creation_new = '/flashcard_creation_new';  // ✅ THÊM route mới
+  static const String flashcard_creation_new = '/flashcard_creation_new';
   static const String textExtraction = '/text-extraction';
 
   static const String teacher_classes = '/teacher_classes';
@@ -73,7 +73,7 @@ class AppRoutes {
   static const String classCategories = '/class-categories';
   static const String classCategoryFlashcards = '/class-category-flashcards';
 
-  // ✅ NEW ROUTES - Category Management
+  // Category Management
   static const String categoryCreate = '/category_create';
   static const String categoryDetail = '/category_detail';
   static const String flashcardEdit = '/flashcard_edit';
@@ -105,10 +105,9 @@ class AppRoutes {
     terms_privacy: (context) => const TermsPrivacyScreen(),
     flashcard: (context) => FlashcardScreen(),
     flashcard_creation: (context) => const FlashcardCreationScreen(),
-    flashcard_creation_new: (context) => const FlashcardCreationScreen(),  // ✅ THÊM
+    flashcard_creation_new: (context) => const FlashcardCreationScreen(),
 
     teacher_classes: (context) => const TeacherClassManagementScreen(),
-    // class_management: (context) => const ClassManagementScreen(),
 
     admin_home: (context) => const AdminHomeScreen(),
     admin_users_management: (context) => const AdminUserManagementScreen(),
@@ -136,13 +135,20 @@ class AppRoutes {
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+    // ✅ FIX: Thêm fallback cho root route "/"
+    // Điều này tránh lỗi "No route defined for /"
+      case '/':
+        return MaterialPageRoute(
+          builder: (_) => const WelcomeScreen(),
+        );
+
       case class_detail:
         final classId = settings.arguments as int;
         return MaterialPageRoute(
           builder: (_) => ClassDetailScreen(classId: classId),
         );
 
-    // ✅ NEW CASE: Category Create
+    // Category Create
       case categoryCreate:
         final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
@@ -152,7 +158,7 @@ class AppRoutes {
           ),
         );
 
-    // ✅ NEW CASE: Category Detail
+    // Category Detail
       case categoryDetail:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
@@ -162,7 +168,7 @@ class AppRoutes {
           ),
         );
 
-    // ✅ NEW CASE: Flashcard Edit
+    // Flashcard Edit
       case flashcardEdit:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
@@ -172,7 +178,7 @@ class AppRoutes {
           ),
         );
 
-    // ✅ NEW CASE: Flashcard Creation New (với categoryId optional)
+    // Flashcard Creation New (với categoryId optional)
       case flashcard_creation_new:
         final args = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
@@ -201,15 +207,17 @@ class AppRoutes {
             settings: settings,
           );
         }
+
       case textExtraction:
         return MaterialPageRoute(
           builder: (_) => const TextExtractionScreen(),
         );
+
       default:
+      // ✅ FIX: Thay vì hiện lỗi, redirect về WelcomeScreen
+        print('⚠️ Unknown route: ${settings.name}, redirecting to Welcome');
         return MaterialPageRoute(
-          builder: (_) => Scaffold(
-            body: Center(child: Text('No route defined for ${settings.name}')),
-          ),
+          builder: (_) => const WelcomeScreen(),
         );
     }
   }

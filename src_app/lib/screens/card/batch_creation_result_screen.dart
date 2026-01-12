@@ -4,11 +4,12 @@ import '../../services/flashcard_creation_service.dart';
 import '../../models/category_model.dart';
 import '../category/category_detail_screen.dart';
 import 'text_extraction_screen.dart';
+import '../../routes/app_routes.dart';
 
 /// Màn hình hiển thị kết quả tạo flashcard hàng loạt
 ///
-/// ✅ FIX: Sửa navigation để có thể quay về Home
-/// - "Xem chủ đề": Pop về Home rồi push CategoryDetailScreen
+/// ✅ FIX v2: Sửa navigation để có thể quay về Home đúng cách
+/// - "Xem chủ đề": Xóa tất cả routes, đặt Home làm root, push CategoryDetailScreen
 /// - "Tạo thêm": Thay thế màn hình hiện tại bằng TextExtractionScreen
 class BatchCreationResultScreen extends StatelessWidget {
   final BatchCreateResult result;
@@ -455,7 +456,7 @@ class BatchCreationResultScreen extends StatelessWidget {
           ),
           const SizedBox(width: 12),
 
-          // ✅ FIX: Nút "Xem chủ đề" - Pop tất cả màn hình OCR và đến CategoryDetailScreen
+          // ✅ FIX: Nút "Xem chủ đề" - Xóa tất cả routes, đặt Home làm root, push CategoryDetail
           Expanded(
             child: ElevatedButton(
               onPressed: () => _navigateToCategoryDetail(context),
@@ -488,7 +489,7 @@ class BatchCreationResultScreen extends StatelessWidget {
     );
   }
 
-  /// ✅ FIX: Navigation đúng cách để có thể quay về Home
+  /// ✅ FIX v2: Navigation đúng cách để có thể quay về Home
   void _navigateToCategoryDetail(BuildContext context) {
     // Tạo CategoryModel từ thông tin có sẵn
     final category = CategoryModel(
@@ -497,18 +498,26 @@ class BatchCreationResultScreen extends StatelessWidget {
       isUserCategory: true,
     );
 
-    // ✅ CÁCH 1: Pop về màn hình đầu tiên (Home) rồi push CategoryDetail
+    // ✅ FIX: Xóa tất cả routes và đặt Home làm root
+    // Sau đó push CategoryDetailScreen lên trên Home
     // Điều này đảm bảo stack: Home → CategoryDetail
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    // Khi user bấm back từ CategoryDetail, sẽ về Home đúng cách
 
-    Navigator.push(
+    Navigator.pushNamedAndRemoveUntil(
       context,
-      MaterialPageRoute(
-        builder: (_) => CategoryDetailScreen(
-          category: category,
-          isOwner: true,
+      AppRoutes.home,  // '/home'
+          (route) => false,  // Xóa tất cả routes
+    ).then((_) {
+      // Push CategoryDetail sau khi đã về Home
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CategoryDetailScreen(
+            category: category,
+            isOwner: true,
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }

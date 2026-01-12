@@ -1,5 +1,6 @@
 // File: lib/screens/admin/policy/admin_policy_screen.dart
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/app_colors.dart';
 import '../../../config/app_constants.dart';
 import '../../../config/app_text_styles.dart';
@@ -44,45 +45,21 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
       }
     }
   }
 
-  // Mở editor với policy ID
   void _openEditor(int policyId) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AdminPolicyEditorScreen(policyId: policyId),
-      ),
-    );
-
-    // Nếu có thay đổi, reload danh sách
-    if (result == true) {
-      _loadPolicies();
-    }
+    final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => AdminPolicyEditorScreen(policyId: policyId)));
+    if (result == true) _loadPolicies();
   }
 
-  // Mở màn tạo mới
   void _openCreate() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AdminPolicyCreateScreen()),
-    );
-
-    // Nếu tạo thành công, reload danh sách
-    if (result == true) {
-      _loadPolicies();
-    }
+    final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminPolicyCreateScreen()));
+    if (result == true) _loadPolicies();
   }
 
-  // Xác nhận xóa + hoàn tác
   void _confirmDelete(int index) async {
     final policy = _policies[index];
     final policyId = policy['id'] as int;
@@ -93,48 +70,60 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Xoá "$policyTitle"?', style: AppTextStyles.heading3),
-        content: Text(
-          'Hành động này sẽ xoá điều khoản vĩnh viễn. Bạn có chắc chắn?',
-          style: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
-        ),
+        content: Text('Hành động này sẽ xoá điều khoản vĩnh viễn. Bạn có chắc chắn?', style: AppTextStyles.label.copyWith(color: AppColors.textSecondary)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Huỷ', style: AppTextStyles.button.copyWith(color: AppColors.primary)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Xoá', style: AppTextStyles.button.copyWith(color: Colors.redAccent)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Huỷ', style: AppTextStyles.button.copyWith(color: AppColors.primary))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Xoá', style: AppTextStyles.button.copyWith(color: Colors.redAccent))),
         ],
       ),
     );
 
     if (ok != true) return;
 
-    // Gọi API xóa
     try {
       await PolicyService.deletePolicy(policyId);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã xoá: $policyTitle'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-
-      // Reload danh sách
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã xoá: $policyTitle'), backgroundColor: Colors.green));
       _loadPolicies();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi xóa: $e'),
-            backgroundColor: Colors.red,
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi xóa: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _logout() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0x1AFF0000), borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.logout_rounded, color: Colors.red, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('Đăng xuất'),
+          ],
+        ),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản Admin?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Hủy', style: TextStyle(color: AppColors.textSecondary))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            child: const Text('Đăng xuất'),
           ),
-        );
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+        if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi đăng xuất: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -149,49 +138,25 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Quản lý hệ thống Flai',
-                    style: AppTextStyles.heading2.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.25),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const CircleAvatar(
-                      radius: 23,
-                      backgroundImage: AssetImage('assets/images/avatar.png'),
-                      backgroundColor: AppColors.inputBackground,
+                  Text('Quản lý hệ thống Flai', style: AppTextStyles.heading2.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                  GestureDetector(
+                    onTap: _logout,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Color(0x407B46E4), blurRadius: 6, offset: Offset(0, 3))],
+                      ),
+                      child: const CircleAvatar(radius: 23, backgroundImage: AssetImage('assets/images/avatar.png'), backgroundColor: AppColors.inputBackground),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-
-              // Title
-              Text(
-                'Quản lý điều khoản và chính sách',
-                style: AppTextStyles.heading3.copyWith(
-                  color: AppColors.primaryDark,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text('Quản lý điều khoản và chính sách', style: AppTextStyles.heading3.copyWith(color: AppColors.primaryDark, fontWeight: FontWeight.w700)),
               const SizedBox(height: 20),
-
-              // Content
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
@@ -204,10 +169,7 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
                       const SizedBox(height: 16),
                       Text('Lỗi tải dữ liệu', style: AppTextStyles.heading3),
                       const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: _loadPolicies,
-                        child: const Text('Thử lại'),
-                      ),
+                      ElevatedButton(onPressed: _loadPolicies, child: const Text('Thử lại')),
                     ],
                   ),
                 )
@@ -216,14 +178,8 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
                   itemCount: _policies.length + 1,
                   separatorBuilder: (_, __) => const SizedBox(height: 14),
                   itemBuilder: (context, i) {
-                    if (i == _policies.length) {
-                      return _buildAddNewButton();
-                    }
-                    final p = _policies[i];
-                    return _buildPolicyItem(
-                      index: i,
-                      policy: p,
-                    );
+                    if (i == _policies.length) return _buildAddNewButton();
+                    return _buildPolicyItem(index: i, policy: _policies[i]);
                   },
                 ),
               ),
@@ -231,8 +187,6 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
           ),
         ),
       ),
-
-      // Bottom nav
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
@@ -254,7 +208,6 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
               Navigator.pushReplacementNamed(context, '/admin_study_packs');
               break;
             case 3:
-            // Đang ở đây rồi
               break;
           }
         },
@@ -268,16 +221,11 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
     );
   }
 
-  // ITEM
-  Widget _buildPolicyItem({
-    required int index,
-    required Map<String, dynamic> policy,
-  }) {
+  Widget _buildPolicyItem({required int index, required Map<String, dynamic> policy}) {
     final title = policy['title'] as String;
     final status = policy['status'] as String;
     final policyId = policy['id'] as int;
 
-    // Màu status
     Color statusColor;
     String statusText;
     switch (status) {
@@ -310,7 +258,6 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // text
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,7 +273,7 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withOpacity(0.1), // ✅ FIXED
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: statusColor, width: 1),
                     ),
@@ -342,7 +289,6 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
                 ],
               ),
             ),
-            // actions
             Column(
               children: [
                 TextButton(
@@ -375,7 +321,6 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
     );
   }
 
-  // ADD NEW
   Widget _buildAddNewButton() {
     return InkWell(
       borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
@@ -385,17 +330,9 @@ class _AdminPolicyScreenState extends State<AdminPolicyScreen> {
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppConstants.borderRadius * 1.2),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.6), width: 1.2),
+          border: Border.all(color: AppColors.primary, width: 1.2),
         ),
-        child: Center(
-          child: Text(
-            '+ Thêm điều khoản mới',
-            style: AppTextStyles.label.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+        child: Center(child: Text('+ Thêm điều khoản mới', style: AppTextStyles.label.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700))),
       ),
     );
   }

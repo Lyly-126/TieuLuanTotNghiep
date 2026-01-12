@@ -100,8 +100,8 @@ class AdminUserService {
 
   // ================== PREMIUM ==================
 
-  /// ✅ Admin: Cấp gói Premium - CHỈ CẦN 1 THAM SỐ
-  static Future<Map<String, dynamic>> grantPremium(int userId) async {
+  /// ✅ FIXED: Admin: Cấp gói Premium - YÊU CẦU packId
+  static Future<Map<String, dynamic>> grantPremium(int userId, int packId) async {
     try {
       final token = await _getToken();
       final uri = Uri.parse('${ApiConfig.adminUsers}/$userId/grant-premium');
@@ -110,7 +110,10 @@ class AdminUserService {
         uri,
         headers: {
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json', // ✅ Thêm Content-Type
+          'ngrok-skip-browser-warning': 'true',
         },
+        body: jsonEncode({'packId': packId}), // ✅ Thêm body với packId
       );
 
       if (response.statusCode == 200) {

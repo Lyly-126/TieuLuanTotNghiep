@@ -1,4 +1,7 @@
-  class CategoryModel {
+/// ✅ CategoryModel - UPDATED với shareToken
+///
+/// Fix: Thêm field shareToken để nhận dữ liệu từ backend
+class CategoryModel {
   final int id;
   final String name;
   final String? description;
@@ -14,6 +17,9 @@
   final String? visibility;   // DB field: visibility (PUBLIC/PRIVATE)
   final bool isSaved;         // Computed từ userSavedCategories table
 
+  // ✅ THÊM MỚI: shareToken để chia sẻ category
+  final String? shareToken;
+
   CategoryModel({
     required this.id,
     required this.name,
@@ -27,6 +33,7 @@
     this.ownerUserId,
     this.visibility,
     this.isSaved = false,
+    this.shareToken,  // ✅ THÊM
   });
 
   /// ✅ Type display name helper
@@ -39,6 +46,15 @@
 
   /// ✅ Check if category is public
   bool get isPublic => visibility == 'PUBLIC';
+
+  /// ✅ Check if category can be shared (has shareToken)
+  bool get canShare => shareToken != null && shareToken!.isNotEmpty;
+
+  /// ✅ Get share link
+  String? get shareLink {
+    if (shareToken == null) return null;
+    return 'https://flashlearn.vn/share/$shareToken';
+  }
 
   /// ✅ UPDATED: Parse từ JSON - hỗ trợ cả camelCase và snake_case
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
@@ -56,6 +72,7 @@
       ownerUserId: json['ownerUserId'] as int? ?? json['owner_user_id'] as int?,
       visibility: json['visibility'] as String?,
       isSaved: json['isSaved'] as bool? ?? json['is_saved'] as bool? ?? false,
+      shareToken: json['shareToken'] as String? ?? json['share_token'] as String?,  // ✅ THÊM
     );
   }
 
@@ -73,6 +90,7 @@
       'ownerUserId': ownerUserId,
       'visibility': visibility,
       'isSaved': isSaved,
+      'shareToken': shareToken,  // ✅ THÊM
     };
   }
 
@@ -90,6 +108,7 @@
     int? ownerUserId,
     String? visibility,
     bool? isSaved,
+    String? shareToken,  // ✅ THÊM
   }) {
     return CategoryModel(
       id: id ?? this.id,
@@ -104,6 +123,7 @@
       ownerUserId: ownerUserId ?? this.ownerUserId,
       visibility: visibility ?? this.visibility,
       isSaved: isSaved ?? this.isSaved,
+      shareToken: shareToken ?? this.shareToken,  // ✅ THÊM
     );
   }
 
@@ -111,6 +131,6 @@
   String toString() {
     return 'CategoryModel(id: $id, name: $name, flashcardCount: $flashcardCount, '
         'isSystem: $isSystem, classId: $classId, ownerUserId: $ownerUserId, '
-        'visibility: $visibility, isSaved: $isSaved)';
+        'visibility: $visibility, isSaved: $isSaved, shareToken: $shareToken)';
   }
 }

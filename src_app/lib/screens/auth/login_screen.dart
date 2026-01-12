@@ -167,8 +167,12 @@ class _LoginScreenState extends State<LoginScreen> {
         final String finalUserRole = userRole ?? 'NORMAL_USER';
 
         if (finalUserRole == 'ADMIN') {
-          // ✅ ADMIN → Chuyển đến Admin Dashboard
-          Navigator.pushReplacementNamed(context, '/admin_home');
+          // ✅ FIX: Xóa tất cả routes và đặt admin_home làm root
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/admin_home',
+                (route) => false,  // Xóa tất cả routes
+          );
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Chào mừng Admin! 👋'),
@@ -176,8 +180,12 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         } else {
-          // ✅ USER → Chuyển đến Home Screen
-          Navigator.pushReplacementNamed(context, '/home');
+          // ✅ FIX: Xóa tất cả routes và đặt home làm root
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/home',
+                (route) => false,  // Xóa tất cả routes
+          );
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Đăng nhập thành công! 🎉'),

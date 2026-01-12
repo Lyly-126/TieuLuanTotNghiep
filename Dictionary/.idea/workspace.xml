@@ -5,43 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="142d9db8-935b-4a66-97b1-4c256839aa7c" name="Changes" comment="crawl Dictionary">
-      <change afterPath="$PROJECT_DIR$/crawl.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/crawl_failed_word.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/recrawl.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/android/app/src/main/res/values/color.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/ios/Runner/GoogleService-Info.plist" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/models/category_reminder_model.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/services/category_reminder_service.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/services/notification_service.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/widgets/category_reminder_settings_widget.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_app/lib/widgets/weekly_schedule_widget.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/config/FirebaseConfig.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/CategoryReminderController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/dto/CategoryReminderDTO.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/model/CategoryReminder.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/repository/CategoryReminderRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/CategoryReminderService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/FirebaseNotificationService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/merge_and_import.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/android/app/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/android/app/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/android/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/android/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/android/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/android/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/ios/Runner/Info.plist" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/ios/Runner/Info.plist" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/lib/routes/app_routes.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/routes/app_routes.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/card/batch_creation_result_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/batch_creation_result_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/category/category_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/category/category_detail_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/home/home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/home/home_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/pubspec.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_app/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/windows/flutter/generated_plugins.cmake" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_backend/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/SrcBackendApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/SrcBackendApplication.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/controller/DebugController.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/resources/application.properties" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -177,6 +141,7 @@
       <workItem from="1767717596258" duration="9750000" />
       <workItem from="1767769356684" duration="8722000" />
       <workItem from="1767966201758" duration="21054000" />
+      <workItem from="1768151281358" duration="3419000" />
     </task>
     <task id="LOCAL-00001" summary="crawl Dictionary">
       <option name="closed" value="true" />

@@ -14,8 +14,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * ✅ UPDATED: Thêm method getMyOwnedCategoriesOnly()
- * để chỉ lấy categories của user (không có system/public)
+ * ✅ FIXED: Thêm shareToken cho TẤT CẢ loại category (kể cả user category độc lập)
  */
 @Slf4j
 @Service
@@ -56,12 +55,16 @@ public class CategoryService {
         category.setOwnerUserId(null);
         category.setClassId(null);
         category.setVisibility("PUBLIC");
-        category.setShareToken(generateShareToken());
+        category.setShareToken(generateShareToken());  // ✅ Có shareToken
 
         log.info("✅ Created system category: {}", name);
         return categoryRepository.save(category);
     }
 
+    /**
+     * ✅ FIXED: Thêm shareToken cho user category độc lập
+     * Trước đây hàm này KHÔNG có setShareToken()
+     */
     @Transactional
     public Category createUserCategory(String name, Long userId, String description) {
         validateCategoryName(name);
@@ -84,8 +87,9 @@ public class CategoryService {
         category.setOwnerUserId(userId);
         category.setClassId(null);
         category.setVisibility("PRIVATE");
+        category.setShareToken(generateShareToken());  // ✅ THÊM DÒNG NÀY - ĐÂY LÀ FIX CHÍNH
 
-        log.info("✅ User {} created personal category: {}", user.getEmail(), name);
+        log.info("✅ User {} created personal category: {} with shareToken", user.getEmail(), name);
         return categoryRepository.save(category);
     }
 
@@ -108,7 +112,7 @@ public class CategoryService {
         category.setOwnerUserId(userId);
         category.setClassId(null);
         category.setVisibility(visibility);
-        category.setShareToken(generateShareToken());
+        category.setShareToken(generateShareToken());  // ✅ Có shareToken
 
         log.info("✅ User {} created shareable category: {} (visibility={})",
                 user.getEmail(), name, visibility);
@@ -133,7 +137,7 @@ public class CategoryService {
         category.setOwnerUserId(teacherId);
         category.setClassId(classId);
         category.setVisibility("PUBLIC");
-        category.setShareToken(generateShareToken());
+        category.setShareToken(generateShareToken());  // ✅ Có shareToken
 
         log.info("✅ Created class category: classId={}, name={}", classId, name);
         return categoryRepository.save(category);
@@ -165,6 +169,12 @@ public class CategoryService {
             category.setVisibility(visibility);
         }
 
+        // ✅ THÊM: Tự động tạo shareToken nếu chưa có
+        if (category.getShareToken() == null || category.getShareToken().isEmpty()) {
+            category.setShareToken(generateShareToken());
+            log.info("✅ Generated missing shareToken for category: {}", categoryId);
+        }
+
         log.info("✅ Updated category: {} by user {}", name, userId);
         return categoryRepository.save(category);
     }
@@ -184,7 +194,6 @@ public class CategoryService {
 
         String categoryName = category.getName();
 
-        // ✅ FIXED: Dùng countFlashcardsInCategory thay vì getFlashcards() để tránh lazy loading
         long flashcardCount = categoryRepository.countFlashcardsInCategory(categoryId);
 
         categoryRepository.delete(category);
@@ -193,116 +202,45 @@ public class CategoryService {
                 categoryName, flashcardCount, userId);
     }
 
-    @Transactional
-    public Category addCategoryToClass(Long categoryId, Long classId, Long teacherId) {
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Category không tồn tại"));
-
-        com.tieuluan.backend.model.Class classEntity = classRepository.findById(classId)
-                .orElseThrow(() -> new RuntimeException("Lớp học không tồn tại"));
-
-        if (!classEntity.getOwnerId().equals(teacherId)) {
-            throw new RuntimeException("Bạn không phải chủ lớp này");
-        }
-
-        if (!category.isOwnedBy(teacherId)) {
-            throw new RuntimeException("Bạn không sở hữu category này");
-        }
-
-        category.setClassId(classId);
-        category.setVisibility("PUBLIC");
-        if (category.getShareToken() == null) {
-            category.setShareToken(generateShareToken());
-        }
-
-        log.info("✅ Added category {} to class {}", categoryId, classId);
-        return categoryRepository.save(category);
-    }
-
-    @Transactional
-    public Category removeCategoryFromClass(Long categoryId, Long classId, Long userId, boolean isAdmin) {
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Category không tồn tại"));
-
-        if (!category.getClassId().equals(classId)) {
-            throw new RuntimeException("Category không thuộc lớp này");
-        }
-
-        if (!isAdmin && !category.isOwnedBy(userId)) {
-            throw new RuntimeException("Bạn không sở hữu category này");
-        }
-
-        category.setClassId(null);
-        category.setVisibility("PRIVATE");
-
-        log.info("✅ Removed category {} from class {}", categoryId, classId);
-        return categoryRepository.save(category);
-    }
-
-    public List<Category> getCategoriesForClass(Long classId) {
-        return categoryRepository.findByClassId(classId);
-    }
-
     public List<Category> getSystemCategories() {
         return categoryRepository.findByIsSystemTrue();
     }
 
-    /**
-     * ✅ Lấy categories do user sở hữu (ownerUserId = userId)
-     * Bao gồm cả class categories mà user tạo
-     */
     public List<Category> getUserOwnedCategories(Long userId) {
         return categoryRepository.findByOwnerUserId(userId);
-    }
-
-    /**
-     * ✅ NEW: Lấy CHỈ categories mà user sở hữu, KHÔNG có system
-     * Dùng cho:
-     * - Gợi ý category khi tạo flashcard
-     * - OCR/PDF chọn category
-     */
-    public List<Category> getMyOwnedCategoriesOnly(Long userId) {
-        log.info("📋 Getting owned categories only for user {}", userId);
-
-        List<Category> ownedCategories = categoryRepository.findByOwnerUserId(userId);
-
-        // Lọc bỏ system categories (phòng trường hợp data không nhất quán)
-        List<Category> filtered = ownedCategories.stream()
-                .filter(c -> !c.isSystemCategory())
-                .collect(Collectors.toList());
-
-        log.info("   ✅ Found {} owned categories (filtered from {})",
-                filtered.size(), ownedCategories.size());
-
-        return filtered;
     }
 
     public List<Category> getPublicCategories() {
         return categoryRepository.findPublicCategories();
     }
 
-    public List<Category> getAvailableCategories(Long userId) {
-        return categoryRepository.findAvailableForUser(userId);
+    public List<Category> getCategoriesForClass(Long classId) {
+        return categoryRepository.findByClassId(classId);
+    }
+
+    /**
+     * ✅ NEW: Lấy categories do user sở hữu (KHÔNG có system)
+     */
+    public List<Category> getMyOwnedCategoriesOnly(Long userId) {
+        return categoryRepository.findByOwnerUserId(userId).stream()
+                .filter(cat -> !cat.isSystemCategory())
+                .collect(Collectors.toList());
     }
 
     public Category getCategoryById(Long categoryId, Long userId, boolean isAdmin) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy category"));
+                .orElseThrow(() -> new RuntimeException("Category không tồn tại"));
 
-        if (isAdmin) {
-            return category;
-        }
+        if (isAdmin) return category;
+        if (category.isSystemCategory()) return category;
+        if (category.isPublic()) return category;
+        if (category.isOwnedBy(userId)) return category;
 
-        if (category.isSystemCategory()) {
-            return category;
-        }
-
-        if (category.isPublic()) {
-            return category;
-        }
-
-        if (category.isOwnedBy(userId)) {
-            return category;
+        if (category.getClassId() != null) {
+            ClassMemberId memberId = new ClassMemberId(category.getClassId(), userId);
+            if (classMemberRepository.existsById(memberId)) {
+                return category;
+            }
         }
 
         throw new RuntimeException("Bạn không có quyền xem category này");
@@ -391,10 +329,6 @@ public class CategoryService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * ✅ FIXED: Không dùng category.getFlashcards() để tránh lazy loading exception
-     * Thay vào đó dùng countFlashcardsInCategory() query
-     */
     private CategoryDTO convertToDTOWithSavedStatus(Category category, Long userId, boolean forceSaved) {
         CategoryDTO dto = new CategoryDTO();
         dto.setId(category.getId());
@@ -404,8 +338,8 @@ public class CategoryService {
         dto.setClassId(category.getClassId());
         dto.setVisibility(category.getVisibility());
         dto.setIsSystem(category.isSystemCategory());
+        dto.setShareToken(category.getShareToken());  // ✅ QUAN TRỌNG: Đảm bảo trả về shareToken
 
-        // ✅ FIXED: Luôn dùng query để đếm flashcards, tránh lazy loading
         try {
             long flashcardCount = categoryRepository.countFlashcardsInCategory(category.getId());
             dto.setFlashcardCount((int) flashcardCount);
@@ -414,44 +348,33 @@ public class CategoryService {
             dto.setFlashcardCount(0);
         }
 
-        // Check if saved
         boolean isSaved = forceSaved || (userId != null && isCategorySaved(userId, category.getId()));
         dto.setIsSaved(isSaved);
 
-        // Set flags
         dto.setIsUserCategory(category.getOwnerUserId() != null && category.getClassId() == null);
         dto.setIsClassCategory(category.getClassId() != null);
 
         return dto;
     }
 
-    /**
-     * ✅ FIXED: getMyCategories - không dùng lazy loaded collections
-     * Lấy tất cả categories user có thể access (bao gồm system)
-     */
     public List<CategoryDTO> getMyCategories(Long userId) {
         List<CategoryDTO> result = new ArrayList<>();
 
         try {
-            // 1. System categories
             List<Category> systemCategories = categoryRepository.findByIsSystemTrue();
             systemCategories.forEach(cat -> result.add(convertToDTOWithSavedStatus(cat, userId, false)));
 
-            // 2. User's own categories
             List<Category> ownCategories = categoryRepository.findByOwnerUserId(userId);
             ownCategories.forEach(cat -> result.add(convertToDTOWithSavedStatus(cat, userId, false)));
 
-            // 3. Saved categories
             result.addAll(getSavedCategories(userId));
 
-            // 4. Categories from joined classes
             List<ClassMember> memberships = classMemberRepository.findByIdUserId(userId);
             for (ClassMember membership : memberships) {
                 List<Category> classCategories = categoryRepository.findByClassId(membership.getId().getClassId());
                 classCategories.forEach(cat -> result.add(convertToDTOWithSavedStatus(cat, userId, false)));
             }
 
-            // Remove duplicates by ID
             return result.stream()
                     .collect(Collectors.toMap(
                             CategoryDTO::getId,
@@ -468,20 +391,14 @@ public class CategoryService {
         }
     }
 
-    /**
-     * ✅ NEW: Lấy categories để hiển thị trong dropdown chọn category khi tạo flashcard
-     * CHỈ lấy categories mà user sở hữu (KHÔNG có system)
-     */
     public List<CategoryDTO> getMyCategoriesForFlashcardCreation(Long userId) {
         log.info("📋 Getting categories for flashcard creation for user {}", userId);
 
         List<CategoryDTO> result = new ArrayList<>();
 
         try {
-            // ✅ CHỈ LẤY categories do user sở hữu
             List<Category> ownCategories = categoryRepository.findByOwnerUserId(userId);
 
-            // Lọc bỏ system categories
             ownCategories.stream()
                     .filter(cat -> !cat.isSystemCategory())
                     .forEach(cat -> result.add(convertToDTOWithSavedStatus(cat, userId, false)));
@@ -493,5 +410,60 @@ public class CategoryService {
             log.error("❌ Error in getMyCategoriesForFlashcardCreation for user {}: {}", userId, e.getMessage(), e);
             return new ArrayList<>();
         }
+    }
+
+    // ==================== CLASS CATEGORY MANAGEMENT ====================
+
+    /**
+     * ✅ FIXED: Giữ nguyên signature gốc (3 tham số) để tương thích với Controller
+     * Trả về Category thay vì void
+     */
+    @Transactional
+    public Category addCategoryToClass(Long categoryId, Long classId, Long userId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new RuntimeException("Category không tồn tại"));
+
+        com.tieuluan.backend.model.Class classEntity = classRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Lớp học không tồn tại"));
+
+        if (!classEntity.getOwnerId().equals(userId)) {
+            throw new RuntimeException("Bạn không phải chủ lớp học này");
+        }
+
+        category.setClassId(classId);
+
+        // ✅ Đảm bảo có shareToken khi thêm vào lớp
+        if (category.getShareToken() == null || category.getShareToken().isEmpty()) {
+            category.setShareToken(generateShareToken());
+            log.info("✅ Generated shareToken for category {} when adding to class", categoryId);
+        }
+
+        Category saved = categoryRepository.save(category);
+        log.info("✅ Added category {} to class {}", categoryId, classId);
+        return saved;
+    }
+
+    /**
+     * ✅ FIXED: Giữ nguyên signature gốc (4 tham số với isAdmin)
+     */
+    @Transactional
+    public void removeCategoryFromClass(Long categoryId, Long classId, Long userId, boolean isAdmin) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new RuntimeException("Category không tồn tại"));
+
+        com.tieuluan.backend.model.Class classEntity = classRepository.findById(classId)
+                .orElseThrow(() -> new RuntimeException("Lớp học không tồn tại"));
+
+        if (!isAdmin && !classEntity.getOwnerId().equals(userId)) {
+            throw new RuntimeException("Bạn không phải chủ lớp học này");
+        }
+
+        if (category.getClassId() == null || !category.getClassId().equals(classId)) {
+            throw new RuntimeException("Category không thuộc lớp này");
+        }
+
+        category.setClassId(null);
+        categoryRepository.save(category);
+        log.info("✅ Removed category {} from class {}", categoryId, classId);
     }
 }
