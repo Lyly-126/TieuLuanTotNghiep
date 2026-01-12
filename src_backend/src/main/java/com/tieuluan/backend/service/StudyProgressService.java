@@ -24,8 +24,7 @@ public class StudyProgressService {
     @Autowired
     private StudyStreakRepository streakRepository;
 
-    @Autowired
-    private StudyReminderRepository reminderRepository;
+
 
     @Autowired
     private DailyStudyLogRepository dailyLogRepository;
@@ -215,88 +214,4 @@ public class StudyProgressService {
         streakRepository.save(streak);
     }
 
-    // ==================== REMINDER ====================
-
-    /**
-     * Lấy cài đặt nhắc nhở của user
-     */
-    public StudyReminderDTO getReminderSettings(Integer userId) {
-        StudyReminder reminder = reminderRepository.findByUserId(userId).orElse(null);
-        if (reminder == null) {
-            reminder = new StudyReminder(userId);
-            reminder = reminderRepository.save(reminder);
-        }
-
-        StudyReminderDTO dto = new StudyReminderDTO();
-        dto.setId(reminder.getId());
-        dto.setReminderTime(reminder.getReminderTime());
-        dto.setDaysOfWeek(reminder.getDaysOfWeek());
-        dto.setEnabledDays(reminder.getEnabledDaysVietnamese());
-        dto.setIsEnabled(reminder.getIsEnabled());
-        dto.setCustomMessage(reminder.getCustomMessage());
-
-        return dto;
-    }
-
-    /**
-     * Cập nhật cài đặt nhắc nhở
-     */
-    @Transactional
-    public StudyReminderDTO updateReminderSettings(Integer userId, UpdateReminderRequest request) {
-        StudyReminder reminder = reminderRepository.findByUserId(userId).orElse(null);
-        if (reminder == null) {
-            reminder = new StudyReminder(userId);
-        }
-
-        if (request.getHour() != null && request.getMinute() != null) {
-            reminder.setReminderTime(LocalTime.of(request.getHour(), request.getMinute()));
-        }
-
-        if (request.getDaysOfWeek() != null) {
-            reminder.setDaysOfWeek(request.getDaysOfWeek());
-        }
-
-        if (request.getIsEnabled() != null) {
-            reminder.setIsEnabled(request.getIsEnabled());
-        }
-
-        if (request.getCustomMessage() != null) {
-            reminder.setCustomMessage(request.getCustomMessage());
-        }
-
-        if (request.getFcmToken() != null) {
-            reminder.setFcmToken(request.getFcmToken());
-        }
-
-        reminder.setUpdatedAt(LocalDateTime.now());
-        reminderRepository.save(reminder);
-
-        return getReminderSettings(userId);
-    }
-
-    /**
-     * Bật/tắt nhắc nhở
-     */
-    @Transactional
-    public void toggleReminder(Integer userId, boolean enabled) {
-        StudyReminder reminder = reminderRepository.findByUserId(userId).orElse(null);
-        if (reminder == null) {
-            reminder = new StudyReminder(userId);
-            reminder = reminderRepository.save(reminder);
-        }
-
-        reminder.setIsEnabled(enabled);
-        reminder.setUpdatedAt(LocalDateTime.now());
-        reminderRepository.save(reminder);
-    }
-
-    /**
-     * Lấy danh sách users cần được nhắc nhở vào thời điểm hiện tại
-     */
-    public List<StudyReminder> getRemindersToSendNow() {
-        LocalTime now = LocalTime.now().withSecond(0).withNano(0);
-        int dayOfWeek = LocalDate.now().getDayOfWeek().getValue() % 7; // 0=CN, 1=T2, ...
-
-        return reminderRepository.findRemindersToSend(now, dayOfWeek);
-    }
 }

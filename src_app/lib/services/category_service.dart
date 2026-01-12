@@ -506,4 +506,99 @@ class CategoryService {
       rethrow;
     }
   }
+  /// Lấy category bằng shareToken (public - không cần auth nhưng vẫn gửi token nếu có)
+  static Future<CategoryModel> getCategoryByShareToken(String shareToken) async {
+    try {
+      Map<String, String> headers;
+      try {
+        headers = await _getHeaders();
+      } catch (e) {
+        // Nếu không có token, vẫn có thể gọi API public
+        headers = {
+          'Content-Type': 'application/json; charset=utf-8',
+          'ngrok-skip-browser-warning': 'true',
+        };
+      }
+
+      final uri = Uri.parse('${ApiConfig.categoryBase}/share/$shareToken');
+
+      _log('GET Category by token URL: $uri');
+
+      final response = await http.get(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return CategoryModel.fromJson(data);
+      } else if (response.statusCode == 404) {
+        throw Exception('Không tìm thấy bộ thẻ');
+      } else if (response.statusCode == 403) {
+        throw Exception('Bộ thẻ này không được chia sẻ công khai');
+      } else {
+        final error = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(error['message'] ?? 'Lỗi khi tải bộ thẻ');
+      }
+    } catch (e) {
+      _log('❌ Error in getCategoryByShareToken: $e');
+      rethrow;
+    }
+  }
+
+  /// Lưu category từ shareToken vào danh sách của user
+  static Future<CategoryModel> saveCategoryByShareToken(String shareToken) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('${ApiConfig.categoryBase}/share/$shareToken/save');
+
+      _log('POST Save category by token URL: $uri');
+
+      final response = await http.post(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return CategoryModel.fromJson(data);
+      } else {
+        final error = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(error['message'] ?? 'Không thể lưu bộ thẻ');
+      }
+    } catch (e) {
+      _log('❌ Error in saveCategoryByShareToken: $e');
+      rethrow;
+    }
+  }
+
+  /// Preview category bằng shareToken (public)
+  static Future<Map<String, dynamic>> previewCategoryByShareToken(String shareToken) async {
+    try {
+      final headers = {
+        'Content-Type': 'application/json; charset=utf-8',
+        'ngrok-skip-browser-warning': 'true',
+      };
+
+      final uri = Uri.parse('${ApiConfig.categoryBase}/share/$shareToken/preview');
+
+      _log('GET Preview category by token URL: $uri');
+
+      final response = await http.get(uri, headers: headers);
+
+      _log('Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(utf8.decode(response.bodyBytes));
+      } else if (response.statusCode == 404) {
+        throw Exception('Không tìm thấy bộ thẻ');
+      } else if (response.statusCode == 403) {
+        throw Exception('Bộ thẻ này không được chia sẻ công khai');
+      } else {
+        final error = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(error['message'] ?? 'Lỗi khi tải bộ thẻ');
+      }
+    } catch (e) {
+      _log('❌ Error in previewCategoryByShareToken: $e');
+      rethrow;
+    }
+  }
 }

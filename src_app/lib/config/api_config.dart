@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, Tar
 /// 3. Khi dùng ngrok: Set ApiConfig.setNgrokUrl('https://your-ngrok-url.ngrok-free.app')
 class ApiConfig {
   // ==================== CONFIGURATION ====================
+  static const bool isEmulator = true; // Đặt false khi test trên thiết bị thật
 
   /// Base host cho development (localhost)
   static const String _developmentHost = 'http://localhost:8080';
@@ -23,6 +24,8 @@ class ApiConfig {
 
   // ==================== GETTERS ====================
 
+
+
   /// Lấy base URL phù hợp với môi trường hiện tại
   static String get baseUrl {
     // Ưu tiên 1: Ngrok (nếu đã set)
@@ -35,9 +38,6 @@ class ApiConfig {
       return _productionHost;
     }
 
-    // Ưu tiên 3: Development mode
-    // Android emulator: 10.0.2.2
-    // iOS simulator & Web: localhost
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:8080';
     }
@@ -127,9 +127,9 @@ class ApiConfig {
 
   /// ✅ TTS endpoints - SỬA LẠI URL ĐÚNG
   static String get ttsBase => '$baseUrl/api/tts';
-  static String get ttsGenerateAudio => '$ttsBase/generate-audio';  // ✅ ĐÚNG: /api/tts/generate-audio
-  static String get ttsGenerateUrl => '$ttsBase/generate-url';      // ✅ /api/tts/generate-url
-  static String get ttsHealth => '$ttsBase/health';                  // ✅ /api/tts/health
+  static String get ttsGenerateAudio => '$ttsBase/generate-audio';
+  static String get ttsGenerateUrl => '$ttsBase/generate-url';
+  static String get ttsHealth => '$ttsBase/health';
 
   /// Admin endpoints
   static String get adminBase => '$baseUrl/api/admin';

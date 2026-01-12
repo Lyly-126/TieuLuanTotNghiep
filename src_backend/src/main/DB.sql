@@ -667,9 +667,4 @@ SELECT * FROM "categoryReminders";
 
 SELECT COUNT(*) AS total_prep FROM dictionary;
 
-SELECT word, COUNT(*) 
-FROM dictionary 
-GROUP BY word 
-HAVING COUNT(*) > 1;
-
 SELECT * FROM categories;

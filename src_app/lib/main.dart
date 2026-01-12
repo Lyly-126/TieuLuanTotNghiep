@@ -1,15 +1,3 @@
-// ============================================================================
-// 🔥 MAIN.DART - VỚI DEEP LINK VÀ LOCAL NOTIFICATIONS
-// ============================================================================
-//
-// File này:
-// ✅ Deep Links cho Class và Category
-// ✅ Local Notifications
-// ✅ Hoạt động trên Web, Android, iOS
-// ✅ Conditional imports để tránh lỗi trên Web
-//
-// ============================================================================
-
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:src_app/utils/navigation_logger.dart';
@@ -18,7 +6,6 @@ import 'routes/app_routes.dart';
 import 'config/app_theme.dart';
 import 'config/api_config.dart';
 
-// ✅ Import services cho mobile
 import 'services/deep_link_service.dart';
 import 'services/local_notification_service.dart';
 
@@ -89,10 +76,7 @@ class _FlaiAppState extends State<FlaiApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     print('📱 App lifecycle state: $state');
-
-    // Có thể xử lý logic khi app resume/pause ở đây
     if (state == AppLifecycleState.resumed) {
-      // App được mở lại - có thể refresh data nếu cần
     }
   }
 

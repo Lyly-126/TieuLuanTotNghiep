@@ -153,54 +153,54 @@ public class StudyProgressController {
      * GET /api/study/reminder
      * Lấy cài đặt nhắc nhở
      */
-    @GetMapping("/reminder")
-    public ResponseEntity<?> getReminderSettings(@RequestHeader("Authorization") String authHeader) {
-        try {
-            Integer userId = extractUserId(authHeader);
-            StudyReminderDTO reminder = studyProgressService.getReminderSettings(userId);
-            return ResponseEntity.ok(reminder);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
+//    @GetMapping("/reminder")
+//    public ResponseEntity<?> getReminderSettings(@RequestHeader("Authorization") String authHeader) {
+//        try {
+//            Integer userId = extractUserId(authHeader);
+//            StudyReminderDTO reminder = studyProgressService.getReminderSettings(userId);
+//            return ResponseEntity.ok(reminder);
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+//        }
+//    }
 
     /**
      * PUT /api/study/reminder
      * Cập nhật cài đặt nhắc nhở
      */
-    @PutMapping("/reminder")
-    public ResponseEntity<?> updateReminderSettings(
-            @RequestHeader("Authorization") String authHeader,
-            @RequestBody UpdateReminderRequest request) {
-        try {
-            Integer userId = extractUserId(authHeader);
-            StudyReminderDTO reminder = studyProgressService.updateReminderSettings(userId, request);
-            return ResponseEntity.ok(reminder);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
+//    @PutMapping("/reminder")
+//    public ResponseEntity<?> updateReminderSettings(
+//            @RequestHeader("Authorization") String authHeader,
+//            @RequestBody UpdateReminderRequest request) {
+//        try {
+//            Integer userId = extractUserId(authHeader);
+//            StudyReminderDTO reminder = studyProgressService.updateReminderSettings(userId, request);
+//            return ResponseEntity.ok(reminder);
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+//        }
+//    }
 
     /**
      * POST /api/study/reminder/toggle
      * Bật/tắt nhắc nhở
      */
-    @PostMapping("/reminder/toggle")
-    public ResponseEntity<?> toggleReminder(
-            @RequestHeader("Authorization") String authHeader,
-            @RequestBody Map<String, Boolean> body) {
-        try {
-            Integer userId = extractUserId(authHeader);
-            Boolean enabled = body.get("enabled");
-            if (enabled == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Missing 'enabled' field"));
-            }
-            studyProgressService.toggleReminder(userId, enabled);
-            return ResponseEntity.ok(Map.of("success", true, "enabled", enabled));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
+//    @PostMapping("/reminder/toggle")
+//    public ResponseEntity<?> toggleReminder(
+//            @RequestHeader("Authorization") String authHeader,
+//            @RequestBody Map<String, Boolean> body) {
+//        try {
+//            Integer userId = extractUserId(authHeader);
+//            Boolean enabled = body.get("enabled");
+//            if (enabled == null) {
+//                return ResponseEntity.badRequest().body(Map.of("error", "Missing 'enabled' field"));
+//            }
+//            studyProgressService.toggleReminder(userId, enabled);
+//            return ResponseEntity.ok(Map.of("success", true, "enabled", enabled));
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+//        }
+//    }
 
     // ==================== HELPER ====================
 

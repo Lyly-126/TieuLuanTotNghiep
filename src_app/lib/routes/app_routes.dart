@@ -19,6 +19,7 @@ import '../screens/auth/reset_password_screen.dart';
 import '../screens/card/flashcard_creation_screen.dart';
 import '../screens/card/flashcard_creation_screen.dart';
 import '../screens/card/text_extraction_screen.dart';
+import '../screens/category/category_by_token_screen.dart';
 import '../screens/class/join_class_via_link_screen.dart';
 import '../screens/home/search_screen.dart';
 import '../screens/profile/profile_screen.dart';
@@ -69,6 +70,7 @@ class AppRoutes {
   static const String join_class = '/join_class';
   static const String class_management = '/class_management';
   static const String joinClass = '/join-class';
+  static const String categoryByToken = '/category_by_token';
 
   static const String classCategories = '/class-categories';
   static const String classCategoryFlashcards = '/class-category-flashcards';
@@ -211,6 +213,14 @@ class AppRoutes {
       case textExtraction:
         return MaterialPageRoute(
           builder: (_) => const TextExtractionScreen(),
+        );
+
+      case categoryByToken:
+        final token = settings.arguments as String;
+        return MaterialPageRoute(
+          builder: (_) => CategoryByTokenScreen(
+            shareToken: token,
+          ),
         );
 
       default:
