@@ -38,6 +38,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  int _previousIndex = 0;
+
   UserModel? _currentUser;
   bool _isLoadingUser = true;
   List<CategoryModel> _defaultCategories = [];
@@ -309,7 +311,18 @@ class _HomeScreenState extends State<HomeScreen> {
       _showCreateBottomSheet();
       return;
     }
-    setState(() => _selectedIndex = index);
+    final isTeacher = _currentUser?.canCreateClass ?? false;
+    final libraryIndex = isTeacher ? 4 : 3;
+
+    if (index == libraryIndex && _previousIndex != libraryIndex) {
+      // Reload library tab khi chuyển đến
+      _refreshLibraryTab();
+    }
+
+    setState(() {
+      _previousIndex = _selectedIndex;
+      _selectedIndex = index;
+    });
   }
 
   void _showCreateBottomSheet() {
@@ -392,6 +405,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+
 
   void _refreshLibraryTab() {
     _libraryTabKey.currentState?._loadAllData();
