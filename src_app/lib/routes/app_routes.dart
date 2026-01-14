@@ -17,7 +17,6 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/forgot_otp_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/card/flashcard_creation_screen.dart';
-import '../screens/card/flashcard_creation_screen.dart';
 import '../screens/card/text_extraction_screen.dart';
 import '../screens/category/category_by_token_screen.dart';
 import '../screens/class/join_class_via_link_screen.dart';
@@ -30,16 +29,20 @@ import '../screens/payment/usage_limit_screen.dart';
 import '../screens/admin/dashboard/admin_home_screen.dart';
 import '../screens/payment/invoices_screen.dart';
 import '../screens/auth/terms_privacy_screen.dart';
-
 import '../screens/class/teacher_class_management_screen.dart';
 import '../screens/class/class_detail_screen.dart';
-
-// Category Screens
 import '../screens/category/category_create_screen.dart';
 import '../screens/category/category_detail_screen.dart';
 import '../screens/card/flashcard_edit_screen.dart';
 
+// ✅ THÊM: Import SplashScreen
+import '../screens/splash_screen.dart';
+
 class AppRoutes {
+  // ✅ THÊM: Splash route
+  static const String splash = '/splash';
+
+  // Auth routes
   static const String welcome = '/welcome';
   static const String login = '/login';
   static const String register = '/register';
@@ -47,6 +50,8 @@ class AppRoutes {
   static const String forgot = '/forgot';
   static const String forgot_otp = '/forgot_otp';
   static const String reset_password = '/reset_password';
+
+  // Main routes
   static const String home = '/home';
   static const String search = '/search';
   static const String profile = '/profile';
@@ -88,6 +93,10 @@ class AppRoutes {
   static const String admin_policy_create = '/admin_policy_create';
 
   static Map<String, WidgetBuilder> routes = {
+    // ✅ THÊM: Splash screen route
+    splash: (context) => const SplashScreen(),
+
+    // Auth screens
     welcome: (context) => const WelcomeScreen(),
     login: (context) => const LoginScreen(),
     register: (context) => const RegisterScreen(),
@@ -95,6 +104,8 @@ class AppRoutes {
     forgot: (context) => const ForgotPasswordScreen(),
     forgot_otp: (context) => const ForgotOtpScreen(),
     reset_password: (context) => const ResetPasswordScreen(),
+
+    // Main screens
     home: (context) => const HomeScreen(),
     search: (context) => const SearchScreen(),
     profile: (context) => const ProfileScreen(),
@@ -137,11 +148,10 @@ class AppRoutes {
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
-    // ✅ FIX: Thêm fallback cho root route "/"
-    // Điều này tránh lỗi "No route defined for /"
+    // ✅ Root route fallback
       case '/':
         return MaterialPageRoute(
-          builder: (_) => const WelcomeScreen(),
+          builder: (_) => const SplashScreen(), // ✅ THAY ĐỔI: "/" -> SplashScreen
         );
 
       case class_detail:
@@ -224,10 +234,10 @@ class AppRoutes {
         );
 
       default:
-      // ✅ FIX: Thay vì hiện lỗi, redirect về WelcomeScreen
-        print('⚠️ Unknown route: ${settings.name}, redirecting to Welcome');
+      // ✅ Unknown route fallback
+        print('⚠️ Unknown route: ${settings.name}, redirecting to Splash');
         return MaterialPageRoute(
-          builder: (_) => const WelcomeScreen(),
+          builder: (_) => const SplashScreen(), // ✅ THAY ĐỔI: Unknown route -> SplashScreen
         );
     }
   }

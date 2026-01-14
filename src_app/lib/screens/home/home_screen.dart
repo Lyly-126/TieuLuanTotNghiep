@@ -24,7 +24,8 @@ import '../../services/study_progress_service.dart';
 import '../../models/study_progress_model.dart';
 import '../../models/category_study_schedule_model.dart';
 import '../../services/category_study_schedule_service.dart';
-// import '../../widgets/study_schedule_widgets.dart';
+import '../../services/auth_service.dart';
+import '../../routes/app_routes.dart';
 
 /// ✅ HOME SCREEN - CẢI TIẾN TAB TRANG CHỦ
 /// - Bộ thẻ đang học: Hiển thị categories có progress, swipe ngang
@@ -37,7 +38,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   int _previousIndex = 0;
 
@@ -70,6 +71,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+
+    // ✅ THÊM: Đăng ký observer
+    WidgetsBinding.instance.addObserver(this);
+
     _loadCurrentUser();
     _loadDefaultCategories();
     _loadStreakInfo();
@@ -78,8 +83,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadScheduleOverview();
   }
 
+
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _learningPageController.dispose();
     super.dispose();
   }
@@ -110,6 +118,52 @@ class _HomeScreenState extends State<HomeScreen> {
       Icons.stars_rounded,
     ];
     return icons[index % icons.length];
+  }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    print('📱 [HomeScreen] App lifecycle state: $state');
+
+    if (state == AppLifecycleState.resumed) {
+      // App quay lại từ background
+      print('📱 [HomeScreen] App resumed, verifying auth...');
+      _verifyAuthStatus();
+
+      // Refresh data khi quay lại
+      _refreshHomeData();
+    }
+  }
+
+  // ✅ THÊM: Method verify auth status
+  Future<void> _verifyAuthStatus() async {
+    try {
+      final isLoggedIn = await AuthService.isLoggedIn();
+
+      if (!isLoggedIn && mounted) {
+        print('⚠️ [HomeScreen] User not logged in, redirecting to login...');
+
+        // Token hết hạn hoặc bị xóa -> đá về login
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.login,
+              (route) => false,
+        );
+
+        // Hiển thị thông báo
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        print('✅ [HomeScreen] Auth verified successfully');
+      }
+    } catch (e) {
+      print('❌ [HomeScreen] Error verifying auth: $e');
+    }
   }
 
   Future<void> _loadCurrentUser() async {

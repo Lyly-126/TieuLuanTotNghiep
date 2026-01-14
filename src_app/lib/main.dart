@@ -5,9 +5,10 @@ import 'dart:async';
 import 'routes/app_routes.dart';
 import 'config/app_theme.dart';
 import 'config/api_config.dart';
-
 import 'services/deep_link_service.dart';
 import 'services/local_notification_service.dart';
+import 'services/auth_service.dart';
+import 'screens/splash_screen.dart';
 
 // Global navigator key - dùng để navigate từ bất kỳ đâu
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -77,7 +78,28 @@ class _FlaiAppState extends State<FlaiApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     print('📱 App lifecycle state: $state');
+
     if (state == AppLifecycleState.resumed) {
+      // ✅ Khi app resume từ background, verify auth status
+      _verifyAuthOnResume();
+    }
+  }
+
+  Future<void> _verifyAuthOnResume() async {
+    try {
+      final isLoggedIn = await AuthService.isLoggedIn();
+      print('📱 App resumed - Auth status: $isLoggedIn');
+
+      if (!isLoggedIn) {
+        // Token hết hạn hoặc bị xóa - đá về login
+        print('⚠️ Auth token invalid, redirecting to login...');
+        navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          AppRoutes.login,
+              (route) => false,
+        );
+      }
+    } catch (e) {
+      print('❌ Error verifying auth on resume: $e');
     }
   }
 
@@ -102,7 +124,8 @@ class _FlaiAppState extends State<FlaiApp> with WidgetsBindingObserver {
       navigatorObservers: [NavigationLogger()],
       theme: AppTheme.light,
       navigatorKey: navigatorKey,
-      initialRoute: AppRoutes.welcome,
+      // ✅ THAY ĐỔI: Bắt đầu từ SplashScreen thay vì welcome
+      initialRoute: AppRoutes.splash,
       routes: AppRoutes.routes,
       onGenerateRoute: AppRoutes.onGenerateRoute,
     );
