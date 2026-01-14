@@ -581,8 +581,8 @@ class _StudyStatisticsScreenState extends State<StudyStatisticsScreen>
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
-                    width: 44,
-                    height: 44,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: learned
                           ? AppColors.primary
@@ -636,11 +636,11 @@ class _StudyStatisticsScreenState extends State<StudyStatisticsScreen>
 
                   // Cards studied indicator
                   if (learned && dayData.cardsStudied > 0) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                        horizontal: 5,
+                        vertical: 1,
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.1),

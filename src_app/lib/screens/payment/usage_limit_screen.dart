@@ -141,12 +141,15 @@ class _UsageLimitScreenState extends State<UsageLimitScreen> {
                         size: 24,
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        'Gói dịch vụ: $_planName',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
+                      Expanded( // ✅ THÊM: Wrap với Expanded
+                        child: Text(
+                          'Gói dịch vụ: $_planName',
+                          style: AppTextStyles.label.copyWith(
+                            color: AppColors.primaryDark,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
-import '../main.dart';
 import '../routes/app_routes.dart';
 
 /// Service quản lý Local Notifications
@@ -14,6 +13,13 @@ class LocalNotificationService {
   FlutterLocalNotificationsPlugin();
 
   static bool _initialized = false;
+
+  // ✅ THÊM: Static navigator key (không phụ thuộc main.dart)
+  static GlobalKey<NavigatorState>? _navigatorKey;
+
+  static void setNavigatorKey(GlobalKey<NavigatorState> key) {
+    _navigatorKey = key;
+  }
 
   // Notification Channel IDs
   static const String _studyChannelId = 'study_reminders';
@@ -141,26 +147,30 @@ class LocalNotificationService {
     final type = parts[0];
     final id = parts[1];
 
+    // ✅ FIX: Sử dụng local navigator key
+    final navigator = _navigatorKey?.currentState;
+    if (navigator == null) {
+      print('⚠️ Navigator not available');
+      return;
+    }
+
     switch (type) {
       case 'category':
-      // Navigate đến category
-        navigatorKey.currentState?.pushNamed(
+        navigator.pushNamed(
           AppRoutes.categoryDetail,
           arguments: {'categoryId': int.tryParse(id)},
         );
         break;
 
       case 'class':
-      // Navigate đến class
-        navigatorKey.currentState?.pushNamed(
+        navigator.pushNamed(
           AppRoutes.class_detail,
           arguments: int.tryParse(id),
         );
         break;
 
       case 'quiz':
-      // Navigate đến quiz
-        navigatorKey.currentState?.pushNamed(
+        navigator.pushNamed(
           AppRoutes.flashcard,
           arguments: {'categoryId': int.tryParse(id)},
         );

@@ -20,6 +20,7 @@ import '../card/flashcard_screen.dart';
 import '../card/flashcard_edit_screen.dart';
 import '../../models/study_progress_model.dart';
 import '../../services/study_progress_service.dart';
+import '../../services/local_notification_service.dart';
 
 /// 🎨 Màn hình chi tiết chủ đề - Unified Screen
 /// ✅ CẬP NHẬT: Thêm search, cải thiện typography, bỏ định nghĩa EN
@@ -280,6 +281,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     try {
       final success = await CategoryStudyScheduleService.deleteSchedule(widget.category.id);
       if (success && mounted) {
+        // ✅ THÊM: Cancel local notifications
+        await LocalNotificationService.cancelCategoryNotifications(widget.category.id);
+
         setState(() {
           _schedule = null;
           _conflicts = null;
@@ -295,6 +299,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   }
 
 // --- Update Schedule ---
+  // --- Update Schedule ---
   Future<void> _updateSchedule(CategoryStudyScheduleModel newSchedule) async {
     // Cập nhật UI ngay lập tức
     setState(() => _schedule = newSchedule);
@@ -319,10 +324,51 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     if (updated != null && mounted) {
       setState(() => _schedule = updated);
 
+      // ✅ THÊM: Schedule local notification
+      if (updated.isEnabled) {
+        await _scheduleLocalNotification(updated);
+        _showSnackBar('✅ Đã lưu nhắc nhở', Icons.check_circle);
+      } else {
+        await LocalNotificationService.cancelCategoryNotifications(widget.category.id);
+        _showSnackBar('❌ Đã tắt nhắc nhở', Icons.notifications_off);
+      }
+
       // Hiện thông báo nếu có xung đột
       if (_conflicts != null && _conflicts!.isNotEmpty) {
         _showConflictSnackBar();
       }
+    }
+  }
+
+  /// Schedule local notification
+  Future<void> _scheduleLocalNotification(CategoryStudyScheduleModel schedule) async {
+    try {
+      // Lấy danh sách các ngày được chọn (1=T2, 7=CN)
+      List<int> enabledDays = [];
+      for (int i = 0; i < 7; i++) {
+        if (schedule.isDayEnabled(i)) {
+          // Convert: index 0=CN -> 7, 1=T2 -> 1, 2=T3 -> 2, ...
+          enabledDays.add(i == 0 ? 7 : i);
+        }
+      }
+
+      if (enabledDays.isEmpty) {
+        print('⚠️ No days selected for schedule');
+        return;
+      }
+
+      // Schedule notification
+      await LocalNotificationService.scheduleWeeklyReminder(
+        baseId: widget.category.id * 10, // Unique ID
+        categoryName: widget.category.name,
+        categoryId: widget.category.id,
+        time: TimeOfDay(hour: schedule.hour, minute: schedule.minute),
+        daysOfWeek: enabledDays,
+      );
+
+      print('✅ Scheduled notification for ${widget.category.name} at ${schedule.displayTime} on days: $enabledDays');
+    } catch (e) {
+      print('❌ Schedule notification error: $e');
     }
   }
 

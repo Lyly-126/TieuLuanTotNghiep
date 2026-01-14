@@ -22,6 +22,7 @@ dependencies:
   intl: ^0.19.0
   share_plus: ^10.0.3
 
+  permission_handler: ^11.0.1
   app_links: ^6.3.3               # Thay thế uni_links
   url_launcher: ^6.3.1
   flutter_riverpod: ^2.0.0

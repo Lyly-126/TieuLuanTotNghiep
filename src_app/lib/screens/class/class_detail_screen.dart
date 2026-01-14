@@ -398,10 +398,15 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
               unselectedLabelColor: AppColors.textSecondary,
               indicatorColor: AppColors.primary,
               indicatorWeight: 3,
-              labelStyle: AppTextStyles.body
-                  .copyWith(fontWeight: FontWeight.w600),
-              unselectedLabelStyle: AppTextStyles.body,
+              labelStyle: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 13, // ✅ THÊM: Giảm font size
+              ),
+              unselectedLabelStyle: AppTextStyles.body.copyWith(
+                fontSize: 13, // ✅ THÊM: Giảm font size
+              ),
               isScrollable: false,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12), // ✅ THÊM: Giảm padding
               tabs: [
                 const Tab(
                   child: Text(
@@ -421,9 +426,11 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Chờ duyệt',
-                          overflow: TextOverflow.ellipsis,
+                        const Flexible( // ✅ THÊM: Wrap với Flexible
+                          child: Text(
+                            'Chờ duyệt',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         if (_pendingCount > 0) ...[
                           const SizedBox(width: 6),

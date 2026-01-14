@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:src_app/utils/navigation_logger.dart';
 import 'dart:async';
+import 'dart:io';
 import 'routes/app_routes.dart';
 import 'config/app_theme.dart';
 import 'config/api_config.dart';
@@ -9,35 +10,67 @@ import 'services/deep_link_service.dart';
 import 'services/local_notification_service.dart';
 import 'services/auth_service.dart';
 import 'screens/splash_screen.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-// Global navigator key - dùng để navigate từ bất kỳ đâu
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Log platform
   if (kIsWeb) {
     print('🌐 Running on WEB');
     print('ℹ️ Deep Links & Local Notifications disabled on Web');
   } else {
     print('📱 Running on Mobile');
 
-    // ✅ Khởi tạo Local Notifications
+    if (Platform.isAndroid) {
+      await _requestAndroidPermissions();
+    }
+
     try {
       await LocalNotificationService.init();
+
+      // ✅ Set navigator key
+      LocalNotificationService.setNavigatorKey(navigatorKey);
+
       print('✅ Local Notifications initialized');
+
+      await Future.delayed(Duration(seconds: 1));
+      // await LocalNotificationService.testNotification();
+      // print('🧪 Test notification sent!');
+
     } catch (e) {
       print('⚠️ Local Notifications init error: $e');
     }
   }
 
-  // Config API
   ApiConfig.setNgrokUrl('https://backend-52ab.onrender.com');
-  // ApiConfig.setNgrokUrl('https://isochoric-subrostral-audie.ngrok-free.dev');
   ApiConfig.printConfig();
 
   runApp(const FlaiApp());
+}
+
+Future<void> _requestAndroidPermissions() async {
+  try {
+    // Import flutter_local_notifications để access Android plugin
+    final FlutterLocalNotificationsPlugin notifications =
+    FlutterLocalNotificationsPlugin();
+
+    final androidPlugin = notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin != null) {
+      // Request notification permission (Android 13+)
+      final notifGranted = await androidPlugin.requestNotificationsPermission();
+      print('📲 Notification permission: $notifGranted');
+
+      // Request exact alarm permission (Android 12+)
+      final alarmGranted = await androidPlugin.requestExactAlarmsPermission();
+      print('⏰ Exact alarm permission: $alarmGranted');
+    }
+  } catch (e) {
+    print('⚠️ Permission request error: $e');
+  }
 }
 
 class FlaiApp extends StatefulWidget {
@@ -53,17 +86,14 @@ class _FlaiAppState extends State<FlaiApp> with WidgetsBindingObserver {
     super.initState();
     print('🚀 FlaiApp: Initializing...');
 
-    // Observer cho app lifecycle
     WidgetsBinding.instance.addObserver(this);
 
-    // ✅ Khởi tạo Deep Links (chỉ trên mobile)
     if (!kIsWeb) {
       _initDeepLinks();
     }
   }
 
   Future<void> _initDeepLinks() async {
-    // Delay một chút để đảm bảo MaterialApp đã build xong
     await Future.delayed(const Duration(milliseconds: 500));
 
     try {
@@ -80,7 +110,6 @@ class _FlaiAppState extends State<FlaiApp> with WidgetsBindingObserver {
     print('📱 App lifecycle state: $state');
 
     if (state == AppLifecycleState.resumed) {
-      // ✅ Khi app resume từ background, verify auth status
       _verifyAuthOnResume();
     }
   }
@@ -91,7 +120,6 @@ class _FlaiAppState extends State<FlaiApp> with WidgetsBindingObserver {
       print('📱 App resumed - Auth status: $isLoggedIn');
 
       if (!isLoggedIn) {
-        // Token hết hạn hoặc bị xóa - đá về login
         print('⚠️ Auth token invalid, redirecting to login...');
         navigatorKey.currentState?.pushNamedAndRemoveUntil(
           AppRoutes.login,
@@ -107,7 +135,6 @@ class _FlaiAppState extends State<FlaiApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
 
-    // ✅ Dispose Deep Link service
     if (!kIsWeb) {
       DeepLinkService.dispose();
     }
@@ -124,7 +151,6 @@ class _FlaiAppState extends State<FlaiApp> with WidgetsBindingObserver {
       navigatorObservers: [NavigationLogger()],
       theme: AppTheme.light,
       navigatorKey: navigatorKey,
-      // ✅ THAY ĐỔI: Bắt đầu từ SplashScreen thay vì welcome
       initialRoute: AppRoutes.splash,
       routes: AppRoutes.routes,
       onGenerateRoute: AppRoutes.onGenerateRoute,
