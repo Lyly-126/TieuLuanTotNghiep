@@ -32,7 +32,8 @@ void main() async {
   }
 
   // Config API
-  ApiConfig.setNgrokUrl('https://isochoric-subrostral-audie.ngrok-free.dev');
+  ApiConfig.setNgrokUrl('https://backend-52ab.onrender.com');
+  // ApiConfig.setNgrokUrl('https://isochoric-subrostral-audie.ngrok-free.dev');
   ApiConfig.printConfig();
 
   runApp(const FlaiApp());

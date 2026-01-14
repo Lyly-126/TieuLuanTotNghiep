@@ -88,17 +88,52 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
     }
   }
 
-  /// Xử lý danh sách từ nhập thủ công
-  void _processManualWords(List<String> words) {
+  Future<void> _processManualWords(List<String> words) async {
     if (words.isEmpty) {
       _showError('Không có từ vựng nào để tạo flashcard');
       return;
     }
 
-    // Tạo TextExtractionResult giả từ dữ liệu nhập tay
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = 'Đang tra cứu từ điển...';
+      _errorMessage = null;
+    });
+
+    try {
+      // Gọi API để lookup từ điển cho tất cả từ
+      final previewResult = await TextExtractionService.previewSelectedWords(words);
+
+      if (previewResult.success && previewResult.words.isNotEmpty) {
+        // Tạo TextExtractionResult từ kết quả preview (đã có nghĩa)
+        final result = TextExtractionResult(
+          success: true,
+          message: 'Đã tra cứu ${previewResult.words.length} từ vựng',
+          sourceType: 'MANUAL',
+          extractedWords: previewResult.words,
+          totalWordsFound: previewResult.words.length,
+        );
+
+        if (mounted) {
+          setState(() => _isLoading = false);
+          _navigateToWordSelection(result);
+        }
+      } else {
+        // Fallback: Nếu API không trả về kết quả
+        _fallbackManualWords(words);
+      }
+    } catch (e) {
+      debugPrint('Error looking up words: $e');
+      // Fallback: Nếu API lỗi
+      _fallbackManualWords(words);
+    }
+  }
+
+  /// Fallback khi API lookup lỗi - tạo từ không có nghĩa
+  void _fallbackManualWords(List<String> words) {
     final extractedWords = words.map((word) => ExtractedWord(
       word: word.toLowerCase().trim(),
-      foundInDictionary: false, // Sẽ được lookup sau
+      foundInDictionary: false,
       selected: true,
     )).toList();
 
@@ -110,7 +145,10 @@ class _TextExtractionScreenState extends State<TextExtractionScreen>
       totalWordsFound: words.length,
     );
 
-    _navigateToWordSelection(result);
+    if (mounted) {
+      setState(() => _isLoading = false);
+      _navigateToWordSelection(result);
+    }
   }
 
   /// Chụp ảnh từ camera

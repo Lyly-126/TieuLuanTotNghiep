@@ -6,8 +6,9 @@ import '../../models/category_model.dart';
 import '../../services/quiz_service.dart';
 import 'quiz_screen.dart';
 
-/// 📝 Màn hình cài đặt trước khi bắt đầu bài kiểm tra
+/// 🔄 Màn hình cài đặt trước khi bắt đầu bài kiểm tra
 /// ✅ UI IMPROVED: Gradient header, card animations, better spacing
+/// ✅ FIX OVERFLOW: Sử dụng Flexible và Expanded đúng cách
 class QuizSetupScreen extends StatefulWidget {
   final CategoryModel category;
 
@@ -69,7 +70,8 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
     QuizTypeOption(
       type: QuizType.quickTest,
       title: 'Kiểm tra nhanh',
-      description: '10 câu hỏi • Khoảng 5 phút',
+      questionCount: 10,
+      duration: 'Khoảng 5 phút',
       icon: Icons.flash_on_rounded,
       color: Colors.orange,
       gradient: [Colors.orange, Colors.deepOrange],
@@ -77,7 +79,8 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
     QuizTypeOption(
       type: QuizType.fullTest,
       title: 'Kiểm tra đầy đủ',
-      description: '20 câu hỏi • Khoảng 15 phút',
+      questionCount: 20,
+      duration: 'Khoảng 15 phút',
       icon: Icons.assignment_rounded,
       color: Colors.blue,
       gradient: [Colors.blue, Colors.indigo],
@@ -85,7 +88,8 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
     QuizTypeOption(
       type: QuizType.listeningTest,
       title: 'Kiểm tra nghe',
-      description: '15 câu hỏi • Khoảng 10 phút',
+      questionCount: 15,
+      duration: 'Khoảng 10 phút',
       icon: Icons.headphones_rounded,
       color: Colors.green,
       gradient: [Colors.green, Colors.teal],
@@ -93,7 +97,8 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
     QuizTypeOption(
       type: QuizType.writingTest,
       title: 'Kiểm tra viết',
-      description: '10 câu hỏi • Khoảng 10 phút',
+      questionCount: 10,
+      duration: 'Khoảng 10 phút',
       icon: Icons.edit_rounded,
       color: Colors.purple,
       gradient: [Colors.purple, Colors.deepPurple],
@@ -101,7 +106,8 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
     QuizTypeOption(
       type: QuizType.mixedTest,
       title: 'Kiểm tra tổng hợp',
-      description: '25 câu hỏi • Khoảng 20 phút',
+      questionCount: 25,
+      duration: 'Khoảng 20 phút',
       icon: Icons.shuffle_rounded,
       color: Colors.teal,
       gradient: [Colors.teal, Colors.cyan],
@@ -258,57 +264,50 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                AppColors.primary,
-                AppColors.primary.withOpacity(0.8),
-                AppColors.accent,
-              ],
+              colors: [AppColors.primary, AppColors.accent],
             ),
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 60, 20, 24),
+              padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Icon + Badge
                   Row(
                     children: [
+                      // Icon
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Icon(Icons.quiz_rounded, color: Colors.white, size: 28),
+                        child: const Icon(
+                          Icons.quiz_rounded,
+                          color: Colors.white,
+                          size: 32,
+                        ),
                       ),
                       const SizedBox(width: 16),
+
+                      // Text content - ✅ FIX: Wrap với Expanded
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${widget.category.flashcardCount ?? 0} thẻ',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                            Text(
+                              '${widget.category.flashcardCount} thẻ',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.9),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             Text(
                               widget.category.name,
                               style: const TextStyle(
-                                color: Colors.white,
                                 fontSize: 22,
+                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 height: 1.2,
                               ),
@@ -376,7 +375,7 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
             ),
             const SizedBox(width: 16),
 
-            // Text content
+            // Text content - ✅ FIX: Sử dụng Expanded đúng cách
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,22 +389,15 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.timer_outlined,
-                        size: 14,
-                        color: AppColors.textGray,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        option.description,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textGray,
-                        ),
-                      ),
-                    ],
+                  // ✅ FIX: Thay Row bằng Wrap hoặc dùng Text đơn giản
+                  Text(
+                    '⏱ ${option.questionCount} câu hỏi • ${option.duration}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textGray,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -471,10 +463,10 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
         )
             : Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
-            const SizedBox(width: 10),
-            const Text(
+          children: const [
+            Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
+            SizedBox(width: 10),
+            Text(
               'Bắt đầu kiểm tra',
               style: TextStyle(
                 fontSize: 18,
@@ -545,7 +537,8 @@ class _QuizSetupScreenState extends State<QuizSetupScreen>
 class QuizTypeOption {
   final QuizType type;
   final String title;
-  final String description;
+  final int questionCount;
+  final String duration;
   final IconData icon;
   final Color color;
   final List<Color> gradient;
@@ -553,7 +546,8 @@ class QuizTypeOption {
   QuizTypeOption({
     required this.type,
     required this.title,
-    required this.description,
+    required this.questionCount,
+    required this.duration,
     required this.icon,
     required this.color,
     required this.gradient,

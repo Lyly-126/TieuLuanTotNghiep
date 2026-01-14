@@ -8,6 +8,7 @@ import '../models/category_study_schedule_model.dart';
 /// - Highlight ngày hiện tại
 /// - Hiển thị các buổi học đã đặt lịch
 /// - Animation đẹp mắt
+/// ✅ FIX OVERFLOW: Sử dụng Flexible và Expanded đúng cách
 class VisualStudyCalendarWidget extends StatefulWidget {
   final StudyScheduleOverview overview;
   final Function(ScheduleItem)? onTapItem;
@@ -137,7 +138,7 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
           ),
           const SizedBox(width: 14),
 
-          // Title và subtitle
+          // Title và subtitle - ✅ FIX: Wrap với Expanded
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,13 +165,18 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      widget.overview.totalActiveSchedules > 0
-                          ? '${widget.overview.totalActiveSchedules} học phần đang theo dõi'
-                          : 'Chưa có lịch học',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
+                    // ✅ FIX: Wrap text với Flexible
+                    Flexible(
+                      child: Text(
+                        widget.overview.totalActiveSchedules > 0
+                            ? '${widget.overview.totalActiveSchedules} học phần đang theo dõi'
+                            : 'Chưa có lịch học',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -248,7 +254,7 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primary
@@ -446,7 +452,7 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
 
             const SizedBox(width: 12),
 
-            // Content card
+            // Content card - ✅ FIX: Wrap với Expanded
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(14),
@@ -492,7 +498,7 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
 
                     const SizedBox(width: 12),
 
-                    // Info
+                    // Info - ✅ FIX: Wrap với Expanded
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,7 +519,11 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                          Row(
+                          // ✅ FIX: Sử dụng Wrap thay vì Row để tránh overflow
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 4,
+                            runSpacing: 4,
                             children: [
                               Icon(
                                 Icons.access_time_rounded,
@@ -522,7 +532,6 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
                                     ? AppColors.primary
                                     : AppColors.textSecondary,
                               ),
-                              const SizedBox(width: 4),
                               Text(
                                 item.displayTime,
                                 style: TextStyle(
@@ -535,8 +544,7 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
                                       : AppColors.textSecondary,
                                 ),
                               ),
-                              if (isUpcoming) ...[
-                                const SizedBox(width: 8),
+                              if (isUpcoming)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 6,
@@ -555,7 +563,6 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
                                     ),
                                   ),
                                 ),
-                              ],
                             ],
                           ),
                         ],
@@ -602,8 +609,6 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
   }
 
   Widget _buildEmptyDayState() {
-    final isToday = _selectedDayIndex == (DateTime.now().weekday % 7);
-
     return Container(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -611,52 +616,32 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isToday
-                  ? AppColors.success.withOpacity(0.1)
-                  : AppColors.primary.withOpacity(0.1),
+              color: AppColors.background,
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isToday
-                  ? Icons.celebration_rounded
-                  : Icons.event_available_rounded,
-              color: isToday ? AppColors.success : AppColors.primary,
+              Icons.event_available_rounded,
+              color: AppColors.textGray,
               size: 32,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
-            isToday
-                ? 'Không có lịch học hôm nay'
-                : 'Không có lịch học ngày này',
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryDark,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            isToday
-                ? 'Bạn có thể tự học hoặc nghỉ ngơi 🎉'
-                : 'Thêm lịch học để không bỏ lỡ buổi học',
+            'Không có lịch học',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
-            textAlign: TextAlign.center,
           ),
-          if (!isToday && widget.onTapAddSchedule != null) ...[
-            const SizedBox(height: 16),
-            TextButton.icon(
-              onPressed: widget.onTapAddSchedule,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Thêm lịch học'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-              ),
+          const SizedBox(height: 4),
+          Text(
+            'Ngày này bạn chưa đặt lịch học nào',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textGray,
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -670,46 +655,36 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
       child: Row(
         children: [
           // Thông tin buổi học tiếp theo
-          if (nextSchedule != null)
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+          if (nextSchedule != null) ...[
+            Icon(
+              Icons.schedule_rounded,
+              size: 16,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'Tiếp theo: ${nextSchedule.displayTime}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w500,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.upcoming_rounded,
-                      size: 16,
-                      color: AppColors.accent,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Tiếp theo: ${nextSchedule.displayTime} - ${nextSchedule.categoryName}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primaryDark,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            )
-          else
-            const Spacer(),
+            ),
+          ],
+
+          const Spacer(),
 
           // Nút xem tất cả
           if (widget.onTapViewAll != null)
             TextButton(
               onPressed: widget.onTapViewAll,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -743,36 +718,51 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
   }
 
   bool _hasScheduleOnDay(int dayIndex) {
-    // Kiểm tra trong todaySchedules
-    if (dayIndex == (DateTime.now().weekday % 7)) {
-      return widget.overview.todaySchedules.isNotEmpty;
-    }
-
-    // Kiểm tra trong upcomingSchedules
-    return widget.overview.upcomingSchedules
-        .any((item) => item.dayOfWeek == dayIndex);
+    return _getScheduleCountOnDay(dayIndex) > 0;
   }
 
   int _getScheduleCountOnDay(int dayIndex) {
-    if (dayIndex == (DateTime.now().weekday % 7)) {
-      return widget.overview.todaySchedules.length;
+    int count = 0;
+
+    for (var item in widget.overview.todaySchedules) {
+      final itemDay = item.scheduledDateTime?.weekday ?? -1;
+      final mappedIndex = itemDay % 7;
+      if (mappedIndex == dayIndex) {
+        count++;
+      }
     }
 
-    return widget.overview.upcomingSchedules
-        .where((item) => item.dayOfWeek == dayIndex)
-        .length;
+    for (var item in widget.overview.upcomingSchedules) {
+      final itemDay = item.scheduledDateTime?.weekday ?? -1;
+      final mappedIndex = itemDay % 7;
+      if (mappedIndex == dayIndex) {
+        count++;
+      }
+    }
+
+    return count;
   }
 
   List<ScheduleItem> _getSchedulesForSelectedDay() {
-    final todayIndex = DateTime.now().weekday % 7;
+    List<ScheduleItem> result = [];
 
-    if (_selectedDayIndex == todayIndex) {
-      return widget.overview.todaySchedules;
+    for (var item in widget.overview.todaySchedules) {
+      final itemDay = item.scheduledDateTime?.weekday ?? -1;
+      final mappedIndex = itemDay % 7;
+      if (mappedIndex == _selectedDayIndex) {
+        result.add(item);
+      }
     }
 
-    return widget.overview.upcomingSchedules
-        .where((item) => item.dayOfWeek == _selectedDayIndex)
-        .toList()
+    for (var item in widget.overview.upcomingSchedules) {
+      final itemDay = item.scheduledDateTime?.weekday ?? -1;
+      final mappedIndex = itemDay % 7;
+      if (mappedIndex == _selectedDayIndex) {
+        result.add(item);
+      }
+    }
+
+    return result
       ..sort((a, b) => a.compareTime(b));
   }
 
@@ -876,7 +866,7 @@ class CompactScheduleBanner extends StatelessWidget {
             ),
             const SizedBox(width: 12),
 
-            // Info
+            // Info - ✅ FIX: Wrap với Expanded
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

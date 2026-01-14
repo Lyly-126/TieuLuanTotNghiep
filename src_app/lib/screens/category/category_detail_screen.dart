@@ -48,7 +48,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
   CategoryModel? _category;
   UserModel? _currentUser;
   CategoryProgressModel? _progress;
-  StudyReminderModel? _reminder;
   StudyStreakModel? _streak;
   bool _isLoadingProgress = true;
 
@@ -247,6 +246,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     }
   }
 
+
+
 // --- Update Schedule ---
   Future<void> _updateSchedule(CategoryStudyScheduleModel newSchedule) async {
     // Cập nhật UI ngay lập tức
@@ -261,7 +262,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     if (mounted) {
       setState(() {
         _conflicts = conflicts.where((c) =>
-          c.categories.any((cat) => cat.categoryId == widget.category.id)
+            c.categories.any((cat) => cat.categoryId == widget.category.id)
         ).toList();
       });
     }
@@ -630,15 +631,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       final results = await Future.wait([
         StudyProgressService.getCategoryProgress(_category!.id),
         StudyProgressService.getStreakInfo(),
-        StudyProgressService.getReminderSettings(),
       ]);
 
       if (mounted) {
         setState(() {
           _progress = results[0] as CategoryProgressModel;
           _streak = results[1] as StudyStreakModel;
-          _reminder = results[2] as StudyReminderModel;
-          _isLoadingProgress = true;
+          _isLoadingProgress = false;
         });
       }
     } catch (e) {
@@ -702,10 +701,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
           child: Column(
             children: [
               // if (_progress != null && !_isLoadingProgress)
-                StudyProgressCard(
-                  progress: _progress!,
-                  onResetProgress: _showResetProgressDialog,
-                ),
+              StudyProgressCard(
+                progress: _progress!,
+                onResetProgress: _showResetProgressDialog,
+              ),
 
               // ✅ MỚI: Schedule Setting Card
               if (_schedule != null && !_isLoadingSchedule)
@@ -725,16 +724,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
         ),
       ],
     );
-  }
-
-  Future<void> _updateReminder(StudyReminderModel newReminder) async {
-    setState(() => _reminder = newReminder);
-
-    // Gọi API cập nhật
-    final updated = await StudyProgressService.updateReminderSettings(newReminder);
-    if (updated != null && mounted) {
-      setState(() => _reminder = updated);
-    }
   }
 
   void _showResetProgressDialog() {
@@ -787,37 +776,37 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
     return SliverAppBar(
       expandedHeight: 180, pinned: true, backgroundColor: AppColors.primary,
       leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
       ),
       actions: [
         if (_canSave) IconButton(icon: Icon(_isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white), onPressed: _toggleSave),
 
-        IconButton(
-          onPressed: () async {
-            if (category.shareToken == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Không thể chia sẻ bộ thẻ này')),
-              );
-              return;
-            }
-
-            try {
-              await ShareLinkService.shareCategory(
-                categoryName: category.name,
-                shareToken: category.shareToken!,
-                description: category.description,
-                flashcardCount: category.flashcardCount,
-              );
-            } catch (e) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Lỗi: $e')),
-              );
-            }
-          },
-          icon: const Icon(Icons.share_rounded),
-          tooltip: 'Chia sẻ',
-        ),
+        // IconButton(
+        //   onPressed: () async {
+        //     if (category.shareToken == null) {
+        //       ScaffoldMessenger.of(context).showSnackBar(
+        //         const SnackBar(content: Text('Không thể chia sẻ bộ thẻ này')),
+        //       );
+        //       return;
+        //     }
+        //
+        //     try {
+        //       await ShareLinkService.shareCategory(
+        //         categoryName: category.name,
+        //         shareToken: category.shareToken!,
+        //         description: category.description,
+        //         flashcardCount: category.flashcardCount,
+        //       );
+        //     } catch (e) {
+        //       ScaffoldMessenger.of(context).showSnackBar(
+        //         SnackBar(content: Text('Lỗi: $e')),
+        //       );
+        //     }
+        //   },
+        //   icon: const Icon(Icons.share_rounded),
+        //   tooltip: 'Chia sẻ',
+        // ),
 
         if (_canEdit) PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert, color: Colors.white),
@@ -1269,211 +1258,6 @@ class StudyProgressCard extends StatelessWidget {
     if (percent >= 50) return AppColors.primary;
     if (percent >= 25) return AppColors.warning;
     return AppColors.textGray;
-  }
-}
-
-
-// ==================== STUDY REMINDER CARD ====================
-
-/// Widget cài đặt thời gian học tập
-class StudyReminderCard extends StatelessWidget {
-  final StudyReminderModel reminder;
-  final Function(StudyReminderModel) onUpdate;
-  final VoidCallback? onPickTime;
-
-  const StudyReminderCard({
-    Key? key,
-    required this.reminder,
-    required this.onUpdate,
-    this.onPickTime,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with toggle
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),  // ✅ Đổi thành success
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.notifications_active,
-                  color: reminder.isEnabled ? AppColors.success : AppColors.textGray,  // ✅ Đổi thành success
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Nhắc nhở học tập',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryDark,
-                      ),
-                    ),
-                    Text(
-                      'Duy trì thói quen học mỗi ngày',
-                      style: TextStyle(fontSize: 12, color: AppColors.textGray),
-                    ),
-                  ],
-                ),
-              ),
-              Switch.adaptive(
-                value: reminder.isEnabled,
-                onChanged: (value) {
-                  onUpdate(reminder.copyWith(isEnabled: value));
-                },
-                activeColor: AppColors.success,  // ✅ Đổi thành success
-              ),
-            ],
-          ),
-
-          if (reminder.isEnabled) ...[
-            const SizedBox(height: 20),
-            const Divider(height: 1),
-            const SizedBox(height: 20),
-
-            // Time Picker
-            _buildTimePicker(context),
-            const SizedBox(height: 16),
-
-            // Days of week
-            _buildDaysSelector(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimePicker(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showTimePicker(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.access_time, color: AppColors.success, size: 22),  // ✅ Đổi thành success
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Thời gian nhắc nhở',
-                  style: TextStyle(fontSize: 12, color: AppColors.textGray),
-                ),
-                Text(
-                  reminder.displayTime,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryDark,
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            Icon(Icons.edit, color: AppColors.textGray, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showTimePicker(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: reminder.hour, minute: reminder.minute),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.success,  // ✅ Đổi thành success
-              secondary: AppColors.success,  // ✅ Đổi thành success
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      onUpdate(reminder.copyWith(hour: picked.hour, minute: picked.minute));
-    }
-  }
-
-  Widget _buildDaysSelector() {
-    const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Nhắc nhở vào các ngày',
-          style: TextStyle(fontSize: 13, color: AppColors.textGray),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: List.generate(7, (index) {
-            final isEnabled = reminder.isDayEnabled(index);
-            return GestureDetector(
-              onTap: () => onUpdate(reminder.toggleDay(index)),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: isEnabled ? AppColors.success : Colors.transparent,  // ✅ Đổi thành success
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isEnabled ? AppColors.success : AppColors.border,  // ✅ Đổi thành success
-                    width: 1.5,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    dayLabels[index],
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isEnabled ? Colors.white : AppColors.textGray,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
   }
 }
 

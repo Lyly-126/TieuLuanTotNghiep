@@ -251,7 +251,7 @@ class StudyScheduleCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.today_rounded, size: 14, color: AppColors.success),
+                    Icon(Icons.today, size: 14, color: AppColors.success),
                     const SizedBox(width: 4),
                     Text(
                       'Hôm nay',
@@ -264,27 +264,39 @@ class StudyScheduleCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const Spacer(),
               Text(
                 '${overview.todaySchedules.length} buổi học',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textSecondary,
+                  color: AppColors.textGray,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ...overview.todaySchedules.take(3).map((item) => _buildScheduleItem(item, isToday: true)),
+          ...overview.todaySchedules.take(3).map((item) {
+            final now = DateTime.now();
+            final isPast = item.scheduledDateTime != null &&
+                item.scheduledDateTime!.isBefore(now);
+            final isNext = !isPast &&
+                overview.todaySchedules.indexOf(item) ==
+                    overview.todaySchedules.indexWhere((i) =>
+                    i.scheduledDateTime != null &&
+                        i.scheduledDateTime!.isAfter(now));
+
+            return _buildScheduleItem(item, isPast: isPast, isNext: isNext);
+          }),
           if (overview.todaySchedules.length > 3)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                '+ ${overview.todaySchedules.length - 3} buổi học khác',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w500,
+            Center(
+              child: TextButton(
+                onPressed: onTapSchedule,
+                child: Text(
+                  '+${overview.todaySchedules.length - 3} buổi học khác',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ),
@@ -295,7 +307,7 @@ class StudyScheduleCard extends StatelessWidget {
 
   Widget _buildNoTodaySchedule() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -305,31 +317,18 @@ class StudyScheduleCard extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              Icons.check_circle_outline_rounded,
-              color: AppColors.success,
+              Icons.event_available,
+              color: AppColors.textGray,
               size: 24,
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Không có lịch học hôm nay',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryDark,
-                    ),
-                  ),
-                  Text(
-                    'Bạn có thể tự học hoặc nghỉ ngơi',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Hôm nay không có lịch học',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textGray,
+                ),
               ),
             ),
           ],
@@ -339,87 +338,45 @@ class StudyScheduleCard extends StatelessWidget {
   }
 
   Widget _buildUpcomingSchedules() {
-    // Nhóm theo ngày
-    Map<int, List<ScheduleItem>> groupedByDay = {};
-    for (var item in overview.upcomingSchedules.take(10)) {
-      groupedByDay.putIfAbsent(item.dayOfWeek, () => []);
-      groupedByDay[item.dayOfWeek]!.add(item);
-    }
-
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.event_note_rounded, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 6),
-              Text(
-                'Sắp tới',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
+          Text(
+            'Sắp tới',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
           ),
-          const SizedBox(height: 12),
-          // Hiển thị theo ngày
-          ...groupedByDay.entries.take(3).map((entry) {
-            final dayName = _getDayName(entry.key);
-            final items = entry.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 32,
-                    child: Text(
-                      dayName,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: items.map((item) => _buildMiniScheduleChip(item)).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: overview.upcomingSchedules
+                .take(4)
+                .map((item) => _buildMiniScheduleChip(item))
+                .toList(),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildScheduleItem(ScheduleItem item, {bool isToday = false}) {
-    final now = DateTime.now();
-    final isPast = isToday && item.scheduledDateTime != null &&
-        item.scheduledDateTime!.isBefore(now);
-    final isNext = isToday && item.scheduledDateTime != null &&
-        item.scheduledDateTime!.isAfter(now) &&
-        item.scheduledDateTime!.difference(now).inMinutes <= 60;
-
-    return InkWell(
+  Widget _buildScheduleItem(ScheduleItem item,
+      {bool isPast = false, bool isNext = false}) {
+    return GestureDetector(
       onTap: () => onTapItem?.call(item),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isNext
-              ? AppColors.primary.withOpacity(0.1)
+              ? AppColors.primary.withOpacity(0.05)
               : isPast
-              ? AppColors.textGray.withOpacity(0.05)
+              ? AppColors.background.withOpacity(0.5)
               : AppColors.background,
           borderRadius: BorderRadius.circular(12),
           border: isNext
@@ -428,32 +385,35 @@ class StudyScheduleCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Thời gian
+            // Time
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              width: 50,
+              padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
-                color: isNext
-                    ? AppColors.primary
-                    : isPast
-                    ? AppColors.textGray.withOpacity(0.2)
+                color: isPast
+                    ? AppColors.textGray.withOpacity(0.1)
+                    : isNext
+                    ? AppColors.primary.withOpacity(0.1)
                     : Colors.white,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                item.displayTime,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: isNext
-                      ? Colors.white
-                      : isPast
-                      ? AppColors.textGray
-                      : AppColors.primaryDark,
+              child: Center(
+                child: Text(
+                  item.displayTime,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isPast
+                        ? AppColors.textGray
+                        : isNext
+                        ? AppColors.primary
+                        : AppColors.primaryDark,
+                  ),
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            // Tên category
+            // Category name
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,7 +451,8 @@ class StudyScheduleCard extends StatelessWidget {
                   color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
+                child:
+                const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
               )
             else
               Icon(Icons.chevron_right, size: 20, color: AppColors.textGray),
@@ -543,9 +504,11 @@ class StudyScheduleCard extends StatelessWidget {
 // ==================== CATEGORY SCHEDULE SETTING CARD ====================
 
 /// Widget cài đặt lịch học cho một category (trong category_detail)
+/// ✅ CẬP NHẬT: Thêm nút Xóa nhắc nhở
 class CategoryScheduleSettingCard extends StatefulWidget {
   final CategoryStudyScheduleModel schedule;
   final Function(CategoryStudyScheduleModel) onUpdate;
+  final VoidCallback? onDelete; // ✅ NEW: Callback xóa
   final List<ScheduleConflict>? conflicts;
   final VoidCallback? onShowConflictDetail;
 
@@ -553,15 +516,18 @@ class CategoryScheduleSettingCard extends StatefulWidget {
     Key? key,
     required this.schedule,
     required this.onUpdate,
+    this.onDelete, // ✅ NEW
     this.conflicts,
     this.onShowConflictDetail,
   }) : super(key: key);
 
   @override
-  State<CategoryScheduleSettingCard> createState() => _CategoryScheduleSettingCardState();
+  State<CategoryScheduleSettingCard> createState() =>
+      _CategoryScheduleSettingCardState();
 }
 
-class _CategoryScheduleSettingCardState extends State<CategoryScheduleSettingCard> {
+class _CategoryScheduleSettingCardState
+    extends State<CategoryScheduleSettingCard> {
   static const List<String> _dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
   @override
@@ -594,6 +560,9 @@ class _CategoryScheduleSettingCardState extends State<CategoryScheduleSettingCar
             // Cảnh báo xung đột
             if (widget.conflicts != null && widget.conflicts!.isNotEmpty)
               _buildConflictWarning(),
+
+            // ✅ NEW: Nút xóa nhắc nhở
+            _buildDeleteButton(),
 
             const SizedBox(height: 16),
           ],
@@ -866,6 +835,85 @@ class _CategoryScheduleSettingCardState extends State<CategoryScheduleSettingCar
             Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.warning),
           ],
         ),
+      ),
+    );
+  }
+
+  // ✅ NEW: Nút xóa nhắc nhở
+  Widget _buildDeleteButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: InkWell(
+        onTap: () => _showDeleteConfirmation(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.error.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.error.withOpacity(0.2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Xóa nhắc nhở',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ NEW: Dialog xác nhận xóa
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_forever, color: AppColors.error),
+            ),
+            const SizedBox(width: 12),
+            const Text('Xóa nhắc nhở?'),
+          ],
+        ),
+        content: const Text(
+          'Bạn có chắc muốn xóa nhắc nhở học tập này?\n\n'
+              'Hành động này không thể hoàn tác.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.onDelete?.call();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Xóa'),
+          ),
+        ],
       ),
     );
   }

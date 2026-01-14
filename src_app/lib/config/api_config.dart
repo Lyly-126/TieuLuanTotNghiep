@@ -11,13 +11,17 @@ class ApiConfig {
   static const bool isEmulator = true; // Đặt false khi test trên thiết bị thật
 
   /// Base host cho development (localhost)
-  static const String _developmentHost = 'http://localhost:8080';
+  // static const String _developmentHost = 'http://localhost:8080';
+  static const String _developmentHost = 'https://backend-52ab.onrender.com';
+  // https://backend-52ab.onrender.com
 
   /// Base host cho production (domain thật của bạn)
-  static const String _productionHost = 'https://your-production-domain.com';
+  // static const String _productionHost = 'https://your-production-domain.com';
+  static const String _productionHost = 'https://backend-52ab.onrender.com';
+  // https://backend-52ab.onrender.com
 
   /// Ngrok URL (dùng khi test trên thiết bị thật)
-  static String? _ngrokUrl;
+  static String? _ngrokUrl='https://backend-52ab.onrender.com';
 
   /// Production mode flag
   static bool _isProduction = false;
@@ -39,7 +43,9 @@ class ApiConfig {
     }
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8080';
+      // https://backend-52ab.onrender.com
+      return 'https://backend-52ab.onrender.com';
+      // return 'http://10.0.2.2:8080';
     }
 
     return _developmentHost;

@@ -611,11 +611,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        'ngày streak',
-                        style: TextStyle(fontSize: 14, color: Colors.white70),
+                    Flexible(  // ✅ Thêm Flexible
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          'ngày streak',
+                          style: const TextStyle(fontSize: 14, color: Colors.white70),
+                          overflow: TextOverflow.ellipsis,  // ✅ Thêm overflow
+                        ),
                       ),
                     ),
                   ],
@@ -635,30 +638,37 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          Column(
-            children: [
-              Row(
-                children: List.generate(7, (index) {
-                  final isStudied = index < _streakInfo!.weeklyData.length
-                      ? _streakInfo!.weeklyData[index].isStudied
-                      : false;
-                  return Container(
-                    width: 10,
-                    height: 10,
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(
-                      color: isStudied ? Colors.white : Colors.white.withOpacity(0.3),
-                      shape: BoxShape.circle,
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '7 ngày qua',
-                style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.7)),
-              ),
-            ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Sử dụng Wrap để tự động xuống dòng nếu cần
+                Wrap(
+                  spacing: 2,
+                  runSpacing: 2,
+                  alignment: WrapAlignment.end,
+                  children: List.generate(7, (index) {
+                    final isStudied = index < _streakInfo!.weeklyData.length
+                        ? _streakInfo!.weeklyData[index].isStudied
+                        : false;
+                    return Container(
+                      width: 8, // Giảm size
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isStudied ? Colors.white : Colors.white.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '7 ngày qua',
+                  style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.7)),
+                ),
+              ],
+            ),
           ),
         ],
       ),

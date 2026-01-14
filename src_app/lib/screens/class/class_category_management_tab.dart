@@ -5,22 +5,6 @@ import '../../models/category_model.dart';
 import '../../services/category_service.dart';
 import '../category/category_detail_screen.dart';
 
-/// ==================== CLASS CATEGORY MANAGEMENT TAB ====================
-/// Widget quản lý chủ đề (category) trong lớp học với đầy đủ chức năng:
-/// - Xem danh sách chủ đề
-/// - Thêm chủ đề mới vào lớp học
-/// - Thêm chủ đề từ danh sách cá nhân
-/// - Sửa chủ đề
-/// - Xóa chủ đề
-///
-/// Cách sử dụng: Thay thế _CategoriesTab trong class_detail_screen.dart
-/// ```dart
-/// ClassCategoryManagementTab(
-///   classId: widget.classId,
-///   isOwner: widget.isOwner,
-///   onCategoryUpdated: () => _loadClassDetail(), // Optional callback
-/// )
-/// ```
 class ClassCategoryManagementTab extends StatefulWidget {
   final int classId;
   final bool isOwner;
