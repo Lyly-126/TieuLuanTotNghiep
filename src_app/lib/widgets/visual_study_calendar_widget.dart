@@ -9,6 +9,7 @@ import '../models/category_study_schedule_model.dart';
 /// - Hiển thị các buổi học đã đặt lịch
 /// - Animation đẹp mắt
 /// ✅ FIX OVERFLOW: Sử dụng Flexible và Expanded đúng cách
+/// ✅ FIX DUPLICATE: Loại bỏ lịch trùng lặp khi đếm và hiển thị
 class VisualStudyCalendarWidget extends StatefulWidget {
   final StudyScheduleOverview overview;
   final Function(ScheduleItem)? onTapItem;
@@ -294,13 +295,13 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
               ),
             ),
 
-            // Indicator cho ngày có lịch
+            // Indicator cho ngày có lịch - ✅ FIX: Hiển thị đúng số lượng
             const SizedBox(height: 4),
             if (hasSchedule)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(
-                  scheduleCount.clamp(0, 3),
+                  scheduleCount.clamp(0, 3), // Tối đa 3 chấm
                       (i) => Container(
                     margin: EdgeInsets.only(left: i > 0 ? 2 : 0),
                     width: 5,
@@ -721,46 +722,68 @@ class _VisualStudyCalendarWidgetState extends State<VisualStudyCalendarWidget>
     return _getScheduleCountOnDay(dayIndex) > 0;
   }
 
+  /// ✅ FIX: Đếm số lịch học KHÔNG TRÙNG LẶP cho mỗi ngày
   int _getScheduleCountOnDay(int dayIndex) {
-    int count = 0;
+    Set<String> uniqueSchedules = {};
 
+    // Thêm từ todaySchedules
     for (var item in widget.overview.todaySchedules) {
       final itemDay = item.scheduledDateTime?.weekday ?? -1;
       final mappedIndex = itemDay % 7;
       if (mappedIndex == dayIndex) {
-        count++;
+        // ✅ Tạo ID duy nhất dựa trên categoryId + thời gian + ngày
+        final scheduleId = '${item.categoryId}_${item.hour}_${item.minute}_${item.dayOfWeek}';
+        uniqueSchedules.add(scheduleId);
       }
     }
 
+    // Thêm từ upcomingSchedules (chỉ thêm nếu chưa có)
     for (var item in widget.overview.upcomingSchedules) {
       final itemDay = item.scheduledDateTime?.weekday ?? -1;
       final mappedIndex = itemDay % 7;
       if (mappedIndex == dayIndex) {
-        count++;
+        final scheduleId = '${item.categoryId}_${item.hour}_${item.minute}_${item.dayOfWeek}';
+        uniqueSchedules.add(scheduleId);
       }
     }
 
-    return count;
+    debugPrint('📅 [Calendar] Day $dayIndex: ${uniqueSchedules.length} unique schedules');
+    return uniqueSchedules.length;
   }
 
+  /// ✅ FIX: Lấy danh sách lịch học KHÔNG TRÙNG LẶP cho ngày được chọn
   List<ScheduleItem> _getSchedulesForSelectedDay() {
     List<ScheduleItem> result = [];
+    Set<String> addedScheduleIds = {};
 
+    // Ưu tiên lấy từ todaySchedules trước
     for (var item in widget.overview.todaySchedules) {
       final itemDay = item.scheduledDateTime?.weekday ?? -1;
       final mappedIndex = itemDay % 7;
       if (mappedIndex == _selectedDayIndex) {
-        result.add(item);
+        // ✅ Tạo ID duy nhất dựa trên categoryId + thời gian + ngày
+        final scheduleId = '${item.categoryId}_${item.hour}_${item.minute}_${item.dayOfWeek}';
+        if (!addedScheduleIds.contains(scheduleId)) {
+          result.add(item);
+          addedScheduleIds.add(scheduleId);
+        }
       }
     }
 
+    // Sau đó lấy từ upcomingSchedules (chỉ thêm nếu chưa có)
     for (var item in widget.overview.upcomingSchedules) {
       final itemDay = item.scheduledDateTime?.weekday ?? -1;
       final mappedIndex = itemDay % 7;
       if (mappedIndex == _selectedDayIndex) {
-        result.add(item);
+        final scheduleId = '${item.categoryId}_${item.hour}_${item.minute}_${item.dayOfWeek}';
+        if (!addedScheduleIds.contains(scheduleId)) {
+          result.add(item);
+          addedScheduleIds.add(scheduleId);
+        }
       }
     }
+
+    debugPrint('📅 [Calendar] Selected day $_selectedDayIndex: ${result.length} schedules (${addedScheduleIds.length} unique IDs)');
 
     return result
       ..sort((a, b) => a.compareTime(b));

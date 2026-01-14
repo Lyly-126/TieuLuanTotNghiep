@@ -5,6 +5,7 @@ import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
 import '../../models/class_model.dart';
 import '../../services/class_service.dart';
+import '../../widgets/study_schedule_widgets.dart';
 import '../../widgets/visual_study_calendar_widget.dart';
 import '../../widgets/custom_button.dart';
 import '../class/class_detail_screen.dart';
@@ -23,7 +24,7 @@ import '../../services/study_progress_service.dart';
 import '../../models/study_progress_model.dart';
 import '../../models/category_study_schedule_model.dart';
 import '../../services/category_study_schedule_service.dart';
-import '../../widgets/study_schedule_widgets.dart';
+// import '../../widgets/study_schedule_widgets.dart';
 
 /// ✅ HOME SCREEN - CẢI TIẾN TAB TRANG CHỦ
 /// - Bộ thẻ đang học: Hiển thị categories có progress, swipe ngang

@@ -342,38 +342,38 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
                           ),
                         ),
                       ),
-                      // const SizedBox(width: 8),
-                      // IconButton(
-                      //   onPressed: () async {
-                      //     try {
-                      //       print('🔗 Sharing class: ${_classDetail!.name}');
-                      //       print('🔗 Invite code: ${_classDetail!.inviteCode}');
-                      //
-                      //       await ShareLinkService.shareClass(
-                      //         className: _classDetail!.name,
-                      //         inviteCode: _classDetail!.inviteCode!,
-                      //         description: _classDetail!.description,
-                      //       );
-                      //
-                      //       print('✅ Share completed');
-                      //     } catch (e) {
-                      //       print('❌ Share error: $e');
-                      //
-                      //       if (!mounted) return;
-                      //       ScaffoldMessenger.of(context).showSnackBar(
-                      //         SnackBar(
-                      //           content: Text('Lỗi khi chia sẻ: ${e.toString()}'),
-                      //           backgroundColor: AppColors.error,
-                      //         ),
-                      //       );
-                      //     }
-                      //   },
-                      //   icon: const Icon(Icons.share_rounded),
-                      //   color: AppColors.secondary,
-                      //   style: IconButton.styleFrom(
-                      //     backgroundColor: AppColors.secondary.withOpacity(0.1),
-                      //   ),
-                      // ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () async {
+                          try {
+                            print('🔗 Sharing class: ${_classDetail!.name}');
+                            print('🔗 Invite code: ${_classDetail!.inviteCode}');
+
+                            await ShareLinkService.shareClass(
+                              className: _classDetail!.name,
+                              inviteCode: _classDetail!.inviteCode!,
+                              description: _classDetail!.description,
+                            );
+
+                            print('✅ Share completed');
+                          } catch (e) {
+                            print('❌ Share error: $e');
+
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Lỗi khi chia sẻ: ${e.toString()}'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.share_rounded),
+                        color: AppColors.secondary,
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.secondary.withOpacity(0.1),
+                        ),
+                      ),
                     ],
                   ),
                 ],

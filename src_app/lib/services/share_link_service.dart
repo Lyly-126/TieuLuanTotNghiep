@@ -1,21 +1,14 @@
-// File: lib/services/share_link_service.dart
-
 import 'package:share_plus/share_plus.dart';
 import '../config/api_config.dart';
 
 /// Service để chia sẻ lớp học và category qua link
 class ShareLinkService {
+  static const String _landingPageUrl = 'https://melodic-kitten-e659c0.netlify.app';
 
-  // ==================== CLASS SHARING ====================
 
   /// Tạo link chia sẻ lớp học
   static String generateClassShareLink(String inviteCode) {
-    if (ApiConfig.isUsingNgrok) {
-      final ngrokUrl = ApiConfig.baseUrl;
-      return '$ngrokUrl/join/$inviteCode';
-    } else {
-      return 'flai://join/$inviteCode';
-    }
+    return '$_landingPageUrl/join/$inviteCode';  // ✅ Không dùng backend URL nữa
   }
 
   /// Chia sẻ lớp học qua link
@@ -53,12 +46,7 @@ ${description != null && description.isNotEmpty ? '📝 $description\n\n' : ''}�
 
   /// Tạo link chia sẻ category
   static String generateCategoryShareLink(String shareToken) {
-    if (ApiConfig.isUsingNgrok) {
-      final ngrokUrl = ApiConfig.baseUrl;
-      return '$ngrokUrl/category/$shareToken';
-    } else {
-      return 'flai://category/$shareToken';
-    }
+    return '$_landingPageUrl/category/$shareToken';
   }
 
   /// Chia sẻ category qua link

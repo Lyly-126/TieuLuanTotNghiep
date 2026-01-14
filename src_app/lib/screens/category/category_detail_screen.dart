@@ -218,35 +218,81 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
 
   Future<void> _loadSchedule() async {
     if (!mounted) return;
-
-    setState(() => _isLoadingSchedule = true);
+// ✅ Reset state trước khi load để tránh hiện 2 lịch
+    setState(() {
+      _isLoadingSchedule = true;
+      _schedule = null;  // ✅ THÊM DÒNG NÀY
+      _conflicts = null; // ✅ THÊM DÒNG NÀY
+    });
 
     try {
       // Lấy schedule của category này
       final schedule = await CategoryStudyScheduleService.getSchedule(widget.category.id);
 
-      if (schedule != null && mounted) {
+      if (!mounted) return;
+
+      if (schedule != null) {
         // Kiểm tra xung đột
         final conflicts = await CategoryStudyScheduleService.checkNewScheduleConflicts(
           schedule,
           null, // Sẽ tự lấy existing schedules
         );
 
-        setState(() {
-          _schedule = schedule.copyWith(categoryName: widget.category.name);
-          _conflicts = conflicts.where((c) =>
-              c.categories.any((cat) => cat.categoryId == widget.category.id)
-          ).toList();
-          _isLoadingSchedule = false;
-        });
+        if (mounted) {
+          setState(() {
+            _schedule = schedule.copyWith(categoryName: widget.category.name);
+            _conflicts = conflicts.where((c) =>
+                c.categories.any((cat) => cat.categoryId == widget.category.id)
+            ).toList();
+            _isLoadingSchedule = false;
+          });
+        }
+      } else {
+        // ✅ Nếu chưa có schedule, tạo default model
+        if (mounted) {
+          setState(() {
+            _schedule = CategoryStudyScheduleModel(
+              categoryId: widget.category.id,
+              categoryName: widget.category.name,
+              isEnabled: false,
+            );
+            _isLoadingSchedule = false;
+          });
+        }
       }
     } catch (e) {
       debugPrint('❌ [CategoryDetail] _loadSchedule error: $e');
-      setState(() => _isLoadingSchedule = false);
+      if (mounted) {
+        setState(() {
+          _isLoadingSchedule = false;
+          // ✅ Tạo default model khi error
+          _schedule = CategoryStudyScheduleModel(
+            categoryId: widget.category.id,
+            categoryName: widget.category.name,
+            isEnabled: false,
+          );
+        });
+      }
     }
   }
 
-
+  Future<void> _deleteSchedule() async {
+    try {
+      final success = await CategoryStudyScheduleService.deleteSchedule(widget.category.id);
+      if (success && mounted) {
+        setState(() {
+          _schedule = null;
+          _conflicts = null;
+        });
+        _showSnackBar('Đã xóa nhắc nhở', Icons.check_circle);
+      } else {
+        _showSnackBar('Không thể xóa nhắc nhở', Icons.error, isError: true);
+      }
+    } catch (e) {
+      debugPrint('❌ [CategoryDetail] _deleteSchedule error: $e');
+      _showSnackBar('Lỗi: $e', Icons.error, isError: true);
+    }
+  }
 
 // --- Update Schedule ---
   Future<void> _updateSchedule(CategoryStudyScheduleModel newSchedule) async {
@@ -700,17 +746,19 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
         SliverToBoxAdapter(
           child: Column(
             children: [
+              // ✅ CHỈ hiển thị StudyProgressCard khi có dữ liệu
               // if (_progress != null && !_isLoadingProgress)
-              StudyProgressCard(
-                progress: _progress!,
-                onResetProgress: _showResetProgressDialog,
-              ),
+                StudyProgressCard(
+                  progress: _progress!,
+                  onResetProgress: _showResetProgressDialog,
+                ),
 
-              // ✅ MỚI: Schedule Setting Card
+              // ✅ Hiển thị Schedule Setting Card khi có dữ liệu
               if (_schedule != null && !_isLoadingSchedule)
                 CategoryScheduleSettingCard(
                   schedule: _schedule!,
                   onUpdate: _updateSchedule,
+                  onDelete: _deleteSchedule,
                   conflicts: _conflicts,
                   onShowConflictDetail: _showConflictDialog,
                 ),
@@ -782,31 +830,31 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen>
       actions: [
         if (_canSave) IconButton(icon: Icon(_isSaved ? Icons.bookmark : Icons.bookmark_border, color: Colors.white), onPressed: _toggleSave),
 
-        // IconButton(
-        //   onPressed: () async {
-        //     if (category.shareToken == null) {
-        //       ScaffoldMessenger.of(context).showSnackBar(
-        //         const SnackBar(content: Text('Không thể chia sẻ bộ thẻ này')),
-        //       );
-        //       return;
-        //     }
-        //
-        //     try {
-        //       await ShareLinkService.shareCategory(
-        //         categoryName: category.name,
-        //         shareToken: category.shareToken!,
-        //         description: category.description,
-        //         flashcardCount: category.flashcardCount,
-        //       );
-        //     } catch (e) {
-        //       ScaffoldMessenger.of(context).showSnackBar(
-        //         SnackBar(content: Text('Lỗi: $e')),
-        //       );
-        //     }
-        //   },
-        //   icon: const Icon(Icons.share_rounded),
-        //   tooltip: 'Chia sẻ',
-        // ),
+        IconButton(
+          onPressed: () async {
+            if (category.shareToken == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Không thể chia sẻ bộ thẻ này')),
+              );
+              return;
+            }
+
+            try {
+              await ShareLinkService.shareCategory(
+                categoryName: category.name,
+                shareToken: category.shareToken!,
+                description: category.description,
+                flashcardCount: category.flashcardCount,
+              );
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Lỗi: $e')),
+              );
+            }
+          },
+          icon: const Icon(Icons.share_rounded),
+          tooltip: 'Chia sẻ',
+        ),
 
         if (_canEdit) PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert, color: Colors.white),

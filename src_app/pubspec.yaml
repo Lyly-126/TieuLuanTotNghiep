@@ -46,8 +46,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "src_app/assets/images/app_icon.png"
-  adaptive_icon_background: "#4CAF50"
+  image_path: "assets/images/app_icon.png"  # Đường dẫn đến icon của bạn
+  adaptive_icon_background: "#FFFFFF"    # Màu nền cho adaptive icon
+  adaptive_icon_foreground: "assets/images/app_icon.png"
 
 flutter:
   uses-material-design: true
