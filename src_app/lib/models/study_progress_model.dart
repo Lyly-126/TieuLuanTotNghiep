@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 /// Model cho tiến trình học của category
 class CategoryProgressModel {

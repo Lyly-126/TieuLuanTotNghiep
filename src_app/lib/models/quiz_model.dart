@@ -1,5 +1,6 @@
 /// 🎯 Quiz Models - Phù hợp với Backend QuizDTO
 /// ✅ FIX: Sửa để match với response từ /api/quiz/generate
+library;
 
 // ==================== ENUMS ====================
 

@@ -596,7 +596,7 @@ class _AdminStudyPacksScreenState extends State<AdminStudyPacksScreen> {
                 StudyPackModel saved;
                 if (isEdit) {
                   saved = await StudyPackService.updatePack(
-                    id: pack!.id,
+                    id: pack.id,
                     name: name,
                     description: desc,
                     price: price,

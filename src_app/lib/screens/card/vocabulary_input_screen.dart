@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -810,7 +809,7 @@ class _VocabularyInputScreenState extends State<VocabularyInputScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${_filledCount}%',
+                  '$_filledCount%',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,

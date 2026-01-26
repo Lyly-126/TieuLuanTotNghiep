@@ -757,7 +757,7 @@ class _BatchCategorySelectionScreenState
           Switch(
             value: _generateAudio,
             onChanged: (value) => setState(() => _generateAudio = value),
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
           ),
         ],
       ),

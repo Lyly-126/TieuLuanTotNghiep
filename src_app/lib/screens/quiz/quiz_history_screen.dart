@@ -10,10 +10,10 @@ class QuizHistoryScreen extends StatefulWidget {
   final String? categoryName;
 
   const QuizHistoryScreen({
-    Key? key,
+    super.key,
     this.categoryId,
     this.categoryName,
-  }) : super(key: key);
+  });
 
   @override
   State<QuizHistoryScreen> createState() => _QuizHistoryScreenState();
@@ -686,7 +686,7 @@ class _QuizHistoryScreenState extends State<QuizHistoryScreen>
   String _formatDuration(int seconds) {
     final minutes = seconds ~/ 60;
     final secs = seconds % 60;
-    return '${minutes}:${secs.toString().padLeft(2, '0')}';
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
 
   String _formatTime(DateTime? date) {

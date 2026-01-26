@@ -92,7 +92,9 @@ class CategoryStudyScheduleModel {
     final chars = daysOfWeek.split('');
     if (chars.length < 7) {
       // Pad to 7 chars
-      while (chars.length < 7) chars.add('0');
+      while (chars.length < 7) {
+        chars.add('0');
+      }
     }
     chars[dayIndex] = chars[dayIndex] == '1' ? '0' : '1';
 

@@ -30,43 +30,43 @@ public class UserService {
     private final OrderRepository orderRepository;
     private final StudyPackRepository studyPackRepository;
 
-    @Transactional
-    public UserDTO registerUser(UserDTO.RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email đã được sử dụng");
-        }
+//    @Transactional
+//    public UserDTO registerUser(UserDTO.RegisterRequest request) {
+//        if (userRepository.existsByEmail(request.getEmail())) {
+//            throw new RuntimeException("Email đã được sử dụng");
+//        }
+//
+//        User user = new User();
+//        user.setEmail(request.getEmail());
+//        user.setFullName(request.getEmail().split("@")[0]);
+//        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+//        user.setDob(request.getDob());
+//        user.setStatus(User.UserStatus.UNVERIFIED);
+//        user.setRole(User.UserRole.NORMAL_USER);
+//
+//        User savedUser = userRepository.save(user);
+//        return UserDTO.fromEntity(savedUser);
+//    }
 
-        User user = new User();
-        user.setEmail(request.getEmail());
-        user.setFullName(request.getEmail().split("@")[0]);
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setDob(request.getDob());
-        user.setStatus(User.UserStatus.UNVERIFIED);
-        user.setRole(User.UserRole.NORMAL_USER);
-
-        User savedUser = userRepository.save(user);
-        return UserDTO.fromEntity(savedUser);
-    }
-
-    // ✅ FIX: Update login với userId trong token
-    public UserDTO.AuthResponse login(UserDTO.LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Email hoặc mật khẩu không đúng"));
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new RuntimeException("Email hoặc mật khẩu không đúng");
-        }
-
-        // ✅ FIX: Generate token WITH userId
-        String token = jwtUtil.generateToken(
-                user.getEmail(),
-                user.getRole().name(),
-                user.getId()
-        );
-
-        UserDTO userDTO = UserDTO.fromEntity(user);
-        return new UserDTO.AuthResponse(token, userDTO);
-    }
+//    // ✅ FIX: Update login với userId trong token
+//    public UserDTO.AuthResponse login(UserDTO.LoginRequest request) {
+//        User user = userRepository.findByEmail(request.getEmail())
+//                .orElseThrow(() -> new RuntimeException("Email hoặc mật khẩu không đúng"));
+//
+//        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+//            throw new RuntimeException("Email hoặc mật khẩu không đúng");
+//        }
+//
+//        // ✅ FIX: Generate token WITH userId
+//        String token = jwtUtil.generateToken(
+//                user.getEmail(),
+//                user.getRole().name(),
+//                user.getId()
+//        );
+//
+//        UserDTO userDTO = UserDTO.fromEntity(user);
+//        return new UserDTO.AuthResponse(token, userDTO);
+//    }
 
     public UserDTO getUserById(Long id) {
         User user = userRepository.findById(id)
@@ -132,29 +132,29 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional
-    public UserDTO lockUser(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-
-        if (user.getRole() == User.UserRole.ADMIN) {
-            throw new RuntimeException("Không thể khóa tài khoản Admin");
-        }
-
-        user.setStatus(User.UserStatus.SUSPENDED);
-        User updatedUser = userRepository.save(user);
-        return UserDTO.fromEntity(updatedUser);
-    }
-
-    @Transactional
-    public UserDTO unlockUser(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
-
-        user.setStatus(User.UserStatus.VERIFIED);
-        User updatedUser = userRepository.save(user);
-        return UserDTO.fromEntity(updatedUser);
-    }
+//    @Transactional
+//    public UserDTO lockUser(Long id) {
+//        User user = userRepository.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+//
+//        if (user.getRole() == User.UserRole.ADMIN) {
+//            throw new RuntimeException("Không thể khóa tài khoản Admin");
+//        }
+//
+//        user.setStatus(User.UserStatus.SUSPENDED);
+//        User updatedUser = userRepository.save(user);
+//        return UserDTO.fromEntity(updatedUser);
+//    }
+//
+//    @Transactional
+//    public UserDTO unlockUser(Long id) {
+//        User user = userRepository.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+//
+//        user.setStatus(User.UserStatus.VERIFIED);
+//        User updatedUser = userRepository.save(user);
+//        return UserDTO.fromEntity(updatedUser);
+//    }
 
     @Transactional
     public void deleteUser(Long id) {

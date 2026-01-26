@@ -3,14 +3,13 @@
   import '../../config/app_constants.dart';
   import '../../config/app_text_styles.dart';
   import '../../models/class_model.dart';
-  import '../../models/class_member_model.dart';
   import '../../services/class_service.dart';
   import '../../widgets/custom_button.dart';
   import 'class_detail_screen.dart';
   
   /// ✅ FIXED: Bỏ nút back vì đây là tab trong HomeScreen, không phải màn hình riêng
   class TeacherClassManagementScreen extends StatefulWidget {
-    const TeacherClassManagementScreen({Key? key}) : super(key: key);
+    const TeacherClassManagementScreen({super.key});
   
     @override
     State<TeacherClassManagementScreen> createState() =>
@@ -22,7 +21,7 @@
     List<ClassModel> _ownedClasses = [];
     bool _isLoading = false;
   
-    Map<int, int> _pendingCountMap = {};
+    final Map<int, int> _pendingCountMap = {};
     int _totalPendingCount = 0;
   
     @override

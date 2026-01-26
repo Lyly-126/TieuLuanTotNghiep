@@ -3,12 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import '../../config/app_colors.dart';
-import '../../config/app_text_styles.dart';
 import '../../models/quiz_model.dart';
 import '../../services/quiz_service.dart';
 import 'quiz_screen.dart';
-import '../../services/quiz_service.dart';
-import '../../screens/quiz/quiz_screen.dart';
 
 /// 🏆 Màn hình kết quả bài kiểm tra
 /// ✅ UI IMPROVED: Better animations, gradient cards, confetti
@@ -17,9 +14,9 @@ class QuizResultScreen extends StatefulWidget {
   final QuizResultModel result;
 
   const QuizResultScreen({
-    Key? key,
+    super.key,
     required this.result,
-  }) : super(key: key);
+  });
 
   @override
   State<QuizResultScreen> createState() => _QuizResultScreenState();
@@ -876,11 +873,11 @@ class AnimatedBuilder extends StatelessWidget {
   final Widget? child;
 
   const AnimatedBuilder({
-    Key? key,
+    super.key,
     required this.animation,
     required this.builder,
     this.child,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -893,11 +890,11 @@ class AnimatedBuilder2 extends AnimatedWidget {
   final Widget? child;
 
   const AnimatedBuilder2({
-    Key? key,
+    super.key,
     required Listenable animation,
     required this.builder,
     this.child,
-  }) : super(key: key, listenable: animation);
+  }) : super(listenable: animation);
 
   @override
   Widget build(BuildContext context) => builder(context, child);

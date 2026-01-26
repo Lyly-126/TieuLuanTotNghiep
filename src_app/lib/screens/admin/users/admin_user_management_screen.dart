@@ -1020,7 +1020,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
 
                   const SizedBox(height: 8),
 

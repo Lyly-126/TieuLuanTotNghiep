@@ -9,7 +9,6 @@ import 'config/api_config.dart';
 import 'services/deep_link_service.dart';
 import 'services/local_notification_service.dart';
 import 'services/auth_service.dart';
-import 'screens/splash_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();

@@ -2,7 +2,6 @@
 // ✅ SỬ DỤNG app_links THAY VÌ uni_links (hỗ trợ build APK tốt hơn)
 
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:app_links/app_links.dart';
 import '../routes/app_routes.dart';
 import '../main.dart'; // để lấy navigatorKey

@@ -17,12 +17,12 @@ class VisualStudyCalendarWidget extends StatefulWidget {
   final VoidCallback? onTapViewAll;
 
   const VisualStudyCalendarWidget({
-    Key? key,
+    super.key,
     required this.overview,
     this.onTapItem,
     this.onTapAddSchedule,
     this.onTapViewAll,
-  }) : super(key: key);
+  });
 
   @override
   State<VisualStudyCalendarWidget> createState() => _VisualStudyCalendarWidgetState();
@@ -829,10 +829,10 @@ class CompactScheduleBanner extends StatelessWidget {
   final VoidCallback? onTap;
 
   const CompactScheduleBanner({
-    Key? key,
+    super.key,
     this.nextSchedule,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -951,11 +951,11 @@ class MiniWeekCalendar extends StatelessWidget {
   final Function(int)? onDaySelected;
 
   const MiniWeekCalendar({
-    Key? key,
+    super.key,
     required this.scheduleCountByDay,
     this.selectedDay = -1,
     this.onDaySelected,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

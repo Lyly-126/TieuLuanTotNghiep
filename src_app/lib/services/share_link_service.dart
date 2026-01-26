@@ -1,5 +1,4 @@
 import 'package:share_plus/share_plus.dart';
-import '../config/api_config.dart';
 
 /// Service để chia sẻ lớp học và category qua link
 class ShareLinkService {

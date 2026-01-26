@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
-import '../../models/flashcard_model.dart';
 import '../../services/category_service.dart';
 import '../../services/flash_card_service.dart';
 import '../../services/flashcard_creation_service.dart';
@@ -15,10 +13,10 @@ class CategoryCreateScreen extends StatefulWidget {
   final String? className;
 
   const CategoryCreateScreen({
-    Key? key,
+    super.key,
     this.classId,
     this.className,
-  }) : super(key: key);
+  });
 
   @override
   State<CategoryCreateScreen> createState() => _CategoryCreateScreenState();
@@ -619,7 +617,7 @@ class _CategoryCreateScreenState extends State<CategoryCreateScreen> {
           Switch(
             value: _isPublic,
             onChanged: (value) => setState(() => _isPublic = value),
-            activeColor: AppColors.success,
+            activeThumbColor: AppColors.success,
           ),
         ],
       ),

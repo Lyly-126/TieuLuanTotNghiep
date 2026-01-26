@@ -91,7 +91,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     }
 
     try {
-      final uri = Uri.parse('http://localhost:8080/api/users/change-password');
+      final uri = Uri.parse('https://backend-52ab.onrender.com/api/users/change-password');
       final response = await http.post(
         uri,
         headers: {

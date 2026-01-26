@@ -11,8 +11,7 @@ import '../../widgets/custom_button.dart';
 class AddMembersScreen extends StatefulWidget {
   final ClassModel classModel;
 
-  const AddMembersScreen({Key? key, required this.classModel})
-      : super(key: key);
+  const AddMembersScreen({super.key, required this.classModel});
 
   @override
   State<AddMembersScreen> createState() => _AddMembersScreenState();

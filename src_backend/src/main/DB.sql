@@ -179,6 +179,16 @@ CREATE TABLE flashcards (
 );
 
 -- 5.4 DICTIONARY (table already exists separately)
+CREATE TABLE dictionary (
+    id integer NOT NULL,
+    word text,
+    part_of_speech text,
+    part_of_speech_vi text,
+    phonetic text,
+    definitions text,
+    meanings text,
+    source text
+);
 
 -- ===========================
 -- 6. STUDY PROGRESS TABLES

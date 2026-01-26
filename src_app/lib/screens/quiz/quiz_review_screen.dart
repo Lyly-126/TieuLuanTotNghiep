@@ -11,10 +11,10 @@ class QuizReviewScreen extends StatefulWidget {
   final List<QuizQuestionModel> questions;
 
   const QuizReviewScreen({
-    Key? key,
+    super.key,
     required this.result,
     required this.questions,
-  }) : super(key: key);
+  });
 
   @override
   State<QuizReviewScreen> createState() => _QuizReviewScreenState();
@@ -752,10 +752,10 @@ class _QuizReviewScreenState extends State<QuizReviewScreen>
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  if (question.phonetic != null && question.phonetic!.isNotEmpty) ...[
+                  if (question.phonetic.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
-                      question.phonetic!,
+                      question.phonetic,
                       style: TextStyle(
                         fontSize: 16,
                         color: AppColors.textGray,
@@ -1027,7 +1027,7 @@ class _QuizReviewScreenState extends State<QuizReviewScreen>
   }
 
   String? _getCorrectAnswerDisplay(QuizQuestionModel question) {
-    if (question.correctAnswer != null && question.correctAnswer!.isNotEmpty) {
+    if (question.correctAnswer.isNotEmpty) {
       return question.correctAnswer;
     }
     if (question.options != null &&

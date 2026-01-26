@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../config/app_colors.dart';
 import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
@@ -13,9 +12,9 @@ class ClassDetailPublicScreen extends StatefulWidget {
   final ClassModel classModel;
 
   const ClassDetailPublicScreen({
-    Key? key,
+    super.key,
     required this.classModel,
-  }) : super(key: key);
+  });
 
   @override
   State<ClassDetailPublicScreen> createState() => _ClassDetailPublicScreenState();
@@ -461,7 +460,7 @@ class _ClassDetailPublicScreenState extends State<ClassDetailPublicScreen> {
     }
 
     // ✅ CHƯA THAM GIA - NÚT THAM GIA
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: _handleJoinClass,

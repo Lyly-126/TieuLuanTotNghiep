@@ -5,7 +5,61 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="142d9db8-935b-4a66-97b1-4c256839aa7c" name="Changes" comment="crawl Dictionary">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/config/app_constants.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/config/app_constants.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/main.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/models/category_study_schedule_model.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/models/category_study_schedule_model.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/models/quiz_model.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/models/quiz_model.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/models/study_progress_model.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/models/study_progress_model.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/routes/app_routes.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/routes/app_routes.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/admin/dashboard/admin_home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/admin/dashboard/admin_home_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/admin/study_packs/admin_study_packs_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/admin/study_packs/admin_study_packs_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/admin/users/admin_user_management_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/admin/users/admin_user_management_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/auth/otp_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/auth/otp_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/auth/register_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/auth/register_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/auth/welcome_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/auth/welcome_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/card/batch_category_selection_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/batch_category_selection_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_creation_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_creation_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_edit_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_edit_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/flashcard_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/card/vocabulary_input_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/card/vocabulary_input_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/category/category_create_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/category/category_create_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/category/category_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/category/category_detail_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/category/category_management_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/category/category_management_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/class/add_members_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/class/add_members_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/class/class_categories_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/class/class_categories_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/class/class_category_management_tab.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/class/class_category_management_tab.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/class/class_detail_public_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/class/class_detail_public_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/class/class_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/class/class_detail_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/class/teacher_class_management_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/class/teacher_class_management_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/home/home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/home/home_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/home/search_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/home/search_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/payment/payment_waiting_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/payment/payment_waiting_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/payment/upgrade_premium_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/payment/upgrade_premium_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/payment/usage_limit_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/payment/usage_limit_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_history_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_history_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_result_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_result_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_review_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_review_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_setup_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/quiz/quiz_setup_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/setting/change_password_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/setting/change_password_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/setting/settings_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/setting/settings_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/screens/splash_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/screens/splash_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/category_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/category_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/class_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/class_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/deep_link_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/deep_link_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/flash_card_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/flash_card_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/share_link_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/share_link_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/study_progress_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/study_progress_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/tts_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/tts_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/services/tts_web_stub.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/services/tts_web_stub.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/utils/auth_helper.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/utils/auth_helper.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/widgets/custom_textfield.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/widgets/custom_textfield.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/widgets/quiz_stats_widgets.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/widgets/quiz_stats_widgets.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/widgets/study_progress_widgets.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/widgets/study_progress_widgets.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/widgets/study_schedule_widgets.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/widgets/study_schedule_widgets.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_app/lib/widgets/visual_study_calendar_widget.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../src_app/lib/widgets/visual_study_calendar_widget.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/DB.sql" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/DB.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../src_backend/src/main/java/com/tieuluan/backend/service/UserService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -142,6 +196,7 @@
       <workItem from="1767769356684" duration="8722000" />
       <workItem from="1767966201758" duration="21054000" />
       <workItem from="1768151281358" duration="3419000" />
+      <workItem from="1769382426326" duration="20000" />
     </task>
     <task id="LOCAL-00001" summary="crawl Dictionary">
       <option name="closed" value="true" />

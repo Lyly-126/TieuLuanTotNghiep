@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../config/app_colors.dart';
 import '../../screens/class/class_category_management_tab.dart';
 import '../../config/app_text_styles.dart';
@@ -18,10 +17,10 @@ class ClassDetailScreen extends StatefulWidget {
   final bool isOwner;
 
   const ClassDetailScreen({
-    Key? key,
+    super.key,
     required this.classId,
     this.isOwner = false,
-  }) : super(key: key);
+  });
 
   @override
   State<ClassDetailScreen> createState() => _ClassDetailScreenState();
@@ -749,7 +748,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen>
                         : 'Chỉ tham gia bằng mã mời',
                     style: AppTextStyles.hint,
                   ),
-                  activeColor: AppColors.primary,
+                  activeThumbColor: AppColors.primary,
                 ),
               ),
               const SizedBox(height: 24),

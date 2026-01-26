@@ -4,7 +4,6 @@ import 'package:src_app/screens/admin/study_packs/admin_study_packs_screen.dart'
 import 'package:src_app/screens/card/flashcard_screen.dart';
 import 'package:src_app/screens/home/home_screen.dart';
 import 'package:src_app/screens/payment/upgrade_premium_screen.dart';
-import '../models/class_model.dart';
 import '../models/category_model.dart';
 import '../models/flashcard_model.dart';
 import '../screens/admin/users/admin_user_management_screen.dart';

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/app_constants.dart';
 import '../config/api_config.dart';
 import '../models/category_model.dart';
 

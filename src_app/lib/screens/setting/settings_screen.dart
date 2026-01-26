@@ -85,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // ✅ ĐỔI URL: localhost → 10.0.2.2 (cho Android Emulator)
     // Nếu dùng iOS Simulator: dùng localhost
     // Nếu dùng thiết bị thật: dùng IP máy tính (vd: 192.168.1.5)
-    final uri = Uri.parse('http://localhost:8080/api/users/$userId/profile');
+    final uri = Uri.parse('https://backend-52ab.onrender.com/api/users/$userId/profile');
 
     print('🔄 Calling API: $uri');
     print('📤 Token: $token');
@@ -161,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!confirmDelete) return;
 
-    final uri = Uri.parse('http://10.0.2.2:8080/api/users/delete');
+    final uri = Uri.parse('https://backend-52ab.onrender.com/api/users/delete');
 
     try {
       final response = await http.delete(

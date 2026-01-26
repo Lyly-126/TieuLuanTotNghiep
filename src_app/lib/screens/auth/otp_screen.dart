@@ -100,7 +100,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:8080/api/otp/verify'),
+        Uri.parse('https://backend-52ab.onrender.com/api/otp/verify'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'userId': _userId,
@@ -162,7 +162,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:8080/api/otp/resend'),
+        Uri.parse('https://backend-52ab.onrender.com/api/otp/resend'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'userId': _userId}),
       );

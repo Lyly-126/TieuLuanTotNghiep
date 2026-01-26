@@ -56,12 +56,12 @@ class AuthHelper {
 
         // Token expires after 30 days (adjust as needed)
         if (daysSinceLogin > 30) {
-          print('⚠️ [AuthHelper] Token expired (${daysSinceLogin} days old)');
+          print('⚠️ [AuthHelper] Token expired ($daysSinceLogin days old)');
           await clearLoginInfo();
           return false;
         }
 
-        print('✅ [AuthHelper] Token valid (${daysSinceLogin} days old)');
+        print('✅ [AuthHelper] Token valid ($daysSinceLogin days old)');
       }
 
       return true;

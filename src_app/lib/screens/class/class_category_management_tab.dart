@@ -11,11 +11,11 @@ class ClassCategoryManagementTab extends StatefulWidget {
   final VoidCallback? onCategoryUpdated;
 
   const ClassCategoryManagementTab({
-    Key? key,
+    super.key,
     required this.classId,
     required this.isOwner,
     this.onCategoryUpdated,
-  }) : super(key: key);
+  });
 
   @override
   State<ClassCategoryManagementTab> createState() =>
@@ -564,7 +564,7 @@ class _AddCategoryBottomSheetState extends State<_AddCategoryBottomSheet>
   List<CategoryModel> _filteredCategories = [];
   bool _isLoadingCategories = true;
   final _searchController = TextEditingController();
-  Set<int> _selectedCategoryIds = {};
+  final Set<int> _selectedCategoryIds = {};
   bool _isAdding = false;
 
   @override

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:math' as math;
 import '../../config/app_colors.dart';
 import '../../models/category_study_schedule_model.dart';
 import '../../screens/quiz/quiz_setup_screen.dart';
@@ -29,10 +27,10 @@ class CategoryDetailScreen extends StatefulWidget {
   final bool isOwner;
 
   const CategoryDetailScreen({
-    Key? key,
+    super.key,
     required this.category,
     this.isOwner = false,
-  }) : super(key: key);
+  });
 
   @override
   State<CategoryDetailScreen> createState() => _CategoryDetailScreenState();
@@ -1053,7 +1051,7 @@ class AnimatedBuilder extends StatelessWidget {
   final Listenable animation;
   final Widget Function(BuildContext context, Widget? child) builder;
   final Widget? child;
-  const AnimatedBuilder({Key? key, required this.animation, required this.builder, this.child}) : super(key: key);
+  const AnimatedBuilder({super.key, required this.animation, required this.builder, this.child});
   @override
   Widget build(BuildContext context) => AnimatedBuilder2(animation: animation, builder: builder, child: child);
 }
@@ -1061,7 +1059,7 @@ class AnimatedBuilder extends StatelessWidget {
 class AnimatedBuilder2 extends AnimatedWidget {
   final Widget Function(BuildContext context, Widget? child) builder;
   final Widget? child;
-  const AnimatedBuilder2({Key? key, required Listenable animation, required this.builder, this.child}) : super(key: key, listenable: animation);
+  const AnimatedBuilder2({super.key, required Listenable animation, required this.builder, this.child}) : super(listenable: animation);
   @override
   Widget build(BuildContext context) => builder(context, child);
 }
@@ -1073,10 +1071,10 @@ class StudyProgressCard extends StatelessWidget {
   final VoidCallback? onResetProgress;
 
   const StudyProgressCard({
-    Key? key,
+    super.key,
     required this.progress,
     this.onResetProgress,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1363,10 +1361,10 @@ class StreakMiniCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const StreakMiniCard({
-    Key? key,
+    super.key,
     required this.streak,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

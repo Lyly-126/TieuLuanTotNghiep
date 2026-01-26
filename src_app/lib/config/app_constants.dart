@@ -26,13 +26,10 @@ class AppConstants {
   static const double inputPadding = 16;
   static const double labelSpacing = 8; // khoảng cách label → input
 
-  // Kích thước hình minh họa (welcome, empty states,...)
   static const double illustrationWidth = 250;
 
-  // ✅ API Base URL
-  static const String baseUrl = 'http://localhost:8080';
+  static const String baseUrl = 'https://backend-52ab.onrender.com';
 
-  // ✅ Animation durations
   static const Duration animationDuration = Duration(milliseconds: 300);
   static const Duration shortAnimationDuration = Duration(milliseconds: 150);
 

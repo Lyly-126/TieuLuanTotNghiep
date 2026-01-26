@@ -8,7 +8,6 @@ import '../../models/user_model.dart';
 import '../../services/category_service.dart';
 import '../../services/class_service.dart';
 import '../../services/user_service.dart';
-import '../card/flashcard_screen.dart';
 import '../class/class_detail_screen.dart';
 import '../class/class_detail_public_screen.dart';
 import '../category/category_detail_screen.dart';

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/api_config.dart';
 import '../../config/app_colors.dart';
-import '../../config/app_constants.dart';
 import '../../config/app_text_styles.dart';
 import '../../models/study_pack_model.dart';
 import '../../services/study_pack_service.dart';

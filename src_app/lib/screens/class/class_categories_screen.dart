@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math' as math;
 import '../../config/app_colors.dart';
-import '../../config/app_text_styles.dart';
 import '../../models/category_model.dart';
 import '../../models/flashcard_model.dart';
 import '../../models/user_model.dart';
@@ -27,10 +25,10 @@ class CategoryDetailScreen extends StatefulWidget {
   final bool isOwner;
 
   const CategoryDetailScreen({
-    Key? key,
+    super.key,
     required this.category,
     this.isOwner = false,
-  }) : super(key: key);
+  });
 
   @override
   State<CategoryDetailScreen> createState() => _CategoryDetailScreenState();
@@ -830,7 +828,7 @@ class AnimatedBuilder extends StatelessWidget {
   final Widget Function(BuildContext context, Widget? child) builder;
   final Widget? child;
 
-  const AnimatedBuilder({Key? key, required this.animation, required this.builder, this.child}) : super(key: key);
+  const AnimatedBuilder({super.key, required this.animation, required this.builder, this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -842,7 +840,7 @@ class AnimatedBuilder2 extends AnimatedWidget {
   final Widget Function(BuildContext context, Widget? child) builder;
   final Widget? child;
 
-  const AnimatedBuilder2({Key? key, required Listenable animation, required this.builder, this.child}) : super(key: key, listenable: animation);
+  const AnimatedBuilder2({super.key, required Listenable animation, required this.builder, this.child}) : super(listenable: animation);
 
   @override
   Widget build(BuildContext context) {

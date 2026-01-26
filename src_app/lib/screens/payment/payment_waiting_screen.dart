@@ -309,7 +309,7 @@ class _PaymentWaitingScreenState extends State<PaymentWaitingScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          'Đang kiểm tra... (${_pollCount}/$MAX_POLL)',
+                          'Đang kiểm tra... ($_pollCount/$MAX_POLL)',
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,

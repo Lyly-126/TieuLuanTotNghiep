@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
-import '../../config/app_text_styles.dart';
 import '../../models/flashcard_model.dart';
 import '../../services/flash_card_service.dart';
 
@@ -11,7 +10,7 @@ class FlashcardEditScreen extends StatefulWidget {
   final FlashcardModel flashcard;
   final int categoryId;
 
-  const FlashcardEditScreen({Key? key, required this.flashcard, required this.categoryId}) : super(key: key);
+  const FlashcardEditScreen({super.key, required this.flashcard, required this.categoryId});
 
   @override
   State<FlashcardEditScreen> createState() => _FlashcardEditScreenState();

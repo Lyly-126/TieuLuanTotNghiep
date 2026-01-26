@@ -25,7 +25,6 @@ import '../../models/study_progress_model.dart';
 import '../../models/category_study_schedule_model.dart';
 import '../../services/category_study_schedule_service.dart';
 import '../../services/auth_service.dart';
-import '../../routes/app_routes.dart';
 
 /// ✅ HOME SCREEN - CẢI TIẾN TAB TRANG CHỦ
 /// - Bộ thẻ đang học: Hiển thị categories có progress, swipe ngang
@@ -317,7 +316,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _showConflictResolutionDialog() {
     if (_scheduleOverview?.conflicts == null ||
-        _scheduleOverview!.conflicts.isEmpty) return;
+        _scheduleOverview!.conflicts.isEmpty) {
+      return;
+    }
 
     showDialog(
       context: context,

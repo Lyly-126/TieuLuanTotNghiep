@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../config/app_colors.dart';
-import '../../config/app_text_styles.dart';
 import '../../models/quiz_model.dart';
 import '../../services/quiz_service.dart';
 import '../../services/tts_service.dart';
@@ -14,9 +13,9 @@ class QuizScreen extends StatefulWidget {
   final QuizSessionModel session;
 
   const QuizScreen({
-    Key? key,
+    super.key,
     required this.session,
-  }) : super(key: key);
+  });
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -198,7 +197,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
 
   Future<void> _playAudio() async {
     if (_isPlaying) return;
-    if (_currentQuestion.ttsUrl == null && (_currentQuestion.word?.isEmpty ?? true)) return;
+    if (_currentQuestion.ttsUrl == null && (_currentQuestion.word.isEmpty ?? true)) return;
 
     setState(() => _isPlaying = true);
     HapticFeedback.lightImpact();
@@ -286,8 +285,12 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
           (i) => List.generate(s2.length + 1, (j) => 0),
     );
 
-    for (int i = 0; i <= s1.length; i++) matrix[i][0] = i;
-    for (int j = 0; j <= s2.length; j++) matrix[0][j] = j;
+    for (int i = 0; i <= s1.length; i++) {
+      matrix[i][0] = i;
+    }
+    for (int j = 0; j <= s2.length; j++) {
+      matrix[0][j] = j;
+    }
 
     for (int i = 1; i <= s1.length; i++) {
       for (int j = 1; j <= s2.length; j++) {
@@ -793,7 +796,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                   ),
 
                   // Hint
-                  if (_currentQuestion.hint != null && !_showResult)
+                  if (!_showResult)
                     Container(
                       margin: const EdgeInsets.only(top: 16),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -809,7 +812,7 @@ class _QuizScreenState extends State<QuizScreen> with TickerProviderStateMixin {
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              _currentQuestion.hint!,
+                              _currentQuestion.hint,
                               style: TextStyle(
                                 color: Colors.amber.shade800,
                                 fontSize: 13,

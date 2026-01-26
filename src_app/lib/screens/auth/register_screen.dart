@@ -20,7 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _dobController = TextEditingController();
 
-  bool _submitted = false;
+  final bool _submitted = false;
   bool _obscurePassword = true;
   bool _isLoading = false; // ⭐ Thêm loading state
 
@@ -96,7 +96,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final dobFormatted = _convertDateFormat(dobInput); // yyyy-MM-dd hoặc null
 
     // ✅ CHÍNH XÁC ENDPOINT
-    final uri = Uri.parse('http://localhost:8080/api/users/register');
+    final uri = Uri.parse('https://backend-52ab.onrender.com/api/users/register');
 
     try {
       final response = await http.post(

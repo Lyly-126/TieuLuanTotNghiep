@@ -13,7 +13,7 @@ class FlashcardService {
 
   /// ✅ Headers chung cho tất cả requests
   /// Luôn gửi token nếu có (để tránh 403 với một số endpoint)
-  static Future<Map<String, String>> _getHeaders({bool requireAuth = false}) async {
+  static Future<Map<String, String>> _getHeaders() async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',

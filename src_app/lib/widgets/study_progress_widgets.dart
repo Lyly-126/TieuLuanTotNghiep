@@ -10,10 +10,10 @@ class StudyProgressCard extends StatelessWidget {
   final VoidCallback? onResetProgress;
 
   const StudyProgressCard({
-    Key? key,
+    super.key,
     required this.progress,
     this.onResetProgress,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -302,10 +302,10 @@ class StudyStreakCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const StudyStreakCard({
-    Key? key,
+    super.key,
     required this.streak,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -436,10 +436,10 @@ class StudyReminderCard extends StatelessWidget {
   final Function(StudyReminderModel) onUpdate;
 
   const StudyReminderCard({
-    Key? key,
+    super.key,
     required this.reminder,
     required this.onUpdate,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -473,7 +473,7 @@ class StudyReminderCard extends StatelessWidget {
               Switch(
                 value: reminder.isEnabled,
                 onChanged: (value) => onUpdate(reminder.copyWith(isEnabled: value)),
-                activeColor: AppColors.secondary,
+                activeThumbColor: AppColors.secondary,
               ),
             ],
           ),
@@ -578,10 +578,10 @@ class StreakMiniCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const StreakMiniCard({
-    Key? key,
+    super.key,
     required this.streak,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

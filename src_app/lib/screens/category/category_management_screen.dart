@@ -7,7 +7,7 @@ import '../../services/user_service.dart';
 import '../category/category_detail_screen.dart'; // ✅ THÊM IMPORT
 
 class CategoryManagementScreen extends StatefulWidget {
-  const CategoryManagementScreen({Key? key}) : super(key: key);
+  const CategoryManagementScreen({super.key});
 
   @override
   State<CategoryManagementScreen> createState() => _CategoryManagementScreenState();

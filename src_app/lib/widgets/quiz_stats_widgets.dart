@@ -9,11 +9,11 @@ class CategoryQuizStatsCard extends StatefulWidget {
   final VoidCallback? onViewHistory;
 
   const CategoryQuizStatsCard({
-    Key? key,
+    super.key,
     required this.categoryId,
     this.onTakeQuiz,
     this.onViewHistory,
-  }) : super(key: key);
+  });
 
   @override
   State<CategoryQuizStatsCard> createState() => _CategoryQuizStatsCardState();
@@ -373,9 +373,9 @@ class OverallQuizStatsWidget extends StatefulWidget {
   final bool compact;
 
   const OverallQuizStatsWidget({
-    Key? key,
+    super.key,
     this.compact = false,
-  }) : super(key: key);
+  });
 
   @override
   State<OverallQuizStatsWidget> createState() => _OverallQuizStatsWidgetState();
@@ -616,12 +616,12 @@ class QuizHistoryList extends StatefulWidget {
   final VoidCallback? onViewAll;
 
   const QuizHistoryList({
-    Key? key,
+    super.key,
     this.categoryId,
     this.maxItems = 5,
     this.showViewAll = true,
     this.onViewAll,
-  }) : super(key: key);
+  });
 
   @override
   State<QuizHistoryList> createState() => _QuizHistoryListState();
@@ -800,11 +800,11 @@ class QuickQuizButton extends StatelessWidget {
   final bool mini;
 
   const QuickQuizButton({
-    Key? key,
+    super.key,
     required this.categoryId,
     this.onPressed,
     this.mini = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

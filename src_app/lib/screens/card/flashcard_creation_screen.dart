@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
-import '../../config/app_text_styles.dart';
-import '../../config/app_constants.dart';
 import '../../services/flashcard_creation_service.dart';
 import '../../services/category_service.dart';
 import '../../models/category_model.dart';

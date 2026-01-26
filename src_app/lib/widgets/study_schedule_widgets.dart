@@ -12,12 +12,12 @@ class StudyScheduleCard extends StatelessWidget {
   final VoidCallback? onResolveConflicts;
 
   const StudyScheduleCard({
-    Key? key,
+    super.key,
     required this.overview,
     this.onTapSchedule,
     this.onTapItem,
     this.onResolveConflicts,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -513,13 +513,13 @@ class CategoryScheduleSettingCard extends StatefulWidget {
   final VoidCallback? onShowConflictDetail;
 
   const CategoryScheduleSettingCard({
-    Key? key,
+    super.key,
     required this.schedule,
     required this.onUpdate,
     this.onDelete, // ✅ NEW
     this.conflicts,
     this.onShowConflictDetail,
-  }) : super(key: key);
+  });
 
   @override
   State<CategoryScheduleSettingCard> createState() =>
@@ -619,7 +619,7 @@ class _CategoryScheduleSettingCardState
             onChanged: (value) {
               widget.onUpdate(widget.schedule.copyWith(isEnabled: value));
             },
-            activeColor: AppColors.success,
+            activeThumbColor: AppColors.success,
           ),
         ],
       ),
@@ -953,10 +953,10 @@ class ScheduleConflictDialog extends StatelessWidget {
   final Function(int categoryId)? onGoToCategory;
 
   const ScheduleConflictDialog({
-    Key? key,
+    super.key,
     required this.conflicts,
     this.onGoToCategory,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

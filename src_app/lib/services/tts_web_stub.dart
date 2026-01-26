@@ -1,5 +1,6 @@
 /// Stub file for non-web platforms
 /// These functions will never be called on mobile/desktop
+library;
 
 Future<void> playAudioBytes(
     List<int> audioBytes, {

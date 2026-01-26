@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
-import '../../config/app_text_styles.dart';
 import '../../models/quiz_model.dart';
 import '../../models/category_model.dart';
 import '../../services/quiz_service.dart';
@@ -13,9 +12,9 @@ class QuizSetupScreen extends StatefulWidget {
   final CategoryModel category;
 
   const QuizSetupScreen({
-    Key? key,
+    super.key,
     required this.category,
-  }) : super(key: key);
+  });
 
   @override
   State<QuizSetupScreen> createState() => _QuizSetupScreenState();
@@ -24,8 +23,8 @@ class QuizSetupScreen extends StatefulWidget {
 class _QuizSetupScreenState extends State<QuizSetupScreen>
     with SingleTickerProviderStateMixin {
   QuizType _selectedType = QuizType.quickTest;
-  bool _onlyStudiedCards = false;
-  bool _focusWeakCards = false;
+  final bool _onlyStudiedCards = false;
+  final bool _focusWeakCards = false;
   bool _isLoading = false;
 
   late AnimationController _animController;

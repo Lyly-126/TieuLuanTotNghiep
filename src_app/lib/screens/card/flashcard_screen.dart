@@ -52,8 +52,8 @@ class _FlashcardScreenState extends State<FlashcardScreen>
   int _totalSessions = 1;
 
   // Tracking học tập
-  Set<int> _knownCards = {};
-  Set<int> _learningCards = {};
+  final Set<int> _knownCards = {};
+  final Set<int> _learningCards = {};
 
   // Animation
   late AnimationController _transitionController;
